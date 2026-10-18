@@ -30,19 +30,6 @@ func TestParity_AgentGroup(t *testing.T) {
 }
 
 func agentGroupAggregate() aggregate[*agentmodel.AgentGroup] {
-	// ListAgentGroups is not namespace-scoped, so filter client-side to keep the
-	// shared contract's namespace assertions uniform across aggregates.
-	filterNS := func(items []*agentmodel.AgentGroup, ns string) []*agentmodel.AgentGroup {
-		out := make([]*agentmodel.AgentGroup, 0, len(items))
-		for _, it := range items {
-			if it.Metadata.Namespace == ns {
-				out = append(out, it)
-			}
-		}
-
-		return out
-	}
-
 	putVia := func(
 		put func(ctx context.Context, ns, name string, g *agentmodel.AgentGroup) (*agentmodel.AgentGroup, error),
 	) func(ctx context.Context, g *agentmodel.AgentGroup) (*agentmodel.AgentGroup, error) {
@@ -69,12 +56,12 @@ func agentGroupAggregate() aggregate[*agentmodel.AgentGroup] {
 					return repo.GetAgentGroup(ctx, ns, name, getOptions(incl))
 				},
 				listNamespace: func(ctx context.Context, ns string) ([]*agentmodel.AgentGroup, error) {
-					resp, err := repo.ListAllAgentGroups(ctx, nil)
+					resp, err := repo.ListAgentGroups(ctx, ns, nil)
 					if err != nil {
 						return nil, fmt.Errorf("parity list: %w", err)
 					}
 
-					return filterNS(resp.Items, ns), nil
+					return resp.Items, nil
 				},
 			}
 		},
@@ -88,12 +75,12 @@ func agentGroupAggregate() aggregate[*agentmodel.AgentGroup] {
 					return repo.GetAgentGroup(ctx, ns, name, getOptions(incl))
 				},
 				listNamespace: func(ctx context.Context, ns string) ([]*agentmodel.AgentGroup, error) {
-					resp, err := repo.ListAllAgentGroups(ctx, nil)
+					resp, err := repo.ListAgentGroups(ctx, ns, nil)
 					if err != nil {
 						return nil, fmt.Errorf("parity list: %w", err)
 					}
 
-					return filterNS(resp.Items, ns), nil
+					return resp.Items, nil
 				},
 			}
 		},
@@ -344,4 +331,101 @@ func runMembershipPages(t *testing.T, repo agentport.AgentGroupPersistencePort) 
 	agent.Metadata.Namespace = ""
 	_, err = repo.ListAgentGroupsForAgent(ctx, agent, nil)
 	require.ErrorIs(t, err, model.ErrInvalidArgument)
+}
+
+func TestParity_AgentGroupNamespaceIsolation(t *testing.T) {
+	t.Parallel()
+	t.Run("inmemory", func(t *testing.T) {
+		t.Parallel()
+
+		agents := inmemory.NewAgentRepository()
+		runGroupNamespaceIsolation(t, agents, inmemory.NewAgentGroupRepository(agents))
+	})
+
+	if testing.Short() {
+		return
+	}
+
+	t.Run("mongodb", func(t *testing.T) {
+		t.Parallel()
+		db := startMongoDatabase(t)
+		runGroupNamespaceIsolation(t, mongodb.NewAgentRepository(db, slog.Default()),
+			mongodb.NewAgentGroupRepository(db, slog.Default()))
+	})
+}
+
+func runGroupNamespaceIsolation(
+	t *testing.T, agents agentport.AgentPersistencePort, groups agentport.AgentGroupPersistencePort,
+) {
+	t.Helper()
+
+	for _, name := range []string{"empty selector", "shared attribute", "conflicting namespace attribute"} {
+		t.Run(name, func(t *testing.T) {
+			ctx := t.Context()
+			ns := uniqueNamespace("isolation")
+			attrs := map[string]string{"service.name": "shared", "service.namespace": ns + "-other"}
+			group := agentmodel.NewAgentGroup(ns, "group", nil, contractTime(), "tester")
+
+			switch name {
+			case "shared attribute":
+				group.Spec.Selector.IdentifyingAttributes = map[string]string{"service.name": "shared"}
+			case "conflicting namespace attribute":
+				group.Spec.Selector.IdentifyingAttributes = attrs
+			}
+
+			var expected []uuid.UUID
+
+			for i, namespace := range []string{ns, ns + "-other", ns} {
+				member := agentmodel.NewAgent(uuid.New())
+				member.Metadata.Namespace = namespace
+				member.Metadata.Description.IdentifyingAttributes = attrs
+				member.Status.Connected = i != 2
+				member.Status.LastReportedAt = time.Now()
+				member.Status.ComponentHealth.Healthy = true
+				require.NoError(t, agents.PutAgent(ctx, member))
+
+				if namespace == ns {
+					expected = append(expected, member.Metadata.InstanceUID)
+				}
+			}
+
+			saved, err := groups.PutAgentGroup(ctx, ns, group.Metadata.Name, group)
+			require.NoError(t, err)
+
+			check := func(g *agentmodel.AgentGroup) {
+				t.Helper()
+				assert.Equal(t, 2, g.Status.NumAgents)
+				assert.Equal(t, 1, g.Status.NumConnectedAgents)
+				assert.Equal(t, 1, g.Status.NumHealthyAgents)
+				assert.Equal(t, 1, g.Status.NumNotConnectedAgents)
+			}
+			check(saved)
+
+			got, err := groups.GetAgentGroup(ctx, ns, group.Metadata.Name, nil)
+			require.NoError(t, err)
+			check(got)
+
+			list, err := groups.ListAgentGroups(ctx, ns, &model.ListOptions{Limit: 1})
+			require.NoError(t, err)
+			require.Len(t, list.Items, 1)
+			check(list.Items[0])
+
+			fields, err := selector.ParseFields("metadata.namespace=" + ns)
+			require.NoError(t, err)
+
+			opts := &model.ListOptions{Limit: 1, FieldSelector: fields}
+			first, err := agents.ListAgentsBySelector(ctx, group.Spec.Selector, opts)
+			require.NoError(t, err)
+			require.Len(t, first.Items, 1)
+			assert.EqualValues(t, 1, first.RemainingItemCount)
+			opts.Continue = first.Continue
+			second, err := agents.ListAgentsBySelector(ctx, group.Spec.Selector, opts)
+			require.NoError(t, err)
+			require.Len(t, second.Items, 1)
+			assert.Zero(t, second.RemainingItemCount)
+			assert.ElementsMatch(t, expected, []uuid.UUID{
+				first.Items[0].Metadata.InstanceUID, second.Items[0].Metadata.InstanceUID,
+			})
+		})
+	}
 }

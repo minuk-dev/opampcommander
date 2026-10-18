@@ -223,6 +223,7 @@ linters:
             - gotest.tools/icmd
             - go.uber.org/goleak
             - go.uber.org/fx/fxtest
+            - go.opentelemetry.io/otel
             - github.com/open-telemetry/opamp-go/server/types
             - github.com/IBM/sarama
             - github.com/cloudevents/sdk-go/v2
@@ -237,6 +238,8 @@ linters:
             - github.com/testcontainers/testcontainers-go/modules/redis
             - github.com/redis/go-redis/v9
             - github.com/testcontainers/testcontainers-go/wait
+            - github.com/moby/moby/api/types/container
+            - github.com/moby/moby/api/types/network
             - github.com/google/go-github/v72/github
             - github.com/golang-jwt/jwt/v5
             - k8s.io/utils/clock

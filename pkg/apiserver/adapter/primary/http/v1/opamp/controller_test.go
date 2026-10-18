@@ -1,11 +1,14 @@
 package opamp_test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
@@ -60,7 +64,7 @@ func TestController_ClientCertificateIdentity(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyUsecase{}
-	controller := opamp.NewController(spy, slog.Default())
+	controller := opamp.NewController(spy, slog.Default(), 0, false)
 	controller.RequireClientCertificate = true
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/opamp", nil)
 	assert.False(t, controller.OnConnecting(req).Accept)
@@ -106,7 +110,7 @@ func (s *spyUsecase) OnMessageResponseError(_ opamptypes.Connection, _ *protobuf
 func TestController_New_RoutesInfo(t *testing.T) {
 	t.Parallel()
 
-	controller := opamp.NewController(&spyUsecase{}, slog.Default())
+	controller := opamp.NewController(&spyUsecase{}, slog.Default(), 0, false)
 	require.NotNil(t, controller)
 
 	routes := controller.RoutesInfo()
@@ -130,7 +134,7 @@ func TestController_OnConnecting(t *testing.T) {
 		t.Parallel()
 
 		spy := &spyUsecase{}
-		controller := opamp.NewController(spy, slog.Default())
+		controller := opamp.NewController(spy, slog.Default(), 0, false)
 
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/opamp", nil)
 		require.NoError(t, err)
@@ -150,7 +154,7 @@ func TestController_OnConnecting(t *testing.T) {
 		t.Parallel()
 
 		spy := &spyUsecase{}
-		controller := opamp.NewController(spy, slog.Default())
+		controller := opamp.NewController(spy, slog.Default(), 0, false)
 
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/opamp", nil)
 		require.NoError(t, err)
@@ -168,7 +172,7 @@ func TestController_Handle(t *testing.T) {
 	t.Parallel()
 
 	ctrlBase := testutil.NewBase(t).ForController()
-	controller := opamp.NewController(&spyUsecase{}, slog.Default())
+	controller := opamp.NewController(&spyUsecase{}, slog.Default(), 0, false)
 	ctrlBase.SetupRouter(controller)
 
 	// A GET without a websocket upgrade is rejected by the opamp-go handler; the point is that
@@ -179,4 +183,71 @@ func TestController_Handle(t *testing.T) {
 	ctrlBase.Router.ServeHTTP(recorder, req)
 
 	assert.NotEqual(t, http.StatusNotFound, recorder.Code)
+}
+
+func TestController_MessageSize(t *testing.T) {
+	t.Parallel()
+
+	uid := uuid.New()
+	body, err := proto.Marshal(&protobufs.AgentToServer{
+		InstanceUid: uid[:], CustomCapabilities: &protobufs.CustomCapabilities{},
+	})
+	require.NoError(t, err)
+
+	for _, tt := range []struct {
+		name   string
+		limit  int64
+		status int
+	}{
+		{"default", 0, http.StatusOK},
+		{"unlimited", -1, http.StatusOK},
+		{"at limit", int64(len(body)), http.StatusOK},
+		{"over limit", int64(len(body) - 1), http.StatusRequestEntityTooLarge},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			for _, compressed := range []bool{false, true} {
+				spy := &spyUsecase{}
+				controller := opamp.NewController(spy, slog.Default(), tt.limit, compressed)
+				ctrlBase := testutil.NewBase(t).ForController()
+				ctrlBase.SetupRouter(controller)
+
+				payload := body
+
+				if compressed {
+					var buf bytes.Buffer
+
+					writer := gzip.NewWriter(&buf)
+					_, err := writer.Write(body)
+					require.NoError(t, err)
+					require.NoError(t, writer.Close())
+
+					payload = buf.Bytes()
+				}
+
+				req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/opamp", bytes.NewReader(payload))
+				serverConn, clientConn := net.Pipe()
+
+				t.Cleanup(func() { _ = serverConn.Close(); _ = clientConn.Close() })
+
+				req = req.WithContext(controller.ConnContext(req.Context(), serverConn))
+				req.Header.Set("Content-Type", "application/x-protobuf")
+
+				if compressed {
+					req.Header.Set("Content-Encoding", "gzip")
+				}
+
+				recorder := httptest.NewRecorder()
+				ctrlBase.Router.ServeHTTP(recorder, req)
+				require.Equal(t, tt.status, recorder.Code, "compressed=%v", compressed)
+
+				if tt.status == http.StatusOK {
+					assert.Equal(t, 1, spy.onMessageCalls)
+				} else {
+					assert.Zero(t, spy.onMessageCalls)
+				}
+			}
+		})
+	}
 }

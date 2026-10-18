@@ -19,11 +19,22 @@ func TestConfigView(t *testing.T) {
 	configFile := filepath.Join(t.TempDir(), "config.yaml")
 	err := os.WriteFile(configFile, []byte(`
 management:
+  tls:
+    certFile: management.crt
+    keyFile: management.key
   log:
     level: warn
+tls:
+  certFile: server.crt
+  keyFile: server.key
+  minVersion: "1.2"
+  cipherSuites: [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256]
 auth:
   jwt:
     secret: s3cr3t
+opamp:
+  maxMessageSize: 1024
+  enableCompression: true
 shutdown:
   drainWindow: 2s
   timeout: 15s
@@ -39,6 +50,8 @@ event:
 	t.Setenv("SHUTDOWN_TIMEOUT", "20s")
 	t.Setenv("EVENT_KAFKA_RETRYBACKOFF", "40ms")
 	t.Setenv("EVENT_KAFKA_RETRYATTEMPTS", "5")
+	t.Setenv("TLS_MINVERSION", "1.3")
+	t.Setenv("MANAGEMENT_TLS_CERTFILE", "env-management.crt")
 
 	run := func(t *testing.T, extraArgs ...string) (string, map[string]any) {
 		t.Helper()
@@ -88,6 +101,21 @@ event:
 		assert.Equal(t, 5, kafka["retryAttempts"])
 	})
 
+	t.Run("OpAMP YAML environment and flags", func(t *testing.T) {
+		_, parsed := run(t)
+		settings, _ := parsed["opamp"].(map[string]any)
+		assert.Equal(t, 1024, settings["maxMessageSize"])
+		assert.Equal(t, true, settings["enableCompression"])
+		t.Setenv("OPAMP_MAXMESSAGESIZE", "2048")
+		_, parsed = run(t)
+		settings, _ = parsed["opamp"].(map[string]any)
+		assert.Equal(t, 2048, settings["maxMessageSize"])
+		_, parsed = run(t, "--opamp.maxMessageSize=-1", "--opamp.enableCompression=false")
+		settings, _ = parsed["opamp"].(map[string]any)
+		assert.Equal(t, -1, settings["maxMessageSize"])
+		assert.Equal(t, false, settings["enableCompression"])
+	})
+
 	t.Run("shutdown flags override YAML and environment", func(t *testing.T) {
 		_, parsed := run(t)
 		shutdown, _ := parsed["shutdown"].(map[string]any)
@@ -97,6 +125,27 @@ event:
 		shutdown, _ = parsed["shutdown"].(map[string]any)
 		assert.Equal(t, "3s", shutdown["drainWindow"])
 		assert.Equal(t, "25s", shutdown["timeout"])
+	})
+
+	t.Run("TLS flags override YAML and environment", func(t *testing.T) {
+		_, parsed := run(t)
+		tlsSettings, _ := parsed["tls"].(map[string]any)
+		assert.Equal(t, "server.crt", tlsSettings["certFile"])
+		assert.Equal(t, "server.key", tlsSettings["keyFile"])
+		assert.Equal(t, "1.3", tlsSettings["minVersion"])
+		assert.Equal(t, []any{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"}, tlsSettings["cipherSuites"])
+
+		management, _ := parsed["management"].(map[string]any)
+		managementTLS, _ := management["tls"].(map[string]any)
+		assert.Equal(t, "env-management.crt", managementTLS["certFile"])
+
+		_, parsed = run(t, "--tls.minVersion", "1.2", "--management.tls.certFile", "flag-management.crt")
+		tlsSettings, _ = parsed["tls"].(map[string]any)
+		assert.Equal(t, "1.2", tlsSettings["minVersion"])
+
+		management, _ = parsed["management"].(map[string]any)
+		managementTLS, _ = management["tls"].(map[string]any)
+		assert.Equal(t, "flag-management.crt", managementTLS["certFile"])
 	})
 
 	t.Run("Kafka flags override YAML and environment", func(t *testing.T) {

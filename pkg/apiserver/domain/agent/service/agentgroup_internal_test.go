@@ -8,6 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"log/slog"
 	"math/big"
 	"testing"
@@ -1956,4 +1957,82 @@ func (m *mockAgentGroupPersistence) ListAgentGroupsForAgent(
 	}
 
 	return result, args.Error(1) //nolint:wrapcheck
+}
+
+// namespaceAgentUsecase sends membership queries and writes through the real repository.
+type namespaceAgentUsecase struct {
+	agentport.AgentUsecase
+
+	repo  *inmemorypersistence.AgentRepository
+	saved []uuid.UUID
+}
+
+func (u *namespaceAgentUsecase) ListAgentsBySelector(ctx context.Context, sel agentmodel.AgentSelector,
+	options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error) {
+	resp, err := u.repo.ListAgentsBySelector(ctx, sel, options)
+	if err != nil {
+		return nil, fmt.Errorf("list members: %w", err)
+	}
+
+	return resp, nil
+}
+
+func (u *namespaceAgentUsecase) SaveAgent(ctx context.Context, member *agentmodel.Agent) error {
+	u.saved = append(u.saved, member.Metadata.InstanceUID)
+
+	err := u.repo.PutAgent(ctx, member)
+	if err != nil {
+		return fmt.Errorf("save member: %w", err)
+	}
+
+	return nil
+}
+
+func TestGroupPropagationStaysInNamespace(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"empty selector", "shared selector"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			ctx := t.Context()
+			repo := inmemorypersistence.NewAgentRepository()
+			groups := inmemorypersistence.NewAgentGroupRepository(repo)
+			members := make([]*agentmodel.Agent, 0, 2)
+
+			for _, namespace := range []string{"a", "b"} {
+				member := agentmodel.NewAgent(uuid.New())
+				member.Metadata.Namespace = namespace
+				member.Metadata.Description.IdentifyingAttributes = map[string]string{
+					"service.name": "shared", "service.namespace": "b",
+				}
+				require.NoError(t, repo.PutAgent(ctx, member))
+				members = append(members, member)
+			}
+
+			group := agentmodel.NewAgentGroup("a", "group", nil, time.Now(), "tester")
+			if name == "shared selector" {
+				group.Spec.Selector.IdentifyingAttributes = map[string]string{"service.name": "shared"}
+			}
+
+			configName := "config"
+			group.Spec.AgentRemoteConfigs = []agentmodel.AgentGroupAgentRemoteConfig{{
+				AgentRemoteConfigName: &configName,
+				AgentRemoteConfigSpec: &agentmodel.AgentRemoteConfigSpec{Value: []byte("config"), ContentType: "text/yaml"},
+			}}
+			_, err := groups.PutAgentGroup(ctx, "a", "group", group)
+			require.NoError(t, err)
+
+			agents := &namespaceAgentUsecase{repo: repo}
+			svc := NewAgentGroupService(groups, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+				agents, alwaysLeaderElector{}, inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+			require.NoError(t, svc.updateAgentsByAgentGroup(ctx, group))
+			assert.Equal(t, []uuid.UUID{members[0].Metadata.InstanceUID}, agents.saved)
+			unchanged, err := repo.GetAgent(ctx, members[1].Metadata.InstanceUID)
+			require.NoError(t, err)
+			assert.Equal(t, members[1], unchanged)
+			matched, err := svc.GetAgentGroupsForAgent(ctx, unchanged)
+			require.NoError(t, err)
+			assert.Empty(t, matched)
+		})
+	}
 }

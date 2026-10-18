@@ -55,6 +55,7 @@ func NewCommand(_ CommandOptions) *cobra.Command {
 	cmd.AddCommand(newAgentGroupCommand())
 	cmd.AddCommand(newAgentPackageCommand())
 	cmd.AddCommand(newAgentRemoteConfigCommand())
+	cmd.AddCommand(newRemoteConfigSchemaCommand())
 	cmd.AddCommand(newCertificateCommand())
 	cmd.AddCommand(newNamespaceCommand())
 	cmd.AddCommand(newRoleCommand())

@@ -57,6 +57,15 @@ graph TB
 Agents are organized into **namespaces**, derived from each agent's
 `service.namespace` identifying attribute (defaulting to `default`).
 
+## OpAMP capability support
+
+See the [server and agent capability matrix](docs/content/en/docs/opamp-conformance.md)
+([published guide](https://minuk-dev.github.io/opampcommander/docs/opamp-conformance/))
+for every capability flag, implementation status, limitations and code references.
+Remote configuration and status ingestion are supported; package assignment,
+connection negotiation and custom messages have documented gaps.
+`AcceptsConnectionSettingsRequest` is intentionally not advertised.
+
 ## Quick start
 
 ### Prerequisites
@@ -67,7 +76,7 @@ Agents are organized into **namespaces**, derived from each agent's
 
 ### Run the apiserver
 
-Standalone mode (MongoDB only, no Kafka):
+Standalone mode (in-memory, no MongoDB or Kafka):
 
 ```sh
 make run-standalone
@@ -114,6 +123,9 @@ OPAMP_API_URL=http://localhost:8080 npm run dev
 ```
 
 Open <http://localhost:3000>. See [`web/README.md`](web/README.md) for details.
+
+See the [two-image deployment guide](docs/deployment.md) for Compose evaluation,
+ingress routing, image configuration, and HA deployment.
 
 ### Deploy on Kubernetes
 

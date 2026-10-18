@@ -328,9 +328,14 @@ func (spec *AgentSpec) ToDomain() agentmodel.AgentSpec {
 	//exhaustruct:ignore
 	agentSpec := agentmodel.AgentSpec{}
 	agentSpec.NewInstanceUID = uid
+
 	agentSpec.RestartInfo = &agentmodel.AgentRestartInfo{
 		RequiredRestartedAt: time.Time{},
 	}
+	if spec.RequiredRestartedAt != 0 {
+		agentSpec.RestartInfo.RequiredRestartedAt = spec.RequiredRestartedAt.Time()
+	}
+
 	agentSpec.ConnectionInfo = spec.ConnectionInfo.ToDomain()
 	agentSpec.RemoteConfig = spec.RemoteConfig.ToDomainPtr()
 
