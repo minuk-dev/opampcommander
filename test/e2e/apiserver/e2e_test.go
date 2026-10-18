@@ -621,7 +621,9 @@ func updateAgentPackage(t *testing.T, c *client.Client, pkg v1.AgentPackage) v1.
 func deleteAgentPackage(t *testing.T, c *client.Client, name string) {
 	t.Helper()
 
-	err := c.AgentPackageService.DeleteAgentPackage(t.Context(), "default", name)
+	deleteTargetAgentPackage, readErr := c.AgentPackageService.GetAgentPackage(t.Context(), "default", name)
+	require.NoError(t, readErr)
+	err := c.AgentPackageService.DeleteAgentPackage(t.Context(), "default", name, deleteTargetAgentPackage.Metadata.ResourceVersion)
 	require.NoError(t, err)
 }
 
@@ -675,6 +677,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 		// Agent with no status fields set (defaults to not connected/healthy)
 		bson.M{
 			"metadata": bson.M{
+				"namespace":         "default",
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent1UID[:]},
 				"instanceUidString": agent1UID.String(),
 				"description": bson.M{
@@ -691,6 +694,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 		// Agent with connected=false
 		bson.M{
 			"metadata": bson.M{
+				"namespace":         "default",
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent2UID[:]},
 				"instanceUidString": agent2UID.String(),
 				"description": bson.M{
@@ -710,6 +714,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 		// Agent with connected=true and healthy=true
 		bson.M{
 			"metadata": bson.M{
+				"namespace":         "default",
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent3UID[:]},
 				"instanceUidString": agent3UID.String(),
 				"description": bson.M{
@@ -828,7 +833,9 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	require.True(t, found, "Created agent group should be in the list")
 
 	// Step 3: Delete the AgentGroup
-	err = opampClient.AgentGroupService.DeleteAgentGroup(t.Context(), "default", agentGroupName)
+	deleteTargetAgentGroup, readErr := opampClient.AgentGroupService.GetAgentGroup(t.Context(), "default", agentGroupName)
+	require.NoError(t, readErr)
+	err = opampClient.AgentGroupService.DeleteAgentGroup(t.Context(), "default", agentGroupName, deleteTargetAgentGroup.Metadata.ResourceVersion)
 	require.NoError(t, err, "Delete AgentGroup should succeed")
 
 	// Step 4: Verify the AgentGroup is NOT in the regular list

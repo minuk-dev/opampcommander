@@ -343,3 +343,54 @@ func TestReconcileParseErrorKeepsExisting(t *testing.T) {
 	require.NoError(t, listErr)
 	assert.Len(t, list.Items, 2)
 }
+
+func TestExtractEndpointsFromAgent_RawConfig(t *testing.T) {
+	t.Parallel()
+
+	const effective = "exporters:\n  otlp:\n    endpoint: https://actual.example:4317\n"
+
+	const raw = "exporters:\n  otlp:\n    endpoint: ${env:OTLP_ENDPOINT}\n"
+
+	tests := []struct {
+		name        string
+		serviceName string
+		files       map[string]string
+		wantURL     string
+	}{
+		{name: "collector source is not a destination", serviceName: "otelcol-contrib",
+			files: map[string]string{"": effective, "raw": raw}, wantURL: "https://actual.example:4317"},
+		{name: "malformed source does not invalidate effective config", serviceName: "otelcol",
+			files: map[string]string{"": effective, "raw": "[invalid"}, wantURL: "https://actual.example:4317"},
+		{name: "source alone proves no active destination", serviceName: "otelcol-contrib",
+			files: map[string]string{"raw": raw}},
+		{name: "other agents can name an effective file raw", serviceName: "custom-agent",
+			files: map[string]string{"raw": effective}, wantURL: "https://actual.example:4317"},
+		{name: "named collector effective files are preserved", serviceName: "otelcol-contrib",
+			files: map[string]string{"collector.yaml": effective, "raw": raw}, wantURL: "https://actual.example:4317"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			agent := agentmodel.NewAgent(uuid.New())
+
+			agent.Metadata.Description.IdentifyingAttributes = map[string]string{"service.name": tt.serviceName}
+			for name, body := range tt.files {
+				agent.Status.EffectiveConfig.ConfigMap.ConfigMap[name] = agentmodel.AgentConfigFile{Body: []byte(body)}
+			}
+
+			svc := agentservice.NewEndpointDetectionService(newFakeEndpointUsecase(), slog.Default())
+			endpoints, err := svc.ExtractEndpointsFromAgent(agent)
+			require.NoError(t, err)
+
+			if tt.wantURL == "" {
+				assert.Empty(t, endpoints)
+			} else {
+				require.Len(t, endpoints, 1)
+				assert.Equal(t, tt.wantURL, endpoints[0].Spec.URL)
+			}
+
+			assert.Len(t, agent.Status.EffectiveConfig.ConfigMap.ConfigMap, len(tt.files), "report remains intact")
+		})
+	}
+}

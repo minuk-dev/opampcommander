@@ -38,7 +38,7 @@ func New(databaseType config.DatabaseType, livenessSettings config.LivenessSetti
 		// Agent liveness fast tier (node-local by default).
 		NewLiveness(databaseType, livenessSettings),
 		// Outbound messaging: server-event sender.
-		fx.Provide(newEventSender),
+		fx.Provide(newEventSender, newKafkaHealthIndicators),
 		// Outbound metrics: endpoint-throughput query port (Prometheus or no-op).
 		fx.Provide(newEndpointMetricsQueryAdapter),
 	)

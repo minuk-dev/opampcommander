@@ -19,7 +19,7 @@ func TestAgentConnectionOfferAndStatusRoundTrip(t *testing.T) {
 		&agentmodel.AgentOpAMPConnectionSettings{
 			DestinationEndpoint: "wss://example.test/api/v1/opamp",
 			Certificate:         &agentmodel.AgentCertificate{Cert: []byte("new-cert"), PrivateKey: []byte("new-key")},
-		}, nil, nil, nil, map[string]agentmodel.AgentOtherConnectionSettings{},
+		}, nil, nil, nil, nil,
 	))
 	agent.Status.ConnectionSettingsStatus = agentmodel.AgentConnectionSettingsStatus{
 		LastConnectionSettingsHash: agent.Spec.ConnectionInfo.Hash.Bytes(),

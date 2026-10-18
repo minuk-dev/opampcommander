@@ -34,14 +34,18 @@ type AgentGroupManageUsecase interface {
 		ctx context.Context,
 		namespace string,
 		instanceUID uuid.UUID,
+		options *port.ListOptions,
 	) (*v1.ListResponse[v1.AgentGroup], error)
 	// CreateAgentGroup persists a new group (namespace and name come from the
 	// payload), returning model.ErrResourceAlreadyExist on a duplicate.
 	CreateAgentGroup(ctx context.Context, agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
+	// PatchAgentGroup partially updates an existing resource with an optional revision.
+	PatchAgentGroup(ctx context.Context, namespace, name string, patch []byte) (*v1.AgentGroup, error)
+
 	// UpdateAgentGroup replaces the named group's spec; it is
 	// optimistic-concurrency controlled (model.ErrConflict on a stale write).
 	UpdateAgentGroup(ctx context.Context, namespace string, name string,
 		agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
 	// DeleteAgentGroup removes the named group.
-	DeleteAgentGroup(ctx context.Context, namespace string, name string) error
+	DeleteAgentGroup(ctx context.Context, namespace string, name string, resourceVersion ...int64) error
 }

@@ -2,7 +2,9 @@ package agentservice
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -107,15 +109,17 @@ func (s *NamespaceService) CreateNamespace(
 	namespace *agentmodel.Namespace,
 	actor string,
 ) (*agentmodel.Namespace, error) {
-	name := namespace.Metadata.Name
-
-	// A successful read means the namespace already exists. Any read error is
-	// treated as "not found" and the create proceeds, matching the prior behavior.
-	existing, getErr := s.persistence.GetNamespace(ctx, name, nil)
-	if getErr == nil && existing != nil {
-		return nil, fmt.Errorf("%w: %s", agentport.ErrNamespaceAlreadyExists, name)
+	_, err := s.persistence.GetNamespace(ctx, namespace.Metadata.Name, &model.GetOptions{IncludeDeleted: true})
+	switch {
+	case err == nil:
+		return nil, model.ErrResourceAlreadyExist
+	case !errors.Is(err, model.ErrResourceNotExist):
+		return nil, fmt.Errorf("check existing resource: %w", err)
 	}
 
+	namespace.Metadata.DeletedAt = nil
+	namespace.Metadata.ResourceVersion = 0
+	namespace.Status.Conditions = nil
 	namespace.MarkAsCreated(s.clock.Now(), actor)
 
 	saved, err := s.persistence.PutNamespace(ctx, namespace)
@@ -132,9 +136,29 @@ func (s *NamespaceService) UpdateNamespace(
 	name string,
 	namespace *agentmodel.Namespace,
 ) (*agentmodel.Namespace, error) {
+	err := model.CheckResourceIdentity("", name, "", namespace.Metadata.Name)
+	if err != nil {
+		return nil, fmt.Errorf("resource precondition: %w", err)
+	}
+
 	existing, err := s.persistence.GetNamespace(ctx, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get namespace for update: %w", err)
+	}
+
+	if namespace.Metadata.ResourceVersion <= 0 {
+		return nil, fmt.Errorf("%w: metadata.resourceVersion is required", model.ErrInvalidArgument)
+	}
+
+	if maps.Equal(existing.Metadata.Labels, namespace.Metadata.Labels) &&
+		maps.Equal(existing.Metadata.Annotations, namespace.Metadata.Annotations) {
+		return existing, nil
+	}
+
+	err = model.CheckResourceVersion(namespace.Metadata.ResourceVersion,
+		existing.Metadata.ResourceVersion)
+	if err != nil {
+		return nil, fmt.Errorf("resource precondition: %w", err)
 	}
 
 	existing.ApplyUpdate(namespace)
@@ -155,8 +179,7 @@ func (s *NamespaceService) UpdateNamespace(
 func (s *NamespaceService) DeleteNamespace(
 	ctx context.Context,
 	name string,
-	actor string,
-) error {
+	actor string, resourceVersion ...int64) error {
 	if name == s.defaultNamespace {
 		return agentport.ErrDefaultNamespaceUndeletable
 	}
@@ -164,7 +187,7 @@ func (s *NamespaceService) DeleteNamespace(
 	now := s.clock.Now()
 
 	err := s.tx.WithinTransaction(ctx, func(txCtx context.Context) error {
-		return s.cascadeDeleteNamespace(txCtx, name, now, actor)
+		return s.cascadeDeleteNamespace(txCtx, name, now, actor, resourceVersion...)
 	})
 	if err != nil {
 		return fmt.Errorf("delete namespace %q: %w", name, err)
@@ -181,8 +204,29 @@ func (s *NamespaceService) cascadeDeleteNamespace(
 	name string,
 	now time.Time,
 	deletedBy string,
+	resourceVersion ...int64,
 ) error {
-	err := s.deleteAgentGroupsInNamespace(ctx, name, now, deletedBy)
+	namespace, err := s.persistence.GetNamespace(ctx, name, &model.GetOptions{IncludeDeleted: true})
+	if err != nil {
+		return fmt.Errorf("get namespace for deletion: %w", err)
+	}
+
+	if len(resourceVersion) > 0 {
+		if namespace.IsDeleted() && resourceVersion[0] == namespace.Metadata.ResourceVersion-1 {
+			return nil
+		}
+
+		err := model.CheckResourceVersion(resourceVersion[0], namespace.Metadata.ResourceVersion)
+		if err != nil {
+			return fmt.Errorf("resource precondition: %w", err)
+		}
+	}
+
+	if namespace.IsDeleted() {
+		return nil
+	}
+
+	err = s.deleteAgentGroupsInNamespace(ctx, name, now, deletedBy)
 	if err != nil {
 		return err
 	}
@@ -200,11 +244,6 @@ func (s *NamespaceService) cascadeDeleteNamespace(
 	err = s.deleteAgentRemoteConfigsInNamespace(ctx, name, now, deletedBy)
 	if err != nil {
 		return err
-	}
-
-	namespace, err := s.persistence.GetNamespace(ctx, name, nil)
-	if err != nil {
-		return fmt.Errorf("get namespace for deletion: %w", err)
 	}
 
 	namespace.MarkAsDeleted(now, deletedBy)

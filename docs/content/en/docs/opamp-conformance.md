@@ -9,27 +9,75 @@ This page tracks how much of the [OpAMP specification](https://opentelemetry.io/
 OpAMP Commander implements today. It is a living document; update it whenever the OpAMP message
 handling changes.
 
-**Legend:** ✅ Implemented · 🟡 Partial · ⛔ Not implemented
+**Legend:** ✅ Supported · 🟡 Partial · ⛔ Intentionally not advertised / not implemented.
+Supported means the described server path exists, not that every collector implements it
+or that every normative requirement has an interoperability test. Planned work is not
+counted as support.
 
-> Audited against `main` on 2026-07-26. Primary sources:
-> `pkg/apiserver/application/service/opamp/{opamp,serverToAgent,protobufsToDomain,domainToProtobufs,custommessage}.go`
-> and `pkg/apiserver/domain/agent/service/{server,servertoagent}.go`.
+Capability inventory: all seven nonzero server flags and sixteen nonzero agent flags in
+[the OpAMP specification](https://opentelemetry.io/docs/specs/opamp/#agenttoservercapabilities)
+and the repository's pinned **opamp-go v0.25.0**. The `Unspecified` zero values mean no
+capabilities, not an extra feature. Implementation reviewed at `6905470c5`.
+
+Code references used below:
+
+- [Builder][builder]: `ServerToAgentBuilder.Build`, package offers and connection converters.
+- [Handler][handler]: `Service.report`, `OnMessage`, liveness and custom-message dispatch.
+- [Agent model][agent-model]: `Report*`, capability checks and desired-state helpers.
+- [Converters][converters]: agent report protobuf-to-domain conversions.
+- [Group reconciliation][groups]: connection-settings resolution and assignment.
 
 ## Server capabilities
 
-The value advertised in `ServerToAgent.capabilities` (`serverToAgent.go`). All seven server
-capabilities are advertised; "Fulfilled" reflects whether the behavior behind the flag is
-actually implemented.
+The shared [Builder][builder] advertises **six of seven** flags in
+`ServerToAgent.capabilities`; `AcceptsConnectionSettingsRequest` is deliberately absent.
+These flags describe the server, independently of the capabilities an agent reports.
 
-| ServerCapability | Advertised | Fulfilled | Notes |
+| ServerCapability | Advertised | Status | Current behavior and code pointer |
 |---|:---:|:---:|---|
-| `AcceptsStatus` | ✅ | ✅ | Full `AgentToServer` ingestion via `report()`. |
-| `OffersRemoteConfig` | ✅ | ✅ | Delivered by the shared `ServerToAgentBuilder` on both the hot path and the cross-server push path. |
-| `AcceptsEffectiveConfig` | ✅ | ✅ | Stored on the agent. |
-| `OffersConnectionSettings` | ✅ | ✅ | `opamp`, `own_metrics`, `own_logs`, `own_traces`, `other_connections`, each with headers + TLS certificate. |
-| `AcceptsConnectionSettingsRequest` | ⛔ | ⛔ | Intentionally **not advertised**: `connection_settings_request` is not processed, so the capability is withheld rather than claimed-but-ignored. |
-| `OffersPackages` | ✅ | 🟡 | Package type derives from the package spec (`TopLevel`/`AddOn`); an unresolvable package is withheld from the offer and logged, not silently dropped (#496). No API assigns packages to an agent yet (see [Known gaps](#known-gaps)). |
-| `AcceptsPackagesStatus` | ✅ | ✅ | Stored on the agent. |
+| `AcceptsStatus` | ✅ | ✅ | Reports are ingested by [Handler][handler] `report()`. |
+| `OffersRemoteConfig` | ✅ | ✅ | [Builder][builder] sends the assigned config/hash when [Agent model][agent-model] `HasRemoteConfig` permits it. |
+| `AcceptsEffectiveConfig` | ✅ | ✅ | [Handler][handler] stores reports through `ReportEffectiveConfig`. |
+| `OffersConnectionSettings` | ✅ | 🟡 | [Builder][builder] emits OpAMP, telemetry and other destinations with headers/TLS; per-agent capability filtering and heartbeat interval negotiation remain incomplete. |
+| `AcceptsConnectionSettingsRequest` | ⛔ | ⛔ | [Builder][builder] deliberately withholds the bit because [Handler][handler] does not process requests; no automatic credential issuance. |
+| `OffersPackages` | ✅ | 🟡 | [Builder][builder] resolves package offers, but no public assignment path populates the agent's package list; see [Known gaps](#known-gaps). |
+| `AcceptsPackagesStatus` | ✅ | ✅ | [Handler][handler] stores package status through `ReportPackageStatuses`. |
+
+## Agent capabilities
+
+Agents advertise these flags; Commander consumes them and the associated reports.
+The status column describes **Commander's handling**, not a promise about a particular
+collector distribution. Self-telemetry travels to the offered OTLP destinations, not
+through the OpAMP endpoint.
+
+| AgentCapability | Status | Current behavior and code pointer |
+|---|:---:|---|
+| `ReportsStatus` | ✅ | [Handler][handler] records description, capabilities and sequence number through `report()`. |
+| `AcceptsRemoteConfig` | ✅ | [Agent model][agent-model] `HasRemoteConfig` gates delivery on this bit. |
+| `ReportsEffectiveConfig` | ✅ | [Handler][handler] and [Converters][converters] retain effective configuration reports. |
+| `AcceptsPackages` | 🟡 | [Agent model][agent-model] `HasPackagesAvailable` gates offers, but there is no public package assignment workflow. |
+| `ReportsPackageStatuses` | ✅ | [Agent model][agent-model] `ReportPackageStatuses` retains the reported package inventory/status. |
+| `ReportsOwnTraces` | 🟡 | [Builder][builder] converts `own_traces` destinations, headers and TLS; offers are not filtered by this bit. |
+| `ReportsOwnMetrics` | 🟡 | [Builder][builder] converts `own_metrics` destinations, headers and TLS; offers are not filtered by this bit. |
+| `ReportsOwnLogs` | 🟡 | [Builder][builder] converts `own_logs` destinations, headers and TLS; offers are not filtered by this bit. |
+| `AcceptsOpAMPConnectionSettings` | 🟡 | [Group reconciliation][groups] and [Builder][builder] offer OpAMP endpoints/certificates; the builder does not filter by the current capability bit. |
+| `AcceptsOtherConnectionSettings` | 🟡 | [Builder][builder] emits `other_connections`; the builder does not filter by this capability bit. |
+| `AcceptsRestartCommand` | 🟡 | [Agent model][agent-model] checks the bit when a restart is requested; [Builder][builder] does not recheck it if the agent later withdraws support, and can combine the command with other fields. |
+| `ReportsHealth` | ✅ | [Handler][handler] stores component health including nested subcomponents via [Converters][converters]. |
+| `ReportsRemoteConfig` | ✅ | [Agent model][agent-model] `ReportRemoteConfigStatus` records apply status/hash/error; a saved desired config alone is not an acknowledgement. |
+| `ReportsHeartbeat` | 🟡 | [Handler][handler] records liveness from heartbeat-only reports; [Builder][builder] does not set `heartbeat_interval_seconds`. |
+| `ReportsAvailableComponents` | 🟡 | [Converters][converters] stores component trees and hashes; a hash-only report does not trigger `ReportAvailableComponents` recovery. |
+| `ReportsConnectionSettingsStatus` | ✅ | [Handler][handler] stores connection-settings hash/status through `ReportConnectionSettingsStatus`. |
+
+Custom capability strings are separate from these bitmasks. The registry/reply seam is
+**partial**: no handlers ship by default and there is no server-originated send API.
+See [Custom messages](#custom-messages).
+
+[builder]: https://github.com/minuk-dev/opampcommander/blob/main/pkg/apiserver/domain/agent/service/servertoagent.go
+[handler]: https://github.com/minuk-dev/opampcommander/blob/main/pkg/apiserver/application/service/opamp/opamp.go
+[agent-model]: https://github.com/minuk-dev/opampcommander/blob/main/pkg/apiserver/domain/agent/agent.go
+[converters]: https://github.com/minuk-dev/opampcommander/blob/main/pkg/apiserver/application/service/opamp/protobufsToDomain.go
+[groups]: https://github.com/minuk-dev/opampcommander/blob/main/pkg/apiserver/domain/agent/service/agentgroup.go
 
 ## Server → Agent message fields
 
@@ -39,10 +87,10 @@ actually implemented.
 |---|:---:|---|
 | `instance_uid` | ✅ | |
 | `remote_config` | ✅ | Built from the agent's materialized `Spec.RemoteConfig.ConfigMap` with a content hash. |
-| `connection_settings` | ✅ | Full offer set incl. TLS certificates and headers. |
+| `connection_settings` | 🟡 | Destination offers include TLS and headers; capability filtering and heartbeat interval negotiation are incomplete. |
 | `packages_available` | ✅ | Package type derived from the spec; an unresolvable package is withheld and logged rather than silently dropped (#496). |
 | `agent_identification` | ✅ | Sent when the server assigns a new instance UID. |
-| `command` | ✅ | `Restart` — the only command the spec currently defines. |
+| `command` | 🟡 | `Restart` delivery exists, but the builder can include other desired-state fields and does not recheck withdrawn restart support. |
 | `capabilities` | ✅ | |
 | `flags` (`ReportFullState`) | ✅ | Requested only while the agent's reported info is incomplete (its description or capabilities are still missing); not once it is complete. |
 | `error_response` | ✅ | Sent when the server cannot process an `AgentToServer`: `Unavailable` if the agent state cannot be loaded, `BadRequest` if the reported fields cannot be absorbed. Error-only message (no desired-state fields). |
@@ -61,11 +109,11 @@ actually implemented.
 | `agent_description` | ✅ | Ingested; non-string `AnyValue`s are preserved in their string form (`protobufsToDomain.go`, `anyValueToString`). |
 | `capabilities` | ✅ | Stored. |
 | `health` (`ComponentHealth`) | ✅ | Incl. nested sub-component health. |
-| `effective_config` | ✅ | Stored. |
+| `effective_config` | ✅ | All named entries are stored. For recognized Collector distributions, the `raw` source entry is excluded from active endpoint discovery. |
 | `remote_config_status` | ✅ | Stored; `LastUpdatedAt` is stamped from the injected clock. |
 | `connection_settings_status` | ✅ | Stored. |
 | `package_statuses` | ✅ | Stored. |
-| `available_components` | ✅ | Incl. nested sub-components. |
+| `available_components` | 🟡 | Stores nested sub-components and hashes; hash-only recovery is not implemented. |
 | `custom_capabilities` | ✅ | Stored (the agent's declared custom capabilities); used to gate outbound custom messages — see [Custom messages](#custom-messages). |
 | `agent_disconnect` | 🟡 | Detected; disconnect is handled via connection-close, not an explicit report. |
 | `connection_settings_request` | ⛔ | Not processed; the server withholds `AcceptsConnectionSettingsRequest` rather than advertising it. |
@@ -103,6 +151,19 @@ actually implemented.
    `spec.packagesAvailable`, but nothing sets it: the agent update API ignores the field and
    the MongoDB store does not persist it. The capability is advertised, the offer is never sent.
 
+8. **Connection capability negotiation is incomplete.** Group reconciliation assigns a
+   connection bundle and the builder converts it without checking each current agent
+   capability. The unused `IsOwnMetricsSupported`/`IsOwnTracesSupported` helpers also
+   check each other's bits, and `IsOtherConnectionSettingsSupported` checks the OpAMP
+   bit. These helpers do not make the active offer path capability-aware.
+9. **Heartbeat interval and component hash recovery.** Heartbeats update liveness, but
+   the builder does not negotiate `heartbeat_interval_seconds`. Component reports are
+   stored, but a hash-only report can replace the stored component map without requesting
+   a full `ReportAvailableComponents` response.
+10. **Restart message shape and capability changes.** The request path checks restart
+    support, but the builder can combine the command with other fields and does not recheck
+    withdrawn support. The spec requires a command-only message apart from identity/capabilities.
+
 ## Custom messages
 
 OpAMP lets an Agent and Server exchange vendor-specific data outside the standard schema via
@@ -137,7 +198,8 @@ the use case.
 
 The OpAMP conformance suite (`make test-e2e-conformance`,
 `test/e2e/apiserver/conformance_e2e_test.go`) drives the server over the real wire protocol
-and asserts each round-trip from both the agent and the REST API side:
+and asserts the round-trips listed below from both the agent and the REST API side.
+It does not prove every capability or every limitation in the matrices above:
 
 | Flow | Reference agent (opamp-go) | OTel Collector `opamp` extension |
 |---|:---:|:---:|
@@ -160,3 +222,11 @@ the `AgentToServer` converters in
 `pkg/apiserver/application/service/opamp/protobufstodomain_converters_test.go` and the
 `ServerToAgent` builder (including the connection-settings offer path) in
 `pkg/apiserver/domain/agent/service/servertoagent_test.go`.
+
+### Namespace attributes
+
+`service.namespace` is read from non-empty identifying attributes first, falling
+back to non-identifying attributes for Collector resource reports. Missing or
+empty attributes retain the existing namespace (the configured default for a new
+agent). Description updates reconcile matching groups and update connection
+namespace metadata in the same report cycle; certificate authorization is unchanged.

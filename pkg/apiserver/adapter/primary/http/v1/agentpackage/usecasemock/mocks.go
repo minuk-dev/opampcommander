@@ -108,16 +108,22 @@ func (_c *MockUsecase_CreateAgentPackage_Call) RunAndReturn(run func(ctx context
 }
 
 // DeleteAgentPackage provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) DeleteAgentPackage(ctx context.Context, namespace string, name string) error {
-	ret := _mock.Called(ctx, namespace, name)
+func (_mock *MockUsecase) DeleteAgentPackage(ctx context.Context, namespace string, name string, resourceVersion ...int64) error {
+	var tmpRet mock.Arguments
+	if len(resourceVersion) > 0 {
+		tmpRet = _mock.Called(ctx, namespace, name, resourceVersion)
+	} else {
+		tmpRet = _mock.Called(ctx, namespace, name)
+	}
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteAgentPackage")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = returnFunc(ctx, namespace, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, ...int64) error); ok {
+		r0 = returnFunc(ctx, namespace, name, resourceVersion...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -133,11 +139,13 @@ type MockUsecase_DeleteAgentPackage_Call struct {
 //   - ctx context.Context
 //   - namespace string
 //   - name string
-func (_e *MockUsecase_Expecter) DeleteAgentPackage(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_DeleteAgentPackage_Call {
-	return &MockUsecase_DeleteAgentPackage_Call{Call: _e.mock.On("DeleteAgentPackage", ctx, namespace, name)}
+//   - resourceVersion ...int64
+func (_e *MockUsecase_Expecter) DeleteAgentPackage(ctx interface{}, namespace interface{}, name interface{}, resourceVersion ...interface{}) *MockUsecase_DeleteAgentPackage_Call {
+	return &MockUsecase_DeleteAgentPackage_Call{Call: _e.mock.On("DeleteAgentPackage",
+		append([]interface{}{ctx, namespace, name}, resourceVersion...)...)}
 }
 
-func (_c *MockUsecase_DeleteAgentPackage_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_DeleteAgentPackage_Call {
+func (_c *MockUsecase_DeleteAgentPackage_Call) Run(run func(ctx context.Context, namespace string, name string, resourceVersion ...int64)) *MockUsecase_DeleteAgentPackage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -151,10 +159,17 @@ func (_c *MockUsecase_DeleteAgentPackage_Call) Run(run func(ctx context.Context,
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
+		var arg3 []int64
+		var variadicArgs []int64
+		if len(args) > 3 {
+			variadicArgs = args[3].([]int64)
+		}
+		arg3 = variadicArgs
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3...,
 		)
 	})
 	return _c
@@ -165,7 +180,7 @@ func (_c *MockUsecase_DeleteAgentPackage_Call) Return(err error) *MockUsecase_De
 	return _c
 }
 
-func (_c *MockUsecase_DeleteAgentPackage_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) error) *MockUsecase_DeleteAgentPackage_Call {
+func (_c *MockUsecase_DeleteAgentPackage_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, resourceVersion ...int64) error) *MockUsecase_DeleteAgentPackage_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -320,6 +335,86 @@ func (_c *MockUsecase_ListAgentPackages_Call) Return(listResponse *v1.ListRespon
 }
 
 func (_c *MockUsecase_ListAgentPackages_Call) RunAndReturn(run func(ctx context.Context, namespace string, options *port.ListOptions) (*v1.ListResponse[v1.AgentPackage], error)) *MockUsecase_ListAgentPackages_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PatchAgentPackage provides a mock function for the type MockUsecase
+func (_mock *MockUsecase) PatchAgentPackage(ctx context.Context, namespace string, name string, patch []byte) (*v1.AgentPackage, error) {
+	ret := _mock.Called(ctx, namespace, name, patch)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PatchAgentPackage")
+	}
+
+	var r0 *v1.AgentPackage
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, []byte) (*v1.AgentPackage, error)); ok {
+		return returnFunc(ctx, namespace, name, patch)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, []byte) *v1.AgentPackage); ok {
+		r0 = returnFunc(ctx, namespace, name, patch)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.AgentPackage)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, []byte) error); ok {
+		r1 = returnFunc(ctx, namespace, name, patch)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsecase_PatchAgentPackage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PatchAgentPackage'
+type MockUsecase_PatchAgentPackage_Call struct {
+	*mock.Call
+}
+
+// PatchAgentPackage is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespace string
+//   - name string
+//   - patch []byte
+func (_e *MockUsecase_Expecter) PatchAgentPackage(ctx interface{}, namespace interface{}, name interface{}, patch interface{}) *MockUsecase_PatchAgentPackage_Call {
+	return &MockUsecase_PatchAgentPackage_Call{Call: _e.mock.On("PatchAgentPackage", ctx, namespace, name, patch)}
+}
+
+func (_c *MockUsecase_PatchAgentPackage_Call) Run(run func(ctx context.Context, namespace string, name string, patch []byte)) *MockUsecase_PatchAgentPackage_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 []byte
+		if args[3] != nil {
+			arg3 = args[3].([]byte)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsecase_PatchAgentPackage_Call) Return(agentPackage *v1.AgentPackage, err error) *MockUsecase_PatchAgentPackage_Call {
+	_c.Call.Return(agentPackage, err)
+	return _c
+}
+
+func (_c *MockUsecase_PatchAgentPackage_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, patch []byte) (*v1.AgentPackage, error)) *MockUsecase_PatchAgentPackage_Call {
 	_c.Call.Return(run)
 	return _c
 }

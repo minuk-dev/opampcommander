@@ -39,11 +39,13 @@ interface Props {
 export default function AgentPackageEditDialog({
   open,
   mode,
-  namespace,
-  initial,
+  namespace: currentNamespace,
+  initial: incoming,
   onClose,
   onSaved,
 }: Props) {
+  const [initial, setInitial] = useState(incoming);
+  const [namespace, setNamespace] = useState(currentNamespace);
   const [name, setName] = useState('');
   const [packageType, setPackageType] = useState<string>(PACKAGE_TYPES[0]);
   const [version, setVersion] = useState('');
@@ -65,17 +67,19 @@ export default function AgentPackageEditDialog({
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setName(initial?.metadata.name ?? '');
-      setPackageType(initial?.spec.packageType || PACKAGE_TYPES[0]);
-      setVersion(initial?.spec.version ?? '');
-      setDownloadUrl(initial?.spec.downloadUrl ?? '');
-      setContentHash(initial?.spec.contentHash ?? '');
-      setSignature(initial?.spec.signature ?? '');
-      setHash(initial?.spec.hash ?? '');
-      setHeadersText(initial?.spec.headers ? toYAML(initial.spec.headers) : '');
+      setInitial(incoming);
+      setNamespace(currentNamespace);
+      setName(incoming?.metadata.name ?? '');
+      setPackageType(incoming?.spec.packageType || PACKAGE_TYPES[0]);
+      setVersion(incoming?.spec.version ?? '');
+      setDownloadUrl(incoming?.spec.downloadUrl ?? '');
+      setContentHash(incoming?.spec.contentHash ?? '');
+      setSignature(incoming?.spec.signature ?? '');
+      setHash(incoming?.spec.hash ?? '');
+      setHeadersText(incoming?.spec.headers ? toYAML(incoming.spec.headers) : '');
       setAttributesText(
-        initial?.metadata.attributes && Object.keys(initial.metadata.attributes).length > 0
-          ? toYAML(initial.metadata.attributes)
+        incoming?.metadata.attributes && Object.keys(incoming.metadata.attributes).length > 0
+          ? toYAML(incoming.metadata.attributes)
           : '',
       );
       setSaveError(null);
@@ -148,7 +152,7 @@ export default function AgentPackageEditDialog({
           spec,
         };
         await api.put(
-          `/api/v1/namespaces/${namespace}/agentpackages/${initial.metadata.name}`,
+          `/api/v1/namespaces/${initial.metadata.namespace}/agentpackages/${initial.metadata.name}`,
           updated,
         );
       }

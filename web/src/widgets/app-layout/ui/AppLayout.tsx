@@ -2,6 +2,7 @@
 
 import {
   Boxes,
+  BookOpen,
   AppWindow,
   Cable,
   CircleUser,
@@ -115,6 +116,12 @@ const sections: NavSection[] = [
         icon: SlidersHorizontal,
         href: '/agentremoteconfigs',
         requires: { resource: 'agentremoteconfig', action: 'LIST' },
+      },
+      {
+        text: 'Remote Config Schemas',
+        icon: BookOpen,
+        href: '/remoteconfigschemas',
+        requires: { resource: 'remoteconfigschema', action: 'LIST' },
       },
       {
         text: 'Endpoints',

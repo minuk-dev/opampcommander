@@ -37,10 +37,19 @@ func (r *AgentRemoteConfigRepository) GetAgentRemoteConfig(
 func (r *AgentRemoteConfigRepository) PutAgentRemoteConfig(
 	_ context.Context, config *agentmodel.AgentRemoteConfig,
 ) (*agentmodel.AgentRemoteConfig, error) {
-	r.store.put(namespacedName{
-		Namespace: config.Metadata.Namespace,
-		Name:      config.Metadata.Name,
-	}, config)
+	expected := config.Metadata.ResourceVersion
+	toStore := cloneAgentRemoteConfig(config)
+	toStore.Metadata.ResourceVersion = expected + 1
+
+	err := r.store.casPut(namespacedName{Namespace: config.Metadata.Namespace,
+		Name: config.Metadata.Name}, toStore, expected, func(value *agentmodel.AgentRemoteConfig) int64 {
+		return value.Metadata.ResourceVersion
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	config.Metadata.ResourceVersion = expected + 1
 
 	return config, nil
 }

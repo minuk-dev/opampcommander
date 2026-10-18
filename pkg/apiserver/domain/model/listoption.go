@@ -1,6 +1,8 @@
 package model
 
 import (
+	"fmt"
+
 	"github.com/minuk-dev/opampcommander/pkg/selector"
 )
 
@@ -90,4 +92,22 @@ type ListResponse[T any] struct {
 	RemainingItemCount int64
 	Continue           string
 	Items              []T
+}
+
+// AgentGroupMembershipListOptions supplies bounded defaults for membership reads.
+func AgentGroupMembershipListOptions(options *ListOptions) (*ListOptions, error) {
+	if options == nil {
+		options = &ListOptions{}
+	}
+
+	normalized := *options
+	if normalized.Limit < 0 || normalized.Limit > 1000 {
+		return nil, fmt.Errorf("%w: limit must be between 0 and 1000", ErrInvalidArgument)
+	}
+
+	if normalized.Limit == 0 {
+		normalized.Limit = 50
+	}
+
+	return &normalized, nil
 }

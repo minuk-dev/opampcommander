@@ -44,7 +44,7 @@ func (r *ApplicationRepository) PutApplication(
 	toStore := cloneApplication(application)
 	toStore.Metadata.ResourceVersion = next
 
-	err := r.store.casPutOrCreate(application.Metadata.ID, toStore, expected, func(c *agentmodel.Application) int64 {
+	err := r.store.casPut(application.Metadata.ID, toStore, expected, func(c *agentmodel.Application) int64 {
 		return c.Metadata.ResourceVersion
 	})
 	if err != nil {

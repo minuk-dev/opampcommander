@@ -25,11 +25,12 @@ type AgentGroup struct {
 
 // AgentGroupMetadata represents metadata information for an agent group.
 type AgentGroupMetadata struct {
-	Namespace  string            `bson:"namespace"`
-	Name       string            `bson:"name"`
-	Attributes map[string]string `bson:"attributes"`
-	CreatedAt  time.Time         `bson:"createdAt"`
-	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
+	ResourceVersion int64             `bson:"resourceVersion"`
+	Namespace       string            `bson:"namespace"`
+	Name            string            `bson:"name"`
+	Attributes      map[string]string `bson:"attributes"`
+	CreatedAt       time.Time         `bson:"createdAt"`
+	DeletedAt       *time.Time        `bson:"deletedAt,omitempty"`
 }
 
 // AgentGroupSpec represents the specification of an agent group.
@@ -151,11 +152,12 @@ func (s *AgentGroupMetadata) toDomain() agentmodel.AgentGroupMetadata {
 	}
 
 	return agentmodel.AgentGroupMetadata{
-		Namespace:  s.Namespace,
-		Name:       s.Name,
-		Attributes: s.Attributes,
-		CreatedAt:  s.CreatedAt,
-		DeletedAt:  deletedAt,
+		ResourceVersion: s.ResourceVersion,
+		Namespace:       s.Namespace,
+		Name:            s.Name,
+		Attributes:      s.Attributes,
+		CreatedAt:       s.CreatedAt,
+		DeletedAt:       deletedAt,
 	}
 }
 
@@ -238,11 +240,12 @@ func agentGroupMetadataFromDomain(metadata agentmodel.AgentGroupMetadata) AgentG
 	}
 
 	return AgentGroupMetadata{
-		Namespace:  metadata.Namespace,
-		Name:       metadata.Name,
-		Attributes: metadata.Attributes,
-		CreatedAt:  metadata.CreatedAt,
-		DeletedAt:  deletedAt,
+		ResourceVersion: metadata.ResourceVersion,
+		Namespace:       metadata.Namespace,
+		Name:            metadata.Name,
+		Attributes:      metadata.Attributes,
+		CreatedAt:       metadata.CreatedAt,
+		DeletedAt:       deletedAt,
 	}
 }
 

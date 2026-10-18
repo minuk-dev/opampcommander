@@ -704,8 +704,8 @@ func TestAgentGroupService_ReconcileAgent(t *testing.T) {
 
 		agent := agentmodel.NewAgent(uuid.New())
 
-		// No groups match, but reconcile must still persist the (re-applied) agent — this is
-		// the regression guard against ReconcileAgent forgetting to save.
+		// A stale group-owned config must be cleared and persisted even when no group matches.
+		agent.Spec.RemoteConfig = &agentmodel.AgentSpecRemoteConfig{}
 		emptyGroups := &model.ListResponse[*agentmodel.AgentGroup]{Items: nil, Continue: "", RemainingItemCount: 0}
 		mockPersistence.On("ListAgentGroups", ctx, agent.Metadata.Namespace,
 			(*model.ListOptions)(nil)).Return(emptyGroups, nil)
@@ -714,6 +714,8 @@ func TestAgentGroupService_ReconcileAgent(t *testing.T) {
 		err := svc.ReconcileAgent(ctx, agent)
 
 		require.NoError(t, err)
+		require.NoError(t, svc.ReconcileAgent(ctx, agent))
+		mockAgentUsecase.AssertNumberOfCalls(t, "SaveAgent", 1)
 		mockAgentUsecase.AssertCalled(t, "SaveAgent", ctx, agent)
 		mockPersistence.AssertExpectations(t)
 		mockAgentUsecase.AssertExpectations(t)
@@ -724,3 +726,21 @@ func TestAgentGroupService_ReconcileAgent(t *testing.T) {
 type alwaysLeaderElector struct{}
 
 func (alwaysLeaderElector) IsLeader(context.Context) (bool, error) { return true, nil }
+
+func (m *MockAgentGroupPersistencePort) ListAgentGroupsForAgent(
+	ctx context.Context,
+	agent *agentmodel.Agent,
+	options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	args := m.Called(ctx, agent, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	result, ok := args.Get(0).(*model.ListResponse[*agentmodel.AgentGroup])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck // mock error
+}

@@ -172,9 +172,11 @@ func TestAgentPackageService_UpdateAgentPackage_PreservesImmutableFields(t *test
 
 	createdAt := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	stored := &agentmodel.AgentPackage{
-		Metadata: agentmodel.AgentPackageMetadata{Name: "pkg", Namespace: "default", CreatedAt: createdAt},
-		Spec:     agentmodel.AgentPackageSpec{Version: "1.0.0"},
-		Status:   agentmodel.AgentPackageStatus{Conditions: []model.Condition{{Type: model.ConditionTypeCreated}}},
+		Metadata: agentmodel.AgentPackageMetadata{Name: "pkg",
+			Namespace: "default", CreatedAt: createdAt, ResourceVersion: 1},
+
+		Spec:   agentmodel.AgentPackageSpec{Version: "1.0.0"},
+		Status: agentmodel.AgentPackageStatus{Conditions: []model.Condition{{Type: model.ConditionTypeCreated}}},
 	}
 
 	persistence := &apFakePersistence{stored: stored}
@@ -182,9 +184,10 @@ func TestAgentPackageService_UpdateAgentPackage_PreservesImmutableFields(t *test
 
 	incoming := &agentmodel.AgentPackage{
 		Metadata: agentmodel.AgentPackageMetadata{
-			Name:      "pkg",
-			Namespace: "default",
-			CreatedAt: time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
+			ResourceVersion: 1,
+			Name:            "pkg",
+			Namespace:       "default",
+			CreatedAt:       time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		Spec: agentmodel.AgentPackageSpec{Version: "2.0.0"},
 	}

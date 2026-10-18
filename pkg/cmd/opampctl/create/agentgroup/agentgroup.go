@@ -70,7 +70,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringToStringVar(&options.identifyingAttributesSelector, "is",
 		nil, "same as --identifying-attributes-selector")
 	cmd.Flags().IntVarP(&options.priority, "priority", "p", 0,
-		"Priority of the agent group. Higher priority agent groups are applied first.")
+		"Higher priority wins each remote-config filename and the whole connection bundle; ties use the smallest group name.")
 	cmd.Flags().StringToStringVar(&options.nonIdentifyingAttributeSelector, "non-identifying-attributes-selector",
 		nil, "NonIdentifying attributes selector for the agent group (key=value)")
 	cmd.Flags().StringToStringVar(&options.nonIdentifyingAttributeSelector, "ns",

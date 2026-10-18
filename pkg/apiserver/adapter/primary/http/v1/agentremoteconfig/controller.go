@@ -65,6 +65,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			HandlerFunc: c.Update,
 		},
 		{
+			Method:      http.MethodPatch,
+			Path:        agentRemoteConfigByNamePath,
+			Handler:     "http.v1.agentremoteconfig.Patch",
+			HandlerFunc: c.Patch,
+		},
+		{
 			Method:      http.MethodDelete,
 			Path:        agentRemoteConfigByNamePath,
 			Handler:     "http.v1.agentremoteconfig.Delete",
@@ -229,7 +235,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		c.logger.Error(
 			"failed to create agent remote config", "error", err.Error(),
 		)
-		ginutil.InternalServerError(
+		ginutil.HandleDomainError(
 			ctx, err,
 			"An error occurred while creating the agent remote config.",
 		)
@@ -274,6 +280,10 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
+	if !ginutil.RequireResourceVersion(ctx, req.Metadata.ResourceVersion) {
+		return
+	}
+
 	updated, err := c.agentRemoteConfigUsecase.UpdateAgentRemoteConfig(
 		ctx.Request.Context(), namespace, name, &req,
 	)
@@ -313,8 +323,13 @@ func (c *Controller) Delete(ctx *gin.Context) {
 		return
 	}
 
+	resourceVersion, ok := ginutil.ParseResourceVersion(ctx)
+	if !ok {
+		return
+	}
+
 	err = c.agentRemoteConfigUsecase.DeleteAgentRemoteConfig(
-		ctx.Request.Context(), namespace, name,
+		ctx.Request.Context(), namespace, name, resourceVersion,
 	)
 	if err != nil {
 		c.logger.Error(
@@ -330,4 +345,38 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+// Patch partially updates an existing AgentRemoteConfig.
+//
+// @Summary Patch AgentRemoteConfig
+// @Tags agentremoteconfig
+// @Description JSON Merge Patch with optional metadata.resourceVersion. Omitted revisions allow same-field overwrite.
+// @Accept application/merge-patch+json
+// @Produce json
+// @Param namespace path string true "Namespace"
+// @Param name path string true "Resource name"
+// @Param patch body object true "Merge patch with optional metadata.resourceVersion"
+// @Success 200 {object} v1.AgentRemoteConfig
+// @Failure 400 {object} map[string]any
+// @Failure 404 {object} map[string]any
+// @Failure 409 {object} map[string]any
+// @Failure 415 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/agentremoteconfigs/{name} [patch].
+func (c *Controller) Patch(ctx *gin.Context) {
+	patch, ok := ginutil.ReadMergePatch(ctx)
+	if !ok {
+		return
+	}
+
+	result, err := c.agentRemoteConfigUsecase.PatchAgentRemoteConfig(
+		ctx.Request.Context(), ctx.Param("namespace"), ctx.Param("name"), patch,
+	)
+	if err != nil {
+		ginutil.HandleDomainError(ctx, err, "Failed to patch resource.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, result)
 }

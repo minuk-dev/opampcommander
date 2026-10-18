@@ -16,11 +16,13 @@ type AgentGroup struct {
 
 // Metadata represents metadata information for an agent group.
 type Metadata struct {
-	Namespace  string     `json:"namespace"`
-	Name       string     `json:"name"`
-	Attributes Attributes `json:"attributes"`
-	CreatedAt  Time       `json:"createdAt"`
-	DeletedAt  *Time      `json:"deletedAt,omitempty"`
+	// ResourceVersion is an opaque revision from a read response, required for updates.
+	ResourceVersion int64      `json:"resourceVersion,string,omitempty"`
+	Namespace       string     `json:"namespace"`
+	Name            string     `json:"name"`
+	Attributes      Attributes `json:"attributes"`
+	CreatedAt       Time       `json:"createdAt"`
+	DeletedAt       *Time      `json:"deletedAt,omitempty"`
 } // @name AgentGroupMetadata
 
 // Spec represents the specification of an agent group.

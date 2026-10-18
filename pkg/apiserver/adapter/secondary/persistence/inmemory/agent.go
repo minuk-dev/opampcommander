@@ -231,8 +231,10 @@ func (r *AgentRepository) isConnected(agent *agentmodel.Agent) bool {
 // agentsMatchingSelector returns every stored agent (including hard-undeletable
 // ones) matching the selector. Used by the agent-group repository to compute
 // group statistics.
-func (r *AgentRepository) agentsMatchingSelector(selector agentmodel.AgentSelector) []*agentmodel.Agent {
+func (r *AgentRepository) agentsMatchingSelector(
+	namespace string, selector agentmodel.AgentSelector,
+) []*agentmodel.Agent {
 	return r.store.snapshot(false, func(agent *agentmodel.Agent) bool {
-		return matchesSelector(agent, selector)
+		return agent.Metadata.Namespace == namespace && matchesSelector(agent, selector)
 	})
 }

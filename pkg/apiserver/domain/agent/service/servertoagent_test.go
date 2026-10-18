@@ -72,8 +72,7 @@ func (f *fakeAgentPackageUsecase) UpdateAgentPackage(
 }
 
 func (f *fakeAgentPackageUsecase) DeleteAgentPackage(
-	_ context.Context, _ string, _ string, _ time.Time, _ string,
-) error {
+	_ context.Context, _ string, _ string, _ time.Time, _ string, _ ...int64) error {
 	return nil
 }
 

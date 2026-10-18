@@ -2,8 +2,11 @@ package agentservice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
+	"slices"
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -108,6 +111,19 @@ func (s *AgentRemoteConfigService) CreateAgentRemoteConfig(
 	agentRemoteConfig *agentmodel.AgentRemoteConfig,
 	actor string,
 ) (*agentmodel.AgentRemoteConfig, error) {
+	_, err := s.persistence.GetAgentRemoteConfig(ctx,
+		agentRemoteConfig.Metadata.Namespace, agentRemoteConfig.Metadata.Name,
+		&model.GetOptions{IncludeDeleted: true})
+	switch {
+	case err == nil:
+		return nil, model.ErrResourceAlreadyExist
+	case !errors.Is(err, model.ErrResourceNotExist):
+		return nil, fmt.Errorf("check existing resource: %w", err)
+	}
+
+	agentRemoteConfig.Metadata.DeletedAt = nil
+	agentRemoteConfig.Metadata.ResourceVersion = 0
+	agentRemoteConfig.Status.Conditions = nil
 	agentRemoteConfig.MarkAsCreated(s.clock.Now(), actor)
 	s.autoResolveSchemaRefs(ctx, agentRemoteConfig)
 
@@ -125,33 +141,80 @@ func (s *AgentRemoteConfigService) UpdateAgentRemoteConfig(
 	namespace string,
 	name string,
 	agentRemoteConfig *agentmodel.AgentRemoteConfig,
-) (*agentmodel.AgentRemoteConfig, error) {
+) (*agentmodel.AgentRemoteConfig, bool, error) {
+	err := model.CheckResourceIdentity(namespace,
+		name, agentRemoteConfig.Metadata.Namespace, agentRemoteConfig.Metadata.Name)
+	if err != nil {
+		return nil, false, fmt.Errorf("resource precondition: %w", err)
+	}
+
 	existing, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get agent remote config for update: %w", err)
+		return nil, false, fmt.Errorf("failed to get agent remote config for update: %w", err)
+	}
+
+	if agentRemoteConfig.Metadata.ResourceVersion <= 0 {
+		return nil, false, fmt.Errorf("%w: metadata.resourceVersion is required", model.ErrInvalidArgument)
+	}
+
+	if existing.Spec.Equal(agentRemoteConfig.Spec) &&
+		maps.Equal(existing.Metadata.Attributes, agentRemoteConfig.Metadata.Attributes) {
+		return existing, false, nil
+	}
+
+	err = model.CheckResourceVersion(agentRemoteConfig.Metadata.ResourceVersion,
+		existing.Metadata.ResourceVersion)
+	if err != nil {
+		return nil, false, fmt.Errorf("resource precondition: %w", err)
+	}
+
+	if !slices.Equal(existing.Spec.SchemaRefs, agentRemoteConfig.Spec.SchemaRefs) {
+		existing.Status.SchemaRefsSource = agentmodel.SchemaRefsSourceExplicit
+	}
+
+	if len(agentRemoteConfig.Spec.SchemaRefs) == 0 {
+		existing.Status.SchemaRefsSource = ""
 	}
 
 	existing.ApplyUpdate(agentRemoteConfig)
 
 	updated, err := s.persistence.PutAgentRemoteConfig(ctx, existing)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update agent remote config: %w", err)
+		return nil, false, fmt.Errorf("failed to update agent remote config: %w", err)
 	}
 
-	return updated, nil
+	return updated, true, nil
 }
 
 // DeleteAgentRemoteConfig implements [agentport.AgentRemoteConfigUsecase].
+//
+//nolint:dupl // Resource deletion shares the revision and tombstone contract.
 func (s *AgentRemoteConfigService) DeleteAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
 	name string,
 	deletedAt time.Time,
 	deletedBy string,
+	resourceVersion ...int64,
 ) error {
-	resource, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name, nil)
+	resource, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name, &model.GetOptions{IncludeDeleted: true})
 	if err != nil {
 		return fmt.Errorf("failed to get agent remote config for deletion: %w", err)
+	}
+
+	if len(resourceVersion) > 0 {
+		if resource.Metadata.DeletedAt != nil && resourceVersion[0] == resource.Metadata.ResourceVersion-1 {
+			return nil
+		}
+
+		err = model.CheckResourceVersion(resourceVersion[0], resource.Metadata.ResourceVersion)
+		if err != nil {
+			return fmt.Errorf("resource precondition: %w", err)
+		}
+	}
+
+	if resource.Metadata.DeletedAt != nil {
+		return nil
 	}
 
 	resource.MarkDeleted(deletedAt, deletedBy)
@@ -202,7 +265,14 @@ func (s *AgentRemoteConfigService) autoResolveSchemaRefs(
 	ctx context.Context,
 	config *agentmodel.AgentRemoteConfig,
 ) {
-	if s.schemaMatcher == nil || len(config.Spec.SchemaRefs) > 0 || config.SkipSchemaValidation() {
+	config.Status.SchemaRefsSource = ""
+	if len(config.Spec.SchemaRefs) > 0 {
+		config.Status.SchemaRefsSource = agentmodel.SchemaRefsSourceExplicit
+
+		return
+	}
+
+	if s.schemaMatcher == nil || config.SkipSchemaValidation() {
 		return
 	}
 
@@ -220,5 +290,6 @@ func (s *AgentRemoteConfigService) autoResolveSchemaRefs(
 
 	if len(refs) > 0 {
 		config.Spec.SchemaRefs = refs
+		config.Status.SchemaRefsSource = agentmodel.SchemaRefsSourceAuto
 	}
 }

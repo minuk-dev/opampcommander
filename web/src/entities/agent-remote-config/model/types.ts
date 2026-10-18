@@ -1,6 +1,7 @@
 import type { AgentRemoteConfigSpec, Attributes, Condition } from '@shared/api';
 
 export interface AgentRemoteConfigMetadata {
+  resourceVersion?: string;
   name: string;
   namespace: string;
   attributes?: Attributes;
@@ -10,5 +11,5 @@ export interface AgentRemoteConfigMetadata {
 export interface AgentRemoteConfig {
   metadata: AgentRemoteConfigMetadata;
   spec: AgentRemoteConfigSpec;
-  status?: { conditions?: Condition[] };
+  status?: { conditions?: Condition[]; schemaRefsSource?: 'auto' | 'explicit' };
 }

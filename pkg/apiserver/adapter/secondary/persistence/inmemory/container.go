@@ -44,7 +44,7 @@ func (r *ContainerRepository) PutContainer(
 	toStore := cloneContainer(container)
 	toStore.Metadata.ResourceVersion = next
 
-	err := r.store.casPutOrCreate(container.Metadata.ID, toStore, expected, func(c *agentmodel.Container) int64 {
+	err := r.store.casPut(container.Metadata.ID, toStore, expected, func(c *agentmodel.Container) int64 {
 		return c.Metadata.ResourceVersion
 	})
 	if err != nil {

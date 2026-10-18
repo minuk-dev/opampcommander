@@ -104,7 +104,7 @@ func (m *mockNamespaceUsecase) UpdateNamespace(
 	return ns, args.Error(1) //nolint:wrapcheck // mock error
 }
 
-func (m *mockNamespaceUsecase) DeleteNamespace(ctx context.Context, name string, actor string) error {
+func (m *mockNamespaceUsecase) DeleteNamespace(ctx context.Context, name string, actor string, _ ...int64) error {
 	args := m.Called(ctx, name, actor)
 
 	return args.Error(0) //nolint:wrapcheck // mock error

@@ -16,10 +16,12 @@ type AgentRemoteConfig struct {
 
 // AgentRemoteConfigMetadata represents the metadata of an agent remote config.
 type AgentRemoteConfigMetadata struct {
-	Name       string     `json:"name"`
-	Namespace  string     `json:"namespace"`
-	Attributes Attributes `json:"attributes"`
-	CreatedAt  Time       `json:"createdAt"`
+	// ResourceVersion is an opaque revision from a read response, required for updates.
+	ResourceVersion int64      `json:"resourceVersion,string,omitempty"`
+	Name            string     `json:"name"`
+	Namespace       string     `json:"namespace"`
+	Attributes      Attributes `json:"attributes"`
+	CreatedAt       Time       `json:"createdAt"`
 } // @name AgentRemoteConfigMetadata
 
 // AgentRemoteConfigSpec represents the specification of an agent remote config.
@@ -35,4 +37,6 @@ type AgentRemoteConfigSpec struct {
 // AgentRemoteConfigStatus represents the status of an agent remote config.
 type AgentRemoteConfigStatus struct {
 	Conditions []Condition `json:"conditions"`
+	// SchemaRefsSource is server-managed; omitted when refs are absent or their source is unknown.
+	SchemaRefsSource string `enums:"auto,explicit" json:"schemaRefsSource,omitempty"`
 } // @name AgentRemoteConfigStatus

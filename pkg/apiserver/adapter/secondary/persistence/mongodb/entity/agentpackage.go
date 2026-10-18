@@ -155,11 +155,12 @@ type AgentRemoteConfigResourceEntity struct {
 
 // AgentRemoteConfigResourceMetadata represents the metadata of an agent remote config resource.
 type AgentRemoteConfigResourceMetadata struct {
-	Name       string            `bson:"name"`
-	Namespace  string            `bson:"namespace"`
-	Attributes map[string]string `bson:"attributes,omitempty"`
-	CreatedAt  time.Time         `bson:"createdAt"`
-	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
+	ResourceVersion int64             `bson:"resourceVersion"`
+	Name            string            `bson:"name"`
+	Namespace       string            `bson:"namespace"`
+	Attributes      map[string]string `bson:"attributes,omitempty"`
+	CreatedAt       time.Time         `bson:"createdAt"`
+	DeletedAt       *time.Time        `bson:"deletedAt,omitempty"`
 }
 
 // AgentRemoteConfigResourceSpec represents the specification of an agent remote config resource.
@@ -171,18 +172,20 @@ type AgentRemoteConfigResourceSpec struct {
 
 // AgentRemoteConfigResourceEntityStatus represents the status of an agent remote config resource.
 type AgentRemoteConfigResourceEntityStatus struct {
-	Conditions []Condition `bson:"conditions,omitempty"`
+	Conditions       []Condition `bson:"conditions,omitempty"`
+	SchemaRefsSource string      `bson:"schemaRefsSource,omitempty"`
 }
 
 // ToDomain converts the entity to domain model.
 func (arc *AgentRemoteConfigResourceEntity) ToDomain() *agentmodel.AgentRemoteConfig {
 	return &agentmodel.AgentRemoteConfig{
 		Metadata: agentmodel.AgentRemoteConfigMetadata{
-			Name:       arc.Metadata.Name,
-			Namespace:  arc.Metadata.Namespace,
-			Attributes: arc.Metadata.Attributes,
-			CreatedAt:  arc.Metadata.CreatedAt,
-			DeletedAt:  arc.Metadata.DeletedAt,
+			ResourceVersion: arc.Metadata.ResourceVersion,
+			Name:            arc.Metadata.Name,
+			Namespace:       arc.Metadata.Namespace,
+			Attributes:      arc.Metadata.Attributes,
+			CreatedAt:       arc.Metadata.CreatedAt,
+			DeletedAt:       arc.Metadata.DeletedAt,
 		},
 		Spec: agentmodel.AgentRemoteConfigSpec{
 			Value:       arc.Spec.Value,
@@ -190,6 +193,7 @@ func (arc *AgentRemoteConfigResourceEntity) ToDomain() *agentmodel.AgentRemoteCo
 			SchemaRefs:  arc.Spec.SchemaRefs,
 		},
 		Status: agentmodel.AgentRemoteConfigResourceStatus{
+			SchemaRefsSource: agentmodel.SchemaRefsSource(arc.Status.SchemaRefsSource),
 			Conditions: lo.Map(arc.Status.Conditions, func(c Condition, _ int) model.Condition {
 				return c.ToDomain()
 			}),
@@ -204,11 +208,12 @@ func AgentRemoteConfigResourceEntityFromDomain(
 	//nolint:exhaustruct_v5 // ID is set by MongoDB
 	return &AgentRemoteConfigResourceEntity{
 		Metadata: AgentRemoteConfigResourceMetadata{
-			Name:       arc.Metadata.Name,
-			Namespace:  arc.Metadata.Namespace,
-			Attributes: arc.Metadata.Attributes,
-			CreatedAt:  arc.Metadata.CreatedAt,
-			DeletedAt:  arc.Metadata.DeletedAt,
+			ResourceVersion: arc.Metadata.ResourceVersion,
+			Name:            arc.Metadata.Name,
+			Namespace:       arc.Metadata.Namespace,
+			Attributes:      arc.Metadata.Attributes,
+			CreatedAt:       arc.Metadata.CreatedAt,
+			DeletedAt:       arc.Metadata.DeletedAt,
 		},
 		Spec: AgentRemoteConfigResourceSpec{
 			Value:       arc.Spec.Value,
@@ -216,6 +221,7 @@ func AgentRemoteConfigResourceEntityFromDomain(
 			SchemaRefs:  arc.Spec.SchemaRefs,
 		},
 		Status: AgentRemoteConfigResourceEntityStatus{
+			SchemaRefsSource: string(arc.Status.SchemaRefsSource),
 			Conditions: lo.Map(arc.Status.Conditions, func(c model.Condition, _ int) Condition {
 				return NewConditionFromDomain(c)
 			}),

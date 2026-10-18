@@ -16,6 +16,9 @@ import (
 // only by the composition root (database, event, cache).
 type ServerSettings struct {
 	Address            string
+	Shutdown           ShutdownSettings
+	TLS                TLSSettings
+	OpAMP              OpAMPSettings
 	OpAMPTLS           OpAMPTLSSettings
 	ServerID           agentmodel.ServerID
 	DatabaseSettings   DatabaseSettings

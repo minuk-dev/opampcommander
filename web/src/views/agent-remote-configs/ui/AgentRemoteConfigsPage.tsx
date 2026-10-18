@@ -9,7 +9,11 @@ import { TimeDisplay } from '@shared/preferences';
 import { api } from '@shared/api';
 import { useToast } from '@shared/ui';
 import { reconcileResource } from '@features/reconcile';
-import type { AgentRemoteConfig } from '@entities/agent-remote-config';
+import {
+  type AgentRemoteConfig,
+  schemaRefsSource,
+  skipsSchemaValidation,
+} from '@entities/agent-remote-config';
 
 // Lazy-loaded: none of these dialogs is needed to render the list, and the
 // config editor pulls in the highlighter and diff chunks on top.
@@ -21,8 +25,7 @@ const ApplyToGroupDialog = dynamic(
   () => import('@features/apply-remote-config/ui/ApplyToGroupDialog'),
 );
 
-// Raw editing stays available for fields the form does not model (schemaRefs
-// today) and for pasting a whole manifest.
+// Raw editing stays available for pasting a whole manifest.
 interface RawTarget {
   row: AgentRemoteConfig;
   refresh: () => void;
@@ -55,8 +58,11 @@ export default function AgentRemoteConfigsPage() {
         title="Agent Remote Configs"
         subtitle={`Namespace: ${namespace}`}
         listPath={`/api/v1/namespaces/${namespace}/agentremoteconfigs`}
-        itemPath={(c) => `/api/v1/namespaces/${namespace}/agentremoteconfigs/${c.metadata.name}`}
+        itemPath={(c) =>
+          `/api/v1/namespaces/${c.metadata.namespace}/agentremoteconfigs/${c.metadata.name}`
+        }
         itemName={(c) => c.metadata.name}
+        resourceVersion={(row) => row.metadata.resourceVersion}
         filterable
         canEdit
         canDelete
@@ -79,6 +85,18 @@ export default function AgentRemoteConfigsPage() {
         ]}
         columns={[
           { header: 'Name', render: (c) => c.metadata.name },
+          {
+            header: 'Schema references',
+            render: (c) => (
+              <div className="min-w-40">
+                <p>{c.spec.schemaRefs?.join(', ') || '—'}</p>
+                <p className="text-xs text-muted-foreground">
+                  {schemaRefsSource(c)}
+                  {skipsSchemaValidation(c) ? ' · Validation skipped' : ''}
+                </p>
+              </div>
+            ),
+          },
           { header: 'Content type', render: (c) => c.spec.contentType || '-' },
           {
             header: 'Preview',
@@ -114,7 +132,7 @@ export default function AgentRemoteConfigsPage() {
       {applyTarget !== null && (
         <ApplyToGroupDialog
           open
-          namespace={namespace}
+          namespace={applyTarget.metadata.namespace}
           config={applyTarget}
           onClose={() => setApplyTarget(null)}
           onApplied={() => setApplyTarget(null)}
@@ -130,9 +148,17 @@ export default function AgentRemoteConfigsPage() {
           samplesVars={{ namespace }}
           onClose={() => setRawTarget(null)}
           onSave={async (parsed) => {
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+              throw new Error('Resource must be an object');
             await api.put(
-              `/api/v1/namespaces/${namespace}/agentremoteconfigs/${rawTarget.row.metadata.name}`,
-              parsed,
+              `/api/v1/namespaces/${rawTarget.row.metadata.namespace}/agentremoteconfigs/${rawTarget.row.metadata.name}`,
+              {
+                ...parsed,
+                metadata: {
+                  ...(parsed as { metadata?: object }).metadata,
+                  resourceVersion: rawTarget.row.metadata.resourceVersion,
+                },
+              },
             );
             rawTarget.refresh();
             setRawTarget(null);

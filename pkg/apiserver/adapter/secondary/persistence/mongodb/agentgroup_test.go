@@ -27,6 +27,7 @@ func setupAgentGroupMongoAdapter(t *testing.T) (*mongo.Client, *mongodb.AgentGro
 		testMongoDBImage,
 	)
 	require.NoError(t, err)
+	testcontainers.CleanupContainer(t, mongoDBContainer)
 
 	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
 	require.NoError(t, err)
@@ -48,6 +49,7 @@ func TestAgentGroupMongoAdapter_Statistics_ConnectedIsStalenessAware(t *testing.
 	ctx := t.Context()
 	mongoDBContainer, err := mongoTestContainer.Run(ctx, testMongoDBImage)
 	require.NoError(t, err)
+	testcontainers.CleanupContainer(t, mongoDBContainer)
 
 	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
 	require.NoError(t, err)
@@ -122,7 +124,9 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, putResult, loaded)
+		assert.Equal(t, putResult.Spec, loaded.Spec)
+		assert.Equal(t, putResult.Metadata.ResourceVersion, loaded.Metadata.ResourceVersion)
+		assert.WithinDuration(t, putResult.Metadata.CreatedAt, loaded.Metadata.CreatedAt, time.Millisecond)
 		assert.Equal(t, agentGroup.Metadata.Name, loaded.Metadata.Name)
 		assert.Equal(t, agentGroup.Metadata.Attributes, loaded.Metadata.Attributes)
 		assert.False(t, loaded.IsDeleted())
@@ -195,7 +199,9 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Len(t, resp.Items, 1)
-		assert.Equal(t, putResult, resp.Items[0])
+		assert.Equal(t, putResult.Spec, resp.Items[0].Spec)
+		assert.Equal(t, putResult.Metadata.ResourceVersion, resp.Items[0].Metadata.ResourceVersion)
+		assert.WithinDuration(t, putResult.Metadata.CreatedAt, resp.Items[0].Metadata.CreatedAt, time.Millisecond)
 		assert.Equal(t, agentGroup.Metadata.Name, resp.Items[0].Metadata.Name)
 	})
 
@@ -322,7 +328,9 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		// Verify agent group was saved
 		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, nil)
 		require.NoError(t, err)
-		assert.Equal(t, putResult, got)
+		assert.Equal(t, putResult.Spec, got.Spec)
+		assert.Equal(t, putResult.Metadata.ResourceVersion, got.Metadata.ResourceVersion)
+		assert.WithinDuration(t, putResult.Metadata.CreatedAt, got.Metadata.CreatedAt, time.Millisecond)
 		assert.Equal(t, agentGroup.Metadata.Name, got.Metadata.Name)
 		assert.Equal(t, agentGroup.Metadata.Attributes, got.Metadata.Attributes)
 		assert.Equal(t, agentGroup.GetCreatedBy(), got.GetCreatedBy())

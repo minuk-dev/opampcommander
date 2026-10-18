@@ -2,14 +2,14 @@ version: '3'
 
 services:
   devcontainer:
-    image: "mcr.microsoft.com/devcontainers/go:1-1.24-bookworm"
+    image: "mcr.microsoft.com/devcontainers/go:2-1.24-bookworm"
     network_mode: service:db
     command: sleep infinity
     volumes:
       - ..:/workspace:cached
       - /var/run/docker.sock:/var/run/docker.sock
   db:
-    image: mongo:4.4
+    image: mongo:9.0
     restart: unless-stopped
     volumes:
       - mongodb-data:/data/db

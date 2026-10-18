@@ -1,6 +1,8 @@
 package agentmodel
 
 import (
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
@@ -84,4 +86,11 @@ type AgentPackageSpec struct {
 // AgentPackageStatus represents the status of an agent package.
 type AgentPackageStatus struct {
 	Conditions []model.Condition
+}
+
+// Equal reports whether two package specifications request the same package.
+func (s AgentPackageSpec) Equal(other AgentPackageSpec) bool {
+	return s.PackageType == other.PackageType && s.Version == other.Version && s.DownloadURL == other.DownloadURL &&
+		slices.Equal(s.ContentHash, other.ContentHash) && slices.Equal(s.Signature, other.Signature) &&
+		slices.Equal(s.Hash, other.Hash) && maps.Equal(s.Headers, other.Headers)
 }

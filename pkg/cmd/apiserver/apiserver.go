@@ -26,13 +26,16 @@ type CommandOption struct {
 	configFilename string
 
 	// flags
-	Address  string `mapstructure:"address"`
+	Address  string                `mapstructure:"address"`
+	TLS      appconfig.TLSSettings `mapstructure:"tls"`
 	OpAMPTLS struct {
 		CertFile string `mapstructure:"certFile"`
 		KeyFile  string `mapstructure:"keyFile"  secret:"true"`
 		CAFile   string `mapstructure:"caFile"`
 	} `mapstructure:"opampTLS"`
-	ServerID string `mapstructure:"serverId"`
+	ServerID string                     `mapstructure:"serverId"`
+	Shutdown appconfig.ShutdownSettings `mapstructure:"shutdown"`
+	OpAMP    appconfig.OpAMPSettings    `mapstructure:"opamp"`
 	Database struct {
 		Type           string        `mapstructure:"type"`
 		Endpoints      []string      `mapstructure:"endpoints"`
@@ -55,7 +58,8 @@ type CommandOption struct {
 		} `mapstructure:"direct"`
 	} `mapstructure:"event"`
 	Management struct {
-		Address string `mapstructure:"address"`
+		Address string                `mapstructure:"address"`
+		TLS     appconfig.TLSSettings `mapstructure:"tls"`
 		Metric  struct {
 			Enabled    bool   `mapstructure:"enabled"`
 			Type       string `mapstructure:"type"`
@@ -197,6 +201,30 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&opt.configFilename, "config", "",
 		"config file (default is $HOME/.config/opampcommander/apiserver/config.yaml)")
 	cmd.PersistentFlags().String("address", "localhost:8080", "server address")
+
+	for _, prefix := range []string{"tls", "management.tls"} {
+		cmd.PersistentFlags().String(prefix+".certFile", "", "PEM server certificate chain")
+		cmd.PersistentFlags().String(prefix+".keyFile", "", "PEM server private key")
+		cmd.PersistentFlags().String(prefix+".caFile", "", "PEM bundle of trusted client CAs (optional)")
+		cmd.PersistentFlags().String(prefix+".minVersion", "1.2", "minimum TLS version (1.2 or 1.3)")
+		cmd.PersistentFlags().StringSlice(prefix+".cipherSuites", nil, "TLS 1.2 cipher suite names (empty uses Go defaults)")
+	}
+
+	for _, name := range []string{"certFile", "keyFile", "caFile"} {
+		cmd.PersistentFlags().String("opampTLS."+name, "", "legacy OpAMP mTLS file; use tls settings instead")
+	}
+
+	opampDefaults := appconfig.DefaultOpAMPSettings()
+	cmd.PersistentFlags().Int64("opamp.maxMessageSize", opampDefaults.MaxMessageSize,
+		"maximum OpAMP message bytes after decompression (0 = 64 MiB, negative = unlimited)")
+	cmd.PersistentFlags().Bool("opamp.enableCompression", opampDefaults.EnableCompression,
+		"enable OpAMP transport compression")
+
+	shutdownDefaults := appconfig.ShutdownSettings{}.WithDefaults()
+	cmd.PersistentFlags().Duration("shutdown.drainWindow", shutdownDefaults.DrainWindow,
+		"window over which OpAMP WebSocket closes are staggered")
+	cmd.PersistentFlags().Duration("shutdown.timeout", shutdownDefaults.Timeout,
+		"total graceful shutdown timeout, including OpAMP drain")
 	cmd.PersistentFlags().String("serverId", "", "server ID (default is hostname, can be overridden by SERVER_ID env var)")
 	cmd.PersistentFlags().String("database.type", "inmemory", "database type (inmemory, mongodb)")
 	cmd.PersistentFlags().StringSlice("database.endpoints", []string{"mongodb://localhost:27017"}, "database endpoints")
@@ -371,6 +399,17 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 	}
 
 	opt.Event.Kafka = opt.Event.Kafka.WithDefaults()
+	opt.Shutdown = opt.Shutdown.WithDefaults()
+
+	err = opt.Shutdown.Validate()
+	if err != nil {
+		return fmt.Errorf("invalid shutdown configuration: %w", err)
+	}
+
+	err = opt.OpAMP.Validate()
+	if err != nil {
+		return fmt.Errorf("invalid OpAMP configuration: %w", err)
+	}
 
 	// If serverID is not set, use hostname as default
 	if opt.ServerID == "" {
@@ -407,7 +446,10 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	}
 
 	opt.app = apiserver.New(appconfig.ServerSettings{
-		Address: opt.Address,
+		Address:  opt.Address,
+		Shutdown: opt.Shutdown,
+		OpAMP:    opt.OpAMP,
+		TLS:      opt.TLS,
 		OpAMPTLS: appconfig.OpAMPTLSSettings{
 			CertFile: opt.OpAMPTLS.CertFile,
 			KeyFile:  opt.OpAMPTLS.KeyFile,
@@ -466,6 +508,7 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 		},
 		ManagementSettings: appconfig.ManagementSettings{
 			Address: opt.Management.Address,
+			TLS:     opt.Management.TLS,
 			Observability: observability.Config{
 				ServiceName: opt.ServiceName,
 				Metric: observability.MetricSettings{

@@ -52,7 +52,7 @@ func (r *AgentPackageRepository) PutAgentPackage(
 	toStore := cloneAgentPackage(agentPackage)
 	toStore.Metadata.ResourceVersion = next
 
-	err := r.store.casPutOrCreate(key, toStore, expected, func(ap *agentmodel.AgentPackage) int64 {
+	err := r.store.casPut(key, toStore, expected, func(ap *agentmodel.AgentPackage) int64 {
 		return ap.Metadata.ResourceVersion
 	})
 	if err != nil {

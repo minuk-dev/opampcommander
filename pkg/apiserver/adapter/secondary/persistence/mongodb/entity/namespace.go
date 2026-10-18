@@ -24,11 +24,12 @@ type Namespace struct {
 
 // NamespaceMetadata represents the metadata of a namespace.
 type NamespaceMetadata struct {
-	Name        string            `bson:"name"`
-	Labels      map[string]string `bson:"labels,omitempty"`
-	Annotations map[string]string `bson:"annotations,omitempty"`
-	CreatedAt   time.Time         `bson:"createdAt"`
-	DeletedAt   *time.Time        `bson:"deletedAt,omitempty"`
+	ResourceVersion int64             `bson:"resourceVersion"`
+	Name            string            `bson:"name"`
+	Labels          map[string]string `bson:"labels,omitempty"`
+	Annotations     map[string]string `bson:"annotations,omitempty"`
+	CreatedAt       time.Time         `bson:"createdAt"`
+	DeletedAt       *time.Time        `bson:"deletedAt,omitempty"`
 }
 
 // NamespaceResourceStatus represents the status of a namespace resource.
@@ -46,11 +47,12 @@ func (ns *Namespace) ToDomain() *agentmodel.Namespace {
 
 func (m *NamespaceMetadata) toDomain() agentmodel.NamespaceMetadata {
 	return agentmodel.NamespaceMetadata{
-		Name:        m.Name,
-		Labels:      m.Labels,
-		Annotations: m.Annotations,
-		CreatedAt:   m.CreatedAt,
-		DeletedAt:   m.DeletedAt,
+		ResourceVersion: m.ResourceVersion,
+		Name:            m.Name,
+		Labels:          m.Labels,
+		Annotations:     m.Annotations,
+		CreatedAt:       m.CreatedAt,
+		DeletedAt:       m.DeletedAt,
 	}
 }
 
@@ -81,11 +83,12 @@ func namespaceMetadataFromDomain(
 	metadata agentmodel.NamespaceMetadata,
 ) NamespaceMetadata {
 	return NamespaceMetadata{
-		Name:        metadata.Name,
-		Labels:      metadata.Labels,
-		Annotations: metadata.Annotations,
-		CreatedAt:   metadata.CreatedAt,
-		DeletedAt:   metadata.DeletedAt,
+		ResourceVersion: metadata.ResourceVersion,
+		Name:            metadata.Name,
+		Labels:          metadata.Labels,
+		Annotations:     metadata.Annotations,
+		CreatedAt:       metadata.CreatedAt,
+		DeletedAt:       metadata.DeletedAt,
 	}
 }
 

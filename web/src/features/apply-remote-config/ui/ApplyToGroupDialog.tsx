@@ -34,8 +34,16 @@ interface Props {
   onApplied: () => void;
 }
 
-export default function ApplyToGroupDialog({ open, namespace, config, onClose, onApplied }: Props) {
-  const [selected, setSelected] = useState('');
+export default function ApplyToGroupDialog({
+  open,
+  namespace: currentNamespace,
+  config: incoming,
+  onClose,
+  onApplied,
+}: Props) {
+  const [config, setConfig] = useState(incoming);
+  const [namespace, setNamespace] = useState(incoming?.metadata.namespace ?? currentNamespace);
+  const [selectedGroup, setSelectedGroup] = useState<AgentGroup | null>(null);
   const [busy, setBusy] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
 
@@ -56,27 +64,25 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
         ? 'Failed to fetch agent groups'
         : null);
 
-  // Clear the selection when the dialog closes so the next open starts fresh.
+  // Pin the source and namespace for this open; list revalidation must not
+  // replace the group revision the user selected either.
   const [wasOpen, setWasOpen] = useState(false);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (!open) {
-      setSelected('');
-      setApplyError(null);
+    setSelectedGroup(null);
+    setApplyError(null);
+    if (open) {
+      setConfig(incoming);
+      setNamespace(incoming?.metadata.namespace ?? currentNamespace);
     }
   }
 
   const apply = async () => {
-    if (!config || !selected) return;
+    if (!config || !selectedGroup) return;
     setBusy(true);
     setApplyError(null);
     try {
-      // Re-fetch the group to apply on top of its latest state, then add this
-      // resource to the group's remote configs via agentRemoteConfigRef
-      // (preserving any configs already applied; duplicates are collapsed).
-      const group = await api.get<AgentGroup>(
-        `/api/v1/namespaces/${namespace}/agentgroups/${selected}`,
-      );
+      const group = selectedGroup;
       const nextRefs = [...remoteConfigRefs(group), config.metadata.name];
       const body: AgentGroup = {
         ...group,
@@ -88,16 +94,22 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
           },
         },
       };
-      await api.put(`/api/v1/namespaces/${namespace}/agentgroups/${selected}`, body);
+      await api.put(
+        `/api/v1/namespaces/${group.metadata.namespace}/agentgroups/${group.metadata.name}`,
+        body,
+      );
       onApplied();
     } catch (err) {
-      setApplyError(err instanceof Error ? err.message : 'Failed to apply');
+      const message = err instanceof Error ? err.message : 'Failed to apply';
+      setApplyError(
+        err instanceof Error && 'status' in err && err.status === 409
+          ? `${message} Close this dialog, refresh the list, and reopen it before applying again.`
+          : message,
+      );
     } finally {
       setBusy(false);
     }
   };
-
-  const selectedGroup = groups.find((g) => g.metadata.name === selected);
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -122,14 +134,18 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
           >
             {(field) => (
               <Select
-                value={selected}
-                onValueChange={setSelected}
+                value={selectedGroup?.metadata.name ?? ''}
+                onValueChange={(name) =>
+                  setSelectedGroup(groups.find((group) => group.metadata.name === name) ?? null)
+                }
                 disabled={loading || busy || groups.length === 0}
               >
                 <SelectTrigger {...field}>
                   <SelectValue
                     placeholder={loading ? 'Loading…' : 'No agent groups in this namespace'}
-                  />
+                  >
+                    {selectedGroup?.metadata.name}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {groups.map((g) => (
@@ -146,7 +162,7 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
           <Button variant="ghost" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-          <Button onClick={() => void apply()} disabled={busy || !selected}>
+          <Button onClick={() => void apply()} disabled={busy || !selectedGroup || !config}>
             Apply
           </Button>
         </DialogFooter>

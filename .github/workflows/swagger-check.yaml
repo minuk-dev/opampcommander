@@ -52,3 +52,4 @@ jobs:
           base: '${{ github.event.pull_request.base.sha }}:pkg/apiserver/docs/swagger.yaml'
           revision: 'pkg/apiserver/docs/swagger.yaml'
           fail-on: WARN
+          err-ignore: '.github/oasdiff-err-ignore.txt'

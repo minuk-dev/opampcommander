@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
@@ -146,15 +147,18 @@ func (s *AgentGroupService) ListAgentGroupsByAgent(
 	ctx context.Context,
 	namespace string,
 	agentID string,
+	opts ...ListOption,
 ) (*AgentGroupListResponse, error) {
 	var listResponse AgentGroupListResponse
 
-	res, err := s.service.Resty.R().
+	req := s.service.Resty.R().
 		SetContext(ctx).
 		SetResult(&listResponse).
 		SetPathParam("namespace", namespace).
-		SetPathParam("id", agentID).
-		Get(ListAgentGroupsByAgentURL)
+		SetPathParam("id", agentID)
+	newListSettings(opts).applyTo(req)
+
+	res, err := req.Get(ListAgentGroupsByAgentURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agent groups by agent(restyError): %w", err)
 	}
@@ -226,9 +230,11 @@ func (s *AgentGroupService) UpdateAgentGroup(
 }
 
 // DeleteAgentGroup deletes an agent group by its namespace and name.
-func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context, namespace string, name string) error {
+func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context,
+	namespace string, name string, resourceVersion int64) error {
 	res, err := s.service.Resty.R().
 		SetContext(ctx).
+		SetQueryParam("resourceVersion", strconv.FormatInt(resourceVersion, 10)).
 		SetPathParam("namespace", namespace).
 		SetPathParam("id", name).
 		Delete(DeleteAgentGroupURL)
@@ -244,4 +250,12 @@ func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context, namespace stri
 	}
 
 	return nil
+}
+
+// PatchAgentGroup sends a merge patch without a preliminary GET. Include
+// metadata.resourceVersion in patch to make the edit conditional.
+func (s *AgentGroupService) PatchAgentGroup(
+	ctx context.Context, namespace, name string, patch []byte,
+) (*v1.AgentGroup, error) {
+	return patchResource[v1.AgentGroup](ctx, s.service, UpdateAgentGroupURL, namespace, name, patch)
 }

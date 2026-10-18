@@ -249,18 +249,8 @@ func (a *commonEntityAdapter[Entity, KeyType]) put(ctx context.Context, entity *
 	return nil
 }
 
-// casReplace performs an optimistic-concurrency upsert of doc, identified by
-// keyFilter, whose resourceVersion field has already been set to the next version.
-//
-// expected is the version the caller loaded doc at. When it is greater than 0 the
-// write matches only a stored document still at that version, so a concurrent
-// writer that advanced it makes casReplace return [model.ErrConflict] instead of
-// silently clobbering the change. expected 0 is a create (or the first write of a
-// pre-optimistic-concurrency document that has no resourceVersion field yet): it
-// upserts by key alone, so a legacy document is migrated rather than duplicated.
-//
-// If the collection carries a unique index on the logical key, a racing create is
-// rejected as a duplicate key, which casReplace also surfaces as [model.ErrConflict].
+// casReplace inserts a new resource at expected=0; updates only match the loaded
+// version. Legacy rows must be versioned by EnsureSchema before serving traffic.
 func casReplace(
 	ctx context.Context,
 	collection *mongo.Collection,
@@ -268,12 +258,23 @@ func casReplace(
 	doc any,
 	expected int64,
 ) error {
-	filter := maps.Clone(keyFilter)
-	if expected != 0 {
-		filter[resourceVersionFieldName] = expected
+	if expected == 0 {
+		_, err := collection.InsertOne(ctx, doc)
+		if mongo.IsDuplicateKeyError(err) {
+			return fmt.Errorf("%w: resource already exists (including tombstones)", model.ErrConflict)
+		}
+
+		if err != nil {
+			return fmt.Errorf("failed to create resource: %w", err)
+		}
+
+		return nil
 	}
 
-	result, err := collection.ReplaceOne(ctx, filter, doc, options.Replace().SetUpsert(expected == 0))
+	filter := maps.Clone(keyFilter)
+	filter[resourceVersionFieldName] = expected
+
+	result, err := collection.ReplaceOne(ctx, filter, doc)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			return fmt.Errorf("%w: resource was created concurrently", model.ErrConflict)

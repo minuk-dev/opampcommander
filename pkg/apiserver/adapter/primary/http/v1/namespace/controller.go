@@ -62,6 +62,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			HandlerFunc: c.Update,
 		},
 		{
+			Method:      http.MethodPatch,
+			Path:        namespaceByNamePath,
+			Handler:     "http.v1.namespace.Patch",
+			HandlerFunc: c.Patch,
+		},
+		{
 			Method:      http.MethodDelete,
 			Path:        namespaceByNamePath,
 			Handler:     "http.v1.namespace.Delete",
@@ -202,7 +208,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 			"failed to create namespace",
 			"error", err.Error(),
 		)
-		ginutil.InternalServerError(
+		ginutil.HandleDomainError(
 			ctx, err,
 			"An error occurred while creating the namespace.",
 		)
@@ -239,6 +245,10 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
+	if !ginutil.RequireResourceVersion(ctx, req.Metadata.ResourceVersion) {
+		return
+	}
+
 	updated, err := c.namespaceUsecase.UpdateNamespace(
 		ctx.Request.Context(), name, &req,
 	)
@@ -269,8 +279,13 @@ func (c *Controller) Delete(ctx *gin.Context) {
 		return
 	}
 
+	resourceVersion, ok := ginutil.ParseResourceVersion(ctx)
+	if !ok {
+		return
+	}
+
 	err = c.namespaceUsecase.DeleteNamespace(
-		ctx.Request.Context(), name,
+		ctx.Request.Context(), name, resourceVersion,
 	)
 	if err != nil {
 		c.logger.Error(
@@ -286,4 +301,35 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+// Patch partially updates an existing Namespace.
+//
+// @Summary Patch Namespace
+// @Tags namespace
+// @Description JSON Merge Patch with optional metadata.resourceVersion. Omitted revisions allow same-field overwrite.
+// @Accept application/merge-patch+json
+// @Produce json
+// @Param namespace path string true "Namespace"
+// @Param patch body object true "Merge patch with optional metadata.resourceVersion"
+// @Success 200 {object} v1.Namespace
+// @Failure 400 {object} map[string]any
+// @Failure 404 {object} map[string]any
+// @Failure 409 {object} map[string]any
+// @Failure 415 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace} [patch].
+func (c *Controller) Patch(ctx *gin.Context) {
+	patch, ok := ginutil.ReadMergePatch(ctx)
+	if !ok {
+		return
+	}
+
+	result, err := c.namespaceUsecase.PatchNamespace(ctx.Request.Context(), ctx.Param("namespace"), patch)
+	if err != nil {
+		ginutil.HandleDomainError(ctx, err, "Failed to patch resource.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, result)
 }

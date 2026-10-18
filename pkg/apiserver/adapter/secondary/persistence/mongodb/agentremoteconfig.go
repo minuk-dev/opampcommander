@@ -1,4 +1,3 @@
-//nolint:dupl // MongoDB adapter pattern - similar structure is intentional
 package mongodb
 
 import (
@@ -9,7 +8,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -124,18 +122,19 @@ func (a *AgentRemoteConfigMongoAdapter) ListAgentRemoteConfigs(
 func (a *AgentRemoteConfigMongoAdapter) PutAgentRemoteConfig(
 	ctx context.Context, config *agentmodel.AgentRemoteConfig,
 ) (*agentmodel.AgentRemoteConfig, error) {
+	expected := config.Metadata.ResourceVersion
 	agentRemoteConfigEntity := entity.AgentRemoteConfigResourceEntityFromDomain(config)
 	namespace := config.Metadata.Namespace
 	name := config.Metadata.Name
 
-	_, err := a.collection.ReplaceOne(ctx,
-		a.filterByNamespaceAndName(namespace, name),
-		agentRemoteConfigEntity,
-		options.Replace().SetUpsert(true),
-	)
+	agentRemoteConfigEntity.Metadata.ResourceVersion = expected + 1
+
+	err := casReplace(ctx, a.collection, a.filterByNamespaceAndName(namespace, name), agentRemoteConfigEntity, expected)
 	if err != nil {
 		return nil, fmt.Errorf("put agent remote config: %w", err)
 	}
+
+	config.Metadata.ResourceVersion = expected + 1
 
 	// Return the domain model directly instead of querying again
 	// This avoids issues with soft-deleted documents not being found

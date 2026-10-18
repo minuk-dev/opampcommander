@@ -21,11 +21,12 @@ type Namespace struct {
 func NewNamespace(name string) *Namespace {
 	return &Namespace{
 		Metadata: NamespaceMetadata{
-			Name:        name,
-			Labels:      make(map[string]string),
-			Annotations: make(map[string]string),
-			CreatedAt:   time.Time{},
-			DeletedAt:   nil,
+			ResourceVersion: 0,
+			Name:            name,
+			Labels:          make(map[string]string),
+			Annotations:     make(map[string]string),
+			CreatedAt:       time.Time{},
+			DeletedAt:       nil,
 		},
 		Status: NamespaceStatus{
 			Conditions: nil,
@@ -76,11 +77,12 @@ func (n *Namespace) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 
 // NamespaceMetadata represents the metadata of a namespace.
 type NamespaceMetadata struct {
-	Name        string
-	Labels      map[string]string
-	Annotations map[string]string
-	CreatedAt   time.Time
-	DeletedAt   *time.Time
+	ResourceVersion int64
+	Name            string
+	Labels          map[string]string
+	Annotations     map[string]string
+	CreatedAt       time.Time
+	DeletedAt       *time.Time
 }
 
 // NamespaceStatus represents the status of a namespace.

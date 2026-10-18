@@ -1,0 +1,3 @@
+# Intentional conditional-delete contract from #781; migration: docs/resource-writes.md.
+DELETE /api/v1/namespaces/{namespace}/agentgroups/{name} added the new required `query` request parameter `resourceVersion`
+DELETE /api/v1/namespaces/{namespace}/agentpackages/{name} added the new required `query` request parameter `resourceVersion`

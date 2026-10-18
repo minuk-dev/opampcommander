@@ -56,8 +56,7 @@ export interface ConnectionSettings {
 export interface AgentRemoteConfigSpec {
   value: string;
   contentType: string;
-  // Optional references to RemoteConfigSchemas in the same namespace. Not
-  // edited by the UI yet (see #576) — editors must round-trip it untouched.
+  // Optional references to RemoteConfigSchemas in the same namespace.
   schemaRefs?: string[];
 }
 

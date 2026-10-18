@@ -1,6 +1,7 @@
 import type { Attributes, Condition } from '@shared/api';
 
 export interface AgentPackageMetadata {
+  resourceVersion?: string;
   name: string;
   namespace: string;
   attributes?: Attributes;

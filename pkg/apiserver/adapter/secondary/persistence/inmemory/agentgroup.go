@@ -2,6 +2,7 @@ package inmemory
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -60,6 +61,26 @@ func (r *AgentGroupRepository) ListAgentGroups(
 	return r.listWithFilter(options, filter)
 }
 
+// ListAgentGroupsForAgent implements agentport.AgentGroupPersistencePort.
+func (r *AgentGroupRepository) ListAgentGroupsForAgent(
+	_ context.Context, agent *agentmodel.Agent, options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	filter, err := namespaceFilter(agent.Metadata.Namespace,
+		func(group *agentmodel.AgentGroup) string { return group.Metadata.Namespace })
+	if err != nil {
+		return nil, err
+	}
+
+	options, err = model.AgentGroupMembershipListOptions(options)
+	if err != nil {
+		return nil, fmt.Errorf("membership list options: %w", err)
+	}
+
+	return r.listWithFilter(options, func(group *agentmodel.AgentGroup) bool {
+		return filter(group) && group.Spec.Selector.Matches(agent)
+	})
+}
+
 // ListAllAgentGroups implements agentport.AgentGroupPersistencePort.
 func (r *AgentGroupRepository) ListAllAgentGroups(
 	_ context.Context, options *model.ListOptions,
@@ -71,7 +92,19 @@ func (r *AgentGroupRepository) ListAllAgentGroups(
 func (r *AgentGroupRepository) PutAgentGroup(
 	_ context.Context, namespace string, name string, agentGroup *agentmodel.AgentGroup,
 ) (*agentmodel.AgentGroup, error) {
-	r.store.put(namespacedName{Namespace: namespace, Name: name}, agentGroup)
+	expected := agentGroup.Metadata.ResourceVersion
+	toStore := cloneAgentGroup(agentGroup)
+	toStore.Metadata.ResourceVersion = expected + 1
+
+	err := r.store.casPut(namespacedName{Namespace: namespace,
+		Name: name}, toStore, expected, func(value *agentmodel.AgentGroup) int64 {
+		return value.Metadata.ResourceVersion
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	agentGroup.Metadata.ResourceVersion = expected + 1
 
 	if !agentGroup.IsDeleted() {
 		r.applyStatistics(agentGroup)
@@ -84,7 +117,7 @@ func (r *AgentGroupRepository) PutAgentGroup(
 // the current agent store, mirroring the MongoDB aggregation pipeline. Healthy
 // and unhealthy counts only consider connected agents.
 func (r *AgentGroupRepository) applyStatistics(agentGroup *agentmodel.AgentGroup) {
-	agents := r.agentRepo.agentsMatchingSelector(agentGroup.Spec.Selector)
+	agents := r.agentRepo.agentsMatchingSelector(agentGroup.Metadata.Namespace, agentGroup.Spec.Selector)
 
 	//exhaustruct:ignore
 	stats := agentmodel.AgentGroupStatus{}

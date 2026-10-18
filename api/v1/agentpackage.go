@@ -16,11 +16,13 @@ type AgentPackage struct {
 
 // AgentPackageMetadata represents the metadata of an agent package.
 type AgentPackageMetadata struct {
-	Name       string     `json:"name"`
-	Namespace  string     `json:"namespace"`
-	Attributes Attributes `json:"attributes"`
-	CreatedAt  Time       `json:"createdAt"`
-	DeletedAt  *Time      `json:"deletedAt,omitempty"`
+	// ResourceVersion is an opaque revision from a read response, required for updates.
+	ResourceVersion int64      `json:"resourceVersion,string,omitempty"`
+	Name            string     `json:"name"`
+	Namespace       string     `json:"namespace"`
+	Attributes      Attributes `json:"attributes"`
+	CreatedAt       Time       `json:"createdAt"`
+	DeletedAt       *Time      `json:"deletedAt,omitempty"`
 } // @name AgentPackageMetadata
 
 // AgentPackageSpec represents the specification of an agent package.

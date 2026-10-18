@@ -60,8 +60,13 @@ func (opt *CommandOptions) Run(
 ) error {
 	name := args[0]
 
-	err := opt.client.NamespaceService.DeleteNamespace(
-		cmd.Context(), name,
+	resource, err := opt.client.NamespaceService.GetNamespace(cmd.Context(), name)
+	if err != nil {
+		return fmt.Errorf("read namespace before delete: %w", err)
+	}
+
+	err = opt.client.NamespaceService.DeleteNamespace(
+		cmd.Context(), name, resource.Metadata.ResourceVersion,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to delete namespace: %w", err)

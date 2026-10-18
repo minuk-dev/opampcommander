@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"time"
 
 	"go.uber.org/fx"
@@ -27,9 +26,6 @@ import (
 const (
 	// DefaultServerStartTimeout = 30 * time.Second.
 	DefaultServerStartTimeout = 30 * time.Second
-
-	// DefaultServerStopTimeout is the default timeout for stopping the server.
-	DefaultServerStopTimeout = 30 * time.Second
 )
 
 // Server is a struct that represents the server application.
@@ -42,6 +38,7 @@ type Server struct {
 
 // New creates a new instance of the Server struct.
 func New(settings config.ServerSettings) *Server {
+	settings.Shutdown = settings.Shutdown.WithDefaults()
 	app := fx.New(appOptions(&settings)...)
 
 	server := &Server{
@@ -77,8 +74,7 @@ func appOptions(settings *config.ServerSettings) []fx.Option {
 			return &fxevent.SlogLogger{Logger: logger}
 		}),
 
-		// Initialize HTTP server
-		fx.Invoke(func(*http.Server) {}),
+		fx.Invoke(registerOpAMPShutdown),
 	}
 }
 
@@ -104,7 +100,7 @@ func (s *Server) Run(ctx context.Context) error {
 	<-ctx.Done()
 
 	// To gracefully shutdown, it needs stopCtx.
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), DefaultServerStopTimeout)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), s.settings.Shutdown.Timeout)
 	defer stopCancel()
 
 	err = s.Stop(stopCtx) //nolint:contextcheck

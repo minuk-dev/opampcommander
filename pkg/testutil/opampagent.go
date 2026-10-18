@@ -58,6 +58,12 @@ type referenceAgentSettings struct {
 	uid            uuid.UUID
 	tlsConfig      *tls.Config
 	acceptOpAMP    bool
+	heartbeat      time.Duration
+}
+
+// WithReferenceAgentHeartbeat sets the heartbeat interval for push-delivery tests.
+func WithReferenceAgentHeartbeat(interval time.Duration) ReferenceAgentOption {
+	return func(s *referenceAgentSettings) { s.heartbeat = interval }
 }
 
 // WithReferenceAgentUID sets a stable agent identity for reconnection tests.
@@ -105,6 +111,7 @@ func newReferenceAgentSettings(opts []ReferenceAgentOption) referenceAgentSettin
 		uid:         uuid.Nil,
 		tlsConfig:   nil,
 		acceptOpAMP: false,
+		heartbeat:   referenceAgentHeartbeat,
 	}
 	for _, opt := range opts {
 		opt(&settings)
@@ -181,7 +188,7 @@ func (b *Base) StartReferenceAgent(opampPort int, opts ...ReferenceAgentOption) 
 	require.NoError(b.t, agent.client.SetCapabilities(&capabilities))
 	require.NoError(b.t, agent.client.SetHealth(agent.health(true, "StatusOK")))
 
-	heartbeat := referenceAgentHeartbeat
+	heartbeat := settings.heartbeat
 
 	//exhaustruct:ignore
 	startSettings := types.StartSettings{

@@ -129,6 +129,11 @@ definitions:
         type: string
       namespace:
         type: string
+      resourceVersion:
+        description: ResourceVersion is an opaque revision from a read response, required
+          for updates.
+        example: "0"
+        type: string
     type: object
   AgentGroupSpec:
     properties:
@@ -219,6 +224,11 @@ definitions:
         type: string
       namespace:
         type: string
+      resourceVersion:
+        description: ResourceVersion is an opaque revision from a read response, required
+          for updates.
+        example: "0"
+        type: string
     type: object
   AgentPackageSpec:
     properties:
@@ -292,6 +302,11 @@ definitions:
         type: string
       namespace:
         type: string
+      resourceVersion:
+        description: ResourceVersion is an opaque revision from a read response, required
+          for updates.
+        example: "0"
+        type: string
     type: object
   AgentRemoteConfigStatus:
     properties:
@@ -299,6 +314,13 @@ definitions:
         items:
           $ref: '#/definitions/Condition'
         type: array
+      schemaRefsSource:
+        description: SchemaRefsSource is server-managed; omitted when refs are absent
+          or their source is unknown.
+        enum:
+        - auto
+        - explicit
+        type: string
     type: object
   AgentSpec:
     properties:
@@ -1267,6 +1289,11 @@ definitions:
           type: string
         type: object
       name:
+        type: string
+      resourceVersion:
+        description: ResourceVersion is an opaque revision from a read response, required
+          for updates.
+        example: "0"
         type: string
     type: object
   NamespaceStatus:
@@ -2424,6 +2451,54 @@ paths:
       summary: List Namespaces
       tags:
       - namespace
+  /api/v1/namespaces/{namespace}:
+    patch:
+      consumes:
+      - application/merge-patch+json
+      description: JSON Merge Patch with optional metadata.resourceVersion. Omitted
+        revisions allow same-field overwrite.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Merge patch with optional metadata.resourceVersion
+        in: body
+        name: patch
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Namespace'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "415":
+          description: Unsupported Media Type
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Patch Namespace
+      tags:
+      - namespace
   /api/v1/namespaces/{namespace}/agentgroups:
     get:
       description: Retrieves a list of agent groups with pagination options.
@@ -2502,6 +2577,11 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/ErrorModel'
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal Server Error
           schema:
@@ -2523,6 +2603,11 @@ paths:
         name: name
         required: true
         type: string
+      - description: Revision from the resource read; required for conditional deletion
+        in: query
+        name: resourceVersion
+        required: true
+        type: string
       responses:
         "204":
           description: No Content
@@ -2534,6 +2619,11 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/ErrorModel'
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal Server Error
           schema:
@@ -2585,10 +2675,63 @@ paths:
       summary: Get Agent Group
       tags:
       - agentgroup
+    patch:
+      consumes:
+      - application/merge-patch+json
+      description: JSON Merge Patch with optional metadata.resourceVersion. Omitted
+        revisions allow same-field overwrite.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Resource name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Merge patch with optional metadata.resourceVersion
+        in: body
+        name: patch
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AgentGroup'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "415":
+          description: Unsupported Media Type
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Patch AgentGroup
+      tags:
+      - agentgroup
     put:
       consumes:
       - application/json
-      description: Update an existing agent group.
+      description: Requires metadata.resourceVersion from the original read. Update
+        an existing agent group.
       parameters:
       - description: Namespace
         in: path
@@ -2621,6 +2764,11 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/ErrorModel'
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal Server Error
           schema:
@@ -2712,6 +2860,11 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal Server Error
           schema:
@@ -2734,6 +2887,11 @@ paths:
         name: name
         required: true
         type: string
+      - description: Revision from the resource read; required for conditional deletion
+        in: query
+        name: resourceVersion
+        required: true
+        type: string
       responses:
         "204":
           description: No Content
@@ -2744,6 +2902,11 @@ paths:
             type: object
         "404":
           description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
           schema:
             additionalProperties: true
             type: object
@@ -2795,10 +2958,63 @@ paths:
       summary: Get Agent Package
       tags:
       - agentpackage
+    patch:
+      consumes:
+      - application/merge-patch+json
+      description: JSON Merge Patch with optional metadata.resourceVersion. Omitted
+        revisions allow same-field overwrite.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Resource name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Merge patch with optional metadata.resourceVersion
+        in: body
+        name: patch
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AgentPackage'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "415":
+          description: Unsupported Media Type
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Patch AgentPackage
+      tags:
+      - agentpackage
     put:
       consumes:
       - application/json
-      description: Update an existing agent package.
+      description: Requires metadata.resourceVersion from the original read. Update
+        an existing agent package.
       parameters:
       - description: Namespace
         in: path
@@ -2830,6 +3046,11 @@ paths:
             type: object
         "404":
           description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
           schema:
             additionalProperties: true
             type: object
@@ -2895,6 +3116,59 @@ paths:
             additionalProperties: true
             type: object
       summary: List Agent Remote Configs
+      tags:
+      - agentremoteconfig
+  /api/v1/namespaces/{namespace}/agentremoteconfigs/{name}:
+    patch:
+      consumes:
+      - application/merge-patch+json
+      description: JSON Merge Patch with optional metadata.resourceVersion. Omitted
+        revisions allow same-field overwrite.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Resource name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Merge patch with optional metadata.resourceVersion
+        in: body
+        name: patch
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AgentRemoteConfig'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "415":
+          description: Unsupported Media Type
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Patch AgentRemoteConfig
       tags:
       - agentremoteconfig
   /api/v1/namespaces/{namespace}/agents:
@@ -3096,8 +3370,10 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve the agent groups in the namespace whose selector matches
-        the given agent.
+      description: |-
+        Retrieve the agent groups in the namespace whose selector matches the given agent.
+        Pages use insertion-key order and live membership, not a snapshot across requests.
+        Pass continue unchanged and stop when remainingItemCount is zero.
       parameters:
       - description: Namespace
         in: path
@@ -3108,6 +3384,38 @@ paths:
         in: path
         name: id
         required: true
+        type: string
+      - default: 50
+        description: Page size; 0 uses the default of 50
+        in: query
+        maximum: 1000
+        minimum: 0
+        name: limit
+        type: integer
+      - description: Token to continue listing agent groups
+        in: query
+        name: continue
+        type: string
+      - description: Include soft-deleted agent groups
+        in: query
+        name: includeDeleted
+        type: boolean
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: metadata.namespace'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
         type: string
       produces:
       - application/json

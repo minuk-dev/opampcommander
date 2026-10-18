@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowLeft, Pencil, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Boxes, Pencil, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
+import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -160,6 +161,12 @@ function AgentDetailInner() {
         subtitle={`Namespace: ${agent.metadata.namespace} · ${agentTypeLabel(agent.metadata.type)}`}
         actions={
           <>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/agentgroups?agent=${encodeURIComponent(agent.metadata.instanceUid)}`}>
+                <Boxes aria-hidden />
+                Agent groups
+              </Link>
+            </Button>
             <Button variant="ghost" size="icon-sm" aria-label="Refresh" onClick={fetchAgent}>
               <RefreshCw aria-hidden />
             </Button>

@@ -33,8 +33,11 @@ export default function AgentPackagesPage() {
         title="Agent Packages"
         subtitle={`Namespace: ${namespace}`}
         listPath={`/api/v1/namespaces/${namespace}/agentpackages`}
-        itemPath={(p) => `/api/v1/namespaces/${namespace}/agentpackages/${p.metadata.name}`}
+        itemPath={(p) =>
+          `/api/v1/namespaces/${p.metadata.namespace}/agentpackages/${p.metadata.name}`
+        }
         itemName={(p) => p.metadata.name}
+        resourceVersion={(row) => row.metadata.resourceVersion}
         filterable
         canEdit
         canDelete
@@ -89,9 +92,17 @@ export default function AgentPackagesPage() {
           samplesVars={{ namespace }}
           onClose={() => setRawTarget(null)}
           onSave={async (parsed) => {
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+              throw new Error('Resource must be an object');
             await api.put(
-              `/api/v1/namespaces/${namespace}/agentpackages/${rawTarget.row.metadata.name}`,
-              parsed,
+              `/api/v1/namespaces/${rawTarget.row.metadata.namespace}/agentpackages/${rawTarget.row.metadata.name}`,
+              {
+                ...parsed,
+                metadata: {
+                  ...(parsed as { metadata?: object }).metadata,
+                  resourceVersion: rawTarget.row.metadata.resourceVersion,
+                },
+              },
             );
             rawTarget.refresh();
             setRawTarget(null);

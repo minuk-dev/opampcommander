@@ -124,20 +124,27 @@ func NewMongoDatabase(
 
 	database := client.Database(databaseName)
 
-	if settings.DatabaseSettings.DDLAuto {
-		// Register schema initialization in lifecycle
-		lifecycle.Append(fx.Hook{
-			OnStart: func(ctx context.Context) error {
+	lifecycle.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			if settings.DatabaseSettings.DDLAuto {
 				err := mongodb.EnsureSchema(ctx, database, settings.DatabaseSettings.Sharding.Enabled)
 				if err != nil {
 					return fmt.Errorf("failed to ensure mongo schema: %w", err)
 				}
 
 				return nil
-			},
-			OnStop: nil,
-		})
-	}
+			}
+
+			err := mongodb.ValidateResourceSchema(ctx, database)
+			if err != nil {
+				return fmt.Errorf("resource schema is not ready; upgrade with database.ddlAuto=true "+
+					"or provision the required indexes and revisions before starting: %w", err)
+			}
+
+			return nil
+		},
+		OnStop: nil,
+	})
 
 	return database, nil
 }
