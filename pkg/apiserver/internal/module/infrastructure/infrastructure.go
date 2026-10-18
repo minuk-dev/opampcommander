@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	casbinModel "github.com/casbin/casbin/v2/model"
-	mongodbadapter "github.com/casbin/mongodb-adapter/v4"
+	mongodbadapter "github.com/apache/casbin-mongodb-adapter/v4"
+	casbinModel "github.com/casbin/casbin/v3/model"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/fx"
 

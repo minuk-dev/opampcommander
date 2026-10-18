@@ -1,0 +1,18 @@
+# Minimal catalog example. Prefer generating a schema from your actual collector.
+kind: RemoteConfigSchema
+apiVersion: v1
+metadata:
+  name: custom-collector-1.0.0
+  namespace: default
+spec:
+  binary: custom-collector
+  version: 1.0.0
+  components:
+    receivers:
+      otlp:
+        type: otlp
+        signals: [traces, metrics, logs]
+    exporters:
+      debug:
+        type: debug
+        signals: [traces, metrics, logs]

@@ -430,7 +430,7 @@ tests:
   enabled: true
   image:
     repository: curlimages/curl
-    tag: "8.22.0"
+    tag: "8.23.0"
     pullPolicy: IfNotPresent
   resources: {}
 ## Optional Grafana app preview. Requires Kubernetes >=1.25 and a custom image

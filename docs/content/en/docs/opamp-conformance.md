@@ -109,7 +109,7 @@ See [Custom messages](#custom-messages).
 | `agent_description` | ✅ | Ingested; non-string `AnyValue`s are preserved in their string form (`protobufsToDomain.go`, `anyValueToString`). |
 | `capabilities` | ✅ | Stored. |
 | `health` (`ComponentHealth`) | ✅ | Incl. nested sub-component health. |
-| `effective_config` | ✅ | Stored. |
+| `effective_config` | ✅ | All named entries are stored. For recognized Collector distributions, the `raw` source entry is excluded from active endpoint discovery. |
 | `remote_config_status` | ✅ | Stored; `LastUpdatedAt` is stamped from the injected clock. |
 | `connection_settings_status` | ✅ | Stored. |
 | `package_statuses` | ✅ | Stored. |
@@ -222,3 +222,11 @@ the `AgentToServer` converters in
 `pkg/apiserver/application/service/opamp/protobufstodomain_converters_test.go` and the
 `ServerToAgent` builder (including the connection-settings offer path) in
 `pkg/apiserver/domain/agent/service/servertoagent_test.go`.
+
+### Namespace attributes
+
+`service.namespace` is read from non-empty identifying attributes first, falling
+back to non-identifying attributes for Collector resource reports. Missing or
+empty attributes retain the existing namespace (the configured default for a new
+agent). Description updates reconcile matching groups and update connection
+namespace metadata in the same report cycle; certificate authorization is unchanged.
