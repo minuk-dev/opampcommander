@@ -171,9 +171,14 @@ func TestE2E_CurrentSupervisor(t *testing.T) {
 			require.NoError(t, supervisor.Start(t.Context()))
 			reconnected := testutil.EventuallyAgent(t, apiClient, "default", uid, func(a *v1.Agent) bool {
 				return a.Status.Connected && a.Status.ComponentHealth.Healthy &&
-					a.Status.LastReportedAt != rolledBack.Status.LastReportedAt && a.Status.RemoteConfig.SyncStatus == "RolledBack"
+					a.Status.LastReportedAt != rolledBack.Status.LastReportedAt &&
+					bytes.Equal(a.Status.RemoteConfig.LastFailedHash, rolledBack.Status.RemoteConfig.DesiredHash) &&
+					(a.Status.RemoteConfig.SyncStatus == "Failed" || a.Status.RemoteConfig.SyncStatus == "RolledBack") &&
+					!strings.Contains(a.Status.EffectiveConfig.ConfigMap.ConfigMap[""].Body, "192.0.2.1")
 			}, currentClientTimeout, conformancePoll, "Supervisor should reconnect with restored config")
-			assert.Equal(t, rolledBack.Status.RemoteConfig.LastFailedAt, reconnected.Status.RemoteConfig.LastFailedAt)
+			// Supervisor persists FAILED for the rejected revision and may replay it on restart
+			// while continuing to run the restored configuration. It need not replay APPLIED.
+			assert.Equal(t, rolledBack.Status.RemoteConfig.LastFailedHash, reconnected.Status.RemoteConfig.LastFailedHash)
 			// An explicit retry allows the same desired hash to fail again, with a new failure timestamp.
 			require.Eventually(t, func() bool {
 				_, err := apiClient.AgentService.UpdateAgent(t.Context(), "default", uid, &v1.Agent{
@@ -182,7 +187,7 @@ func TestE2E_CurrentSupervisor(t *testing.T) {
 				return err == nil
 			}, currentClientTimeout, conformancePoll)
 			testutil.EventuallyAgent(t, apiClient, "default", uid, func(a *v1.Agent) bool {
-				return a.Status.RemoteConfig.SyncStatus == "RolledBack" && a.Status.RemoteConfig.LastFailedAt != rolledBack.Status.RemoteConfig.LastFailedAt
+				return a.Status.RemoteConfig.SyncStatus == "RolledBack" && a.Status.RemoteConfig.LastFailedAt != reconnected.Status.RemoteConfig.LastFailedAt
 			}, currentClientTimeout, conformancePoll, "explicit retry should produce another failed attempt")
 			updateSupervisorConfig(t, apiClient, group, "receivers:\n  unknown_component: {}\n")
 			testutil.EventuallyAgent(t, apiClient, "default", uid, func(a *v1.Agent) bool {
