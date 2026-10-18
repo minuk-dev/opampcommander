@@ -54,19 +54,26 @@ jobs:
 
   collector-compatibility:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        transport: [ws, http]
     env:
       OPAMP_TEST_CURRENT_CLIENTS: "1"
+      CLIENT_TRANSPORT: ${{ matrix.transport }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Current Collector and Supervisor lifecycle
-        run: make test-e2e-current-clients
+        run: go test -tags=e2e ./test/e2e/apiserver -run "TestE2E_Current/${CLIENT_TRANSPORT}$" -parallel=1 -v -timeout=8m
       - name: Reference-client mTLS rotation regression
+        if: matrix.transport == 'ws'
         run: go test -tags=e2e ./test/e2e/apiserver -run TestE2E_OpAMPMTLSRotate -parallel=1 -timeout=3m
       - name: Validate shipped Collector examples
+        if: matrix.transport == 'ws'
         shell: bash
         run: |
           image=ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.163.1
