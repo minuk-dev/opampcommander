@@ -135,7 +135,7 @@ func (a *Adapter) querySignal(
 		return unmeasured, err
 	}
 
-	value, warnings, err := a.api.Query(ctx, query, evaluatedAt)
+	value, warnings, _, err := a.api.Query(ctx, query, evaluatedAt)
 	if err != nil {
 		return unmeasured, fmt.Errorf("failed to query %s throughput: %w", signal, err)
 	}
