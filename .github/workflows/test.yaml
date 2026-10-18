@@ -51,3 +51,27 @@ jobs:
       - name: Run E2E tests
         run: make test-e2e
         # Note: E2E tests run without -race flag due to known issues in external Kafka library (IBM/sarama)
+
+  collector-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPAMP_TEST_CURRENT_CLIENTS: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Current Collector and Supervisor lifecycle
+        run: make test-e2e-current-clients
+      - name: Reference-client mTLS rotation regression
+        run: go test -tags=e2e ./test/e2e/apiserver -run TestE2E_OpAMPMTLSRotate -parallel=1 -timeout=3m
+      - name: Validate shipped Collector examples
+        shell: bash
+        run: |
+          image=ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.163.1
+          for config in scripts/opampextension-ws.yaml scripts/opampextension-http.yaml scripts/collector-supervised.yaml; do
+            docker run --rm -v "$PWD:/repo:ro" "$image" validate --config="/repo/$config"
+          done
+          go run ./cmd/opampctl template agentremoteconfig opamp-extension -o json | jq -r '.spec.value' > /tmp/opamp-example.yaml
+          docker run --rm -v /tmp/opamp-example.yaml:/example.yaml:ro "$image" validate --config=/example.yaml

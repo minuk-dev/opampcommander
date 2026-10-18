@@ -263,3 +263,38 @@ back to non-identifying attributes for Collector resource reports. Missing or
 empty attributes retain the existing namespace (the configured default for a new
 agent). Description updates reconcile matching groups and update connection
 namespace metadata in the same report cycle; certificate authorization is unchanged.
+
+
+### Released Collector and Supervisor regression suite
+
+`make test-e2e-current-clients` starts an in-process standalone Commander and real
+released containers, using Collector Contrib **0.163.1** (components **0.163.0**)
+and Supervisor **0.163.0**. The Dockerfile combines the official Supervisor image
+with the official Collector binary; no custom client substitutes for either.
+Containers, their writable state and failed-test logs are managed by the fixture.
+The ordinary E2E suite skips these lifecycle tests unless
+`OPAMP_TEST_CURRENT_CLIENTS=1`; the bounded `collector-compatibility` CI job runs
+them with `-parallel=1`, then runs the reference-client mTLS rotation regression
+and validates the shipped Collector examples (including the embedded template).
+
+Coverage includes both WebSocket and HTTP:
+
+- Direct extension: persistent OpAMP UID with changed `service.instance.id`,
+  resource attributes/namespace, named `raw` and expanded config, repeated endpoint
+  extraction, and reconnect without an extra agent record.
+- Supervisor: named effective config forwarding, applied desired hash, runtime
+  startup failure and automatic rollback to an older hash, preserved failure across
+  persistent reconnect, explicit retry, invalid config validation, recovery with a
+  new desired hash, heartbeat/health, own-metrics settings and OpAMP client replacement.
+
+The default existing Collector fixture stays at **0.115.1** as a historical
+baseline and accepts `OPAMP_TEST_COLLECTOR_IMAGE` for an explicit alternative.
+The current suite pins exact distribution versions; updating them requires passing
+these scenarios and example validation. These two baselines do not establish a
+minimum supported version or compatibility for all intermediate releases.
+
+Deterministic delayed/`APPLYING` acknowledgment and persistence edge cases are
+covered by the domain/builder tests. The container suite observes normal asynchronous
+application; it does not inject arbitrary network delay or packet loss. mTLS
+rotation remains tested with the reference client, not the released Supervisor.
+Package installation is outside this suite and remains unsupported.

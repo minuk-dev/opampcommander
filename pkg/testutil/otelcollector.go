@@ -79,10 +79,19 @@ service:
 `, opampPort, instanceUID.String())
 }
 
+// collectorImage allows CI to exercise both the historical fixture and current releases.
+func collectorImage() string {
+	if selected := os.Getenv("OPAMP_TEST_COLLECTOR_IMAGE"); selected != "" {
+		return selected
+	}
+
+	return otelCollectorImage
+}
+
 func buildCollectorContainerRequest(configPath string) testcontainers.ContainerRequest {
 	//exhaustruct:ignore
 	return testcontainers.ContainerRequest{
-		Image:        otelCollectorImage,
+		Image:        collectorImage(),
 		ExposedPorts: []string{"4317/tcp", "4318/tcp"},
 		Files: []testcontainers.ContainerFile{
 			//exhaustruct:ignore
