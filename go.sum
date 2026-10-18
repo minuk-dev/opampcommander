@@ -12,6 +12,8 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/apache/casbin-mongodb-adapter/v4 v4.3.1-0.20260805145127-3463383afb3f h1:JAsnnkHEtyCfdCw+/+wfqzVTsZxocY2EuOTLZO/2ewY=
 github.com/apache/casbin-mongodb-adapter/v4 v4.3.1-0.20260805145127-3463383afb3f/go.mod h1:1lPEYhbPv99mh9w87l/DzmyIE4Em9RYeslN7VlbplSw=
+github.com/apache/casbin-mongodb-adapter/v4 v4.3.1-0.20260805154135-67c101979371 h1:KUz0OR1e9ODJObwbrldY8rSUmfk3d71if/YUPZw17Lg=
+github.com/apache/casbin-mongodb-adapter/v4 v4.3.1-0.20260805154135-67c101979371/go.mod h1:1lPEYhbPv99mh9w87l/DzmyIE4Em9RYeslN7VlbplSw=
 github.com/awnumar/memcall v0.4.0 h1:B7hgZYdfH6Ot1Goaz8jGne/7i8xD4taZie/PNSFZ29g=
 github.com/awnumar/memcall v0.4.0/go.mod h1:8xOx1YbfyuCg3Fy6TO8DK0kZUua3V42/goA5Ru47E8w=
 github.com/awnumar/memguard v0.23.0 h1:sJ3a1/SWlcuKIQ7MV+R9p0Pvo9CWsMbGZvcZQtmc68A=
