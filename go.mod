@@ -3,7 +3,7 @@ module github.com/minuk-dev/opampcommander
 go 1.26.0
 
 require (
-	github.com/apache/casbin-mongodb-adapter/v4 v4.3.1-0.20260805145127-3463383afb3f
+	github.com/apache/casbin-mongodb-adapter/v4 v4.3.1-0.20260805154135-67c101979371
 	github.com/awnumar/memguard v0.23.0
 	github.com/casbin/casbin/v3 v3.10.0
 	github.com/cloudevents/sdk-go/observability/opentelemetry/v2 v2.16.2
