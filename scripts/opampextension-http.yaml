@@ -3,7 +3,7 @@ extensions:
   opamp:
     server:
       http:
-        endpoint: "http://host.docker.internal:8080/v1/opamp"
+        endpoint: "http://host.docker.internal:8080/api/v1/opamp"
         tls:
           insecure: true
 receivers:
