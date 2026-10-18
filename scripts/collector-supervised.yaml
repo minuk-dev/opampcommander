@@ -1,0 +1,13 @@
+# Supervisor injects the local OpAMP extension and merges remote configuration.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+exporters:
+  debug:
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [debug]
