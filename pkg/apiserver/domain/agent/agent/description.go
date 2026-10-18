@@ -24,9 +24,15 @@ func (ad *Description) OS() vo.OS {
 
 // Service returns service information.
 func (ad *Description) Service() vo.Service {
+	namespace := ad.IdentifyingAttributes["service.namespace"]
+	if namespace == "" {
+		// Collector resource attributes are reported as non-identifying attributes.
+		namespace = ad.NonIdentifyingAttributes["service.namespace"]
+	}
+
 	return vo.Service{
 		Name:       ad.IdentifyingAttributes["service.name"],
-		Namespace:  ad.IdentifyingAttributes["service.namespace"],
+		Namespace:  namespace,
 		Version:    ad.IdentifyingAttributes["service.version"],
 		InstanceID: ad.IdentifyingAttributes["service.instance.id"],
 	}
