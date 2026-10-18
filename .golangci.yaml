@@ -143,8 +143,8 @@ linters:
             - golang.org/x/crypto/bcrypt
             - github.com/awnumar/memguard
             # RBAC
-            - github.com/casbin/casbin/v2
-            - github.com/casbin/mongodb-adapter/v4
+            - github.com/casbin/casbin/v3
+            - github.com/apache/casbin-mongodb-adapter/v4
             # documentation
             - github.com/swaggo/files
             - github.com/swaggo/gin-swagger
