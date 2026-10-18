@@ -289,6 +289,24 @@ opampctl create remoteconfigschema -n default -f schema.yaml
 opampctl get remoteconfigschema -n default
 ```
 
+The generator uses the collector's reported build command and version by default.
+Use `--namespace` when generating a manifest for a namespace other than `default`;
+`create -f` uses the namespace in that manifest. You can also read saved or piped
+`components` output and choose JSON instead of the default YAML:
+
+```sh
+./otelcol-contrib components > components.yaml
+opampctl generate remoteconfigschema --from components.yaml --namespace collectors \
+  -o json > schema.json
+opampctl create remoteconfigschema -f schema.json
+
+./otelcol-contrib components | opampctl generate remoteconfigschema --from - > schema.yaml
+```
+
+`--binary`, `--version`, and `--name` override the reported build identity and the
+default schema name (`<command>-<version>`). `--binary-path` selects the executable;
+`--binary` only sets the distribution label stored in the schema.
+
 Use the name from the generated manifest's `metadata.name` as `SCHEMA` below.
 For a hand-written example, run `opampctl template remoteconfigschema basic`;
 edit its name, version and component catalog to match your binary before creating
