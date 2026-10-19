@@ -14,6 +14,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/listutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -34,6 +35,8 @@ type CommandOptions struct {
 	namespace      string
 	allNamespaces  bool
 	selectors      selectorflags.Flags
+
+	pagination listutil.Flags
 
 	// internal
 	client *client.Client
@@ -65,6 +68,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 
 	options.selectors.Register(cmd, selectorflags.Labels)
+
+	options.pagination.Register(cmd)
 
 	return cmd
 }
@@ -108,33 +113,24 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
 	selectorOpts, err := opt.selectors.ListOptions()
 	if err != nil {
-		return fmt.Errorf("failed to list agent remote configs: %w", err)
+		return fmt.Errorf("failed to list resources: %w", err)
 	}
 
 	listOpts := append([]client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}, selectorOpts...)
 
-	var agentRemoteConfigs []v1.AgentRemoteConfig
-
-	if opt.allNamespaces {
-		agentRemoteConfigs, err = opt.listAllNamespaces(cmd, listOpts...)
-	} else {
-		agentRemoteConfigs, err = clientutil.ListAgentRemoteConfigFully(
-			cmd.Context(), opt.client, opt.namespace, listOpts...,
-		)
-	}
-
+	err = listutil.Run(cmd, opt.client, opt.pagination, opt.namespace, opt.allNamespaces,
+		formatter.FormatType(opt.formatType),
+		func(
+			ctx context.Context, namespace string, pageOpts ...client.ListOption,
+		) (*v1.ListResponse[v1.AgentRemoteConfig], error) {
+			return opt.client.AgentRemoteConfigService.ListAgentRemoteConfigs(ctx, namespace, append(listOpts, pageOpts...)...)
+		}, func(items []v1.AgentRemoteConfig) any {
+			return lo.Map(items, func(item v1.AgentRemoteConfig, _ int) formattedAgentRemoteConfig {
+				return opt.toFormattedAgentRemoteConfig(item)
+			})
+		})
 	if err != nil {
-		return fmt.Errorf("failed to list agent remote configs: %w", err)
-	}
-
-	displayedConfigs := make([]formattedAgentRemoteConfig, len(agentRemoteConfigs))
-	for idx, agentRemoteConfig := range agentRemoteConfigs {
-		displayedConfigs[idx] = opt.toFormattedAgentRemoteConfig(agentRemoteConfig)
-	}
-
-	err = formatter.Format(cmd.OutOrStdout(), displayedConfigs, formatter.FormatType(opt.formatType))
-	if err != nil {
-		return fmt.Errorf("failed to format agentremoteconfig: %w", err)
+		return fmt.Errorf("list agentremoteconfig: %w", err)
 	}
 
 	return nil
@@ -158,22 +154,6 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	}
 
 	return errors.Join(lookupErr, err)
-}
-
-func (opt *CommandOptions) listAllNamespaces(
-	cmd *cobra.Command, listOpts ...client.ListOption,
-) ([]v1.AgentRemoteConfig, error) {
-	configs, err := clientutil.ListAcrossNamespaces(
-		cmd.Context(), opt.client,
-		func(ctx context.Context, namespace string) ([]v1.AgentRemoteConfig, error) {
-			return clientutil.ListAgentRemoteConfigFully(ctx, opt.client, namespace, listOpts...)
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agent remote configs across all namespaces: %w", err)
-	}
-
-	return configs, nil
 }
 
 //nolint:lll

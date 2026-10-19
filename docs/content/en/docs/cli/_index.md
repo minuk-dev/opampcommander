@@ -122,6 +122,34 @@ Any failed lookup (including invalid UIDs, missing resources, permission errors,
 or timeouts) makes the command exit with status 1, even if other targets succeeded.
 JSON/YAML stdout contains only the successful result array, or `[]` if none succeeded.
 
+## Bounded inventory lists
+
+`get agent`, `agentgroup`, `connection`, `endpoint`, `certificate`, `agentpackage`,
+`agentremoteconfig`, and `remoteconfigschema` print one page of at most 100 items
+by default, including with `--all-namespaces` (`-A`). This replaces the previous
+implicit full-inventory listing. Use `--page-size` (1–1000) to choose the request
+size, `--continue` to resume, or `--stream` to explicitly traverse all pages.
+
+```bash
+opampctl get agent -n production --page-size 50
+# Copy the cursor printed on stderr, keeping namespace and filters unchanged:
+opampctl get agent -n production --page-size 50 --continue '<cursor>'
+opampctl get agentgroup -A --stream -o json > groups.json
+```
+
+Text/short output is flushed after each page, with a header per page. JSON is
+one valid array on successful completion. Streaming YAML is a sequence of
+documents, each containing one page's array. All formats retain only a page in
+memory. Across namespaces, a page covers one namespace; even an empty page may
+print a resume cursor for the next namespace.
+
+Ctrl+C, an API error, or a failed output write stops traversal with a nonzero exit
+status. Stdout may contain incomplete JSON or partial YAML/text; stderr reports
+the cause and a retry cursor. Retrying a failed page can replay items already
+written from that page. Resume with the same resource, namespace scope, and
+filters. These are live reads, so inventory changes between pages can affect
+results; cursors do not provide a snapshot or survive every server-side change.
+
 ## Filtering
 
 `opampctl get` accepts four filtering flags on every resource whose list endpoint
