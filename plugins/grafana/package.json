@@ -37,7 +37,7 @@
     "diagnostics-webpack-plugin": "^1.0.1",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.0",
-    "eslint-plugin-jsdoc": "^52.0.0",
+    "eslint-plugin-jsdoc": "^65.0.0",
     "eslint-plugin-react": "^7.37.0",
     "eslint-plugin-react-hooks": "^7.1.0",
     "fork-ts-checker-webpack-plugin": "^9.1.0",
