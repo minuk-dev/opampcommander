@@ -112,7 +112,9 @@ Apiserver image:
 
 All registered configuration keys follow the same rule: uppercase and replace
 `.` with `_` (for example `auth.jwt.refreshExpire` → `AUTH_JWT_REFRESHEXPIRE`).
-Precedence is explicit flags, environment, YAML, defaults. Use
+Secret fields also accept `_FILE` paths; precedence is explicit flags, nonempty
+environment values, secret files, YAML, defaults (see
+[External secrets](/docs/configuration/#external-secrets)). Use
 `/apiserver config view --config /path/config.yaml` to inspect effective settings
 with secrets redacted, and `/apiserver --help` for the full flag list.
 See [Configuration](/docs/configuration/) for TLS, OAuth2 and other settings.

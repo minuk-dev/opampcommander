@@ -111,7 +111,7 @@ func (opt *CommandOption) sourceComments() []string {
 
 // appliedEnvs returns the set environment variables that map to a config key.
 func (opt *CommandOption) appliedEnvs() []string {
-	var envs []string
+	envs := slices.Clone(opt.secretFileEnvs)
 
 	for _, key := range opt.viper.AllKeys() {
 		env := strings.ToUpper(strings.ReplaceAll(key, ".", "_"))

@@ -38,7 +38,7 @@ type CommandOption struct {
 	OpAMP    appconfig.OpAMPSettings    `mapstructure:"opamp"`
 	Database struct {
 		Type           string        `mapstructure:"type"`
-		Endpoints      []string      `mapstructure:"endpoints"`
+		Endpoints      []string      `mapstructure:"endpoints"      secret:"true"`
 		ConnectTimeout time.Duration `mapstructure:"connectTimeout"`
 		DatabaseName   string        `mapstructure:"databaseName"`
 		DDLAuto        bool          `mapstructure:"ddlAuto"`
@@ -158,7 +158,8 @@ type CommandOption struct {
 	// viper
 	viper *viper.Viper
 	// configReadErr is why the config file could not be read, if it could not.
-	configReadErr error
+	configReadErr  error
+	secretFileEnvs []string
 
 	// internal
 	app *apiserver.Server
@@ -237,6 +238,7 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.PersistentFlags().String("serviceName", "opampcommander", "service name for observability")
 	cmd.PersistentFlags().String("event.type", "inmemory", "event protocol type (inmemory, kafka)")
 	cmd.PersistentFlags().Bool("event.enabled", false, "enable event communication")
+	cmd.PersistentFlags().String("event.direct.authToken", "", "pre-shared token for direct event delivery")
 	cmd.PersistentFlags().StringSlice("event.kafka.brokers", []string{"localhost:9092"}, "Kafka broker addresses")
 	cmd.PersistentFlags().String("event.kafka.topic", "opampcommander.events", "Kafka topic name")
 
@@ -396,6 +398,11 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 	))
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	err = opt.resolveSecretFiles(cmd)
+	if err != nil {
+		return err
 	}
 
 	opt.Event.Kafka = opt.Event.Kafka.WithDefaults()

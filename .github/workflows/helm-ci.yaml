@@ -31,10 +31,11 @@ jobs:
       # so a values combination that only breaks in one shape still fails here.
       - name: helm lint
         run: make helm-lint
-      - name: Grafana render contracts
+      - name: Chart render contracts
         run: |
           python3 -m pip install PyYAML==6.0.3
           python3 deploy/charts/opampcommander/ci/test_grafana.py
+          python3 deploy/charts/opampcommander/ci/test_secret_files.py
 
   validate:
     name: validate manifests

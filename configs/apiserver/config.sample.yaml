@@ -1,3 +1,16 @@
+# Plaintext credentials below are for local development only.
+# Production: omit secret values from YAML and set environment variables or
+# their _FILE equivalents (paths to mounted Kubernetes Secret files), e.g.:
+#   AUTH_JWT_SECRET_FILE=/run/secrets/jwtSecret
+#   AUTH_BASIC_PEPPER_FILE=/run/secrets/basicPepper
+#   AUTH_ADMIN_PASSWORD_FILE=/run/secrets/adminPassword
+#   AUTH_OAUTH2_CLIENTSECRET_FILE=/run/secrets/oauth2ClientSecret
+#   AUTH_OAUTH2_STATE_JWT_SECRET_FILE=/run/secrets/oauth2StateJwtSecret
+#   DATABASE_ENDPOINTS_FILE=/run/secrets/databaseURI
+# Or supply the value directly, e.g. AUTH_JWT_SECRET=<secret>.
+# Precedence: explicit flag > nonempty env value > file > YAML > default.
+# DATABASE_ENDPOINTS_FILE contains one complete MongoDB URI (commas preserved).
+# See docs/content/en/docs/configuration/_index.md for file semantics.
 address: localhost:8080
 opamp:
   maxMessageSize: 0 # bytes after decompression; 0 = 64 MiB, negative = unlimited

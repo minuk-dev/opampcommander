@@ -2,6 +2,7 @@ package secondary
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/v2/event"
@@ -18,6 +19,9 @@ import (
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper"
 )
+
+// ErrInvalidMongoConfig hides URI fragments included in driver validation errors.
+var ErrInvalidMongoConfig = errors.New("invalid MongoDB configuration: check database.endpoints")
 
 // NewMongoDB provides the MongoDB client/database and every persistence adapter
 // (repositories, transaction runner, health indicator) built on top of it.
@@ -75,6 +79,11 @@ func NewMongoDBClient(
 	clientOptions := options.Client().
 		ApplyURI(uri).
 		SetMonitor(monitor)
+
+	err := clientOptions.Validate()
+	if err != nil {
+		return nil, ErrInvalidMongoConfig
+	}
 
 	mongoClient, err := mongo.Connect(clientOptions)
 	if err != nil {

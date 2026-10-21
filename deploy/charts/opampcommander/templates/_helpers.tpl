@@ -229,7 +229,13 @@ Validation. Rendered from the apiserver Deployment so a bad combination fails
 {{- if and .Values.apiserver.enabled (eq $eventType "kafka") (not (dig "event" "kafka" "brokers" list (.Values.apiserver.config | default dict))) -}}
 {{- $messages = append $messages "  - apiserver.config.event.type is \"kafka\" but apiserver.config.event.kafka.brokers is empty." -}}
 {{- end -}}
-{{- if and .Values.apiserver.enabled (eq $databaseType "mongodb") (not (dig "database" "endpoints" list (.Values.apiserver.config | default dict))) -}}
+{{- $externalDatabaseEndpoints := false -}}
+{{- range .Values.apiserver.extraEnv -}}
+{{- if and (has .name (list "DATABASE_ENDPOINTS" "DATABASE_ENDPOINTS_FILE")) (or .value .valueFrom) -}}
+{{- $externalDatabaseEndpoints = true -}}
+{{- end -}}
+{{- end -}}
+{{- if and .Values.apiserver.enabled (eq $databaseType "mongodb") (not $externalDatabaseEndpoints) (not (dig "database" "endpoints" list (.Values.apiserver.config | default dict))) -}}
 {{- $messages = append $messages "  - apiserver.config.database.type is \"mongodb\" but apiserver.config.database.endpoints is empty." -}}
 {{- end -}}
 {{/*
