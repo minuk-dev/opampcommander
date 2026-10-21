@@ -1,0 +1,10 @@
+# Preview image must be built and made available to the cluster first.
+grafana:
+  enabled: true
+  image:
+    repository: opampcommander-grafana
+    tag: dev
+  grafana.ini:
+    plugins:
+      # Explicit opt-in for the currently unsigned development plugin.
+      allow_loading_unsigned_plugins: minukdev-opampcommander-app,minukdev-opampcommander-datasource

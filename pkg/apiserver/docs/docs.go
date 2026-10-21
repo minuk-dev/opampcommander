@@ -5151,6 +5151,47 @@ const docTemplate = `{
                 }
             }
         },
+        "AgentRemoteConfigAcknowledgment": {
+            "type": "object",
+            "properties": {
+                "desiredHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "errorMessage": {
+                    "type": "string"
+                },
+                "lastFailedAt": {
+                    "type": "string"
+                },
+                "lastFailedError": {
+                    "type": "string"
+                },
+                "lastFailedHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "lastUpdatedAt": {
+                    "type": "string"
+                },
+                "reportedHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "syncStatus": {
+                    "type": "string"
+                }
+            }
+        },
         "AgentRemoteConfigMetadata": {
             "type": "object",
             "properties": {
@@ -5233,6 +5274,10 @@ const docTemplate = `{
                 "restartRequiredAt": {
                     "description": "RestartRequiredAt is the time when a restart was requested.\nIf this time is after the agent's start time, the agent should be restarted.",
                     "type": "string"
+                },
+                "retryRemoteConfig": {
+                    "description": "RetryRemoteConfig is a write-only request to retry the currently assigned config.",
+                    "type": "boolean"
                 }
             }
         },
@@ -5319,6 +5364,14 @@ const docTemplate = `{
                     "allOf": [
                         {
                             "$ref": "#/definitions/AgentPackageStatuses"
+                        }
+                    ]
+                },
+                "remoteConfig": {
+                    "description": "RemoteConfig reports acknowledgment and convergence of the desired configuration.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentRemoteConfigAcknowledgment"
                         }
                     ]
                 },

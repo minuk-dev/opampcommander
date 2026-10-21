@@ -1,6 +1,7 @@
-# Collector with the OpAMP extension enabled, so the collector reports back
-# to opampcommander and receives further remote config updates from it.
-# This is what most agents managed by this server should look like.
+# Collector configuration for direct status/effective-config reporting.
+# Extract spec.value into a local Collector config to use this example directly.
+# The extension alone does not accept remote configuration. For Supervisor-managed
+# collectors, use a pipeline template such as otlp-debug; Supervisor injects OpAMP.
 kind: AgentRemoteConfig
 apiVersion: v1
 metadata:
@@ -18,14 +19,14 @@ spec:
         server:
           ws:
             # Adjust to your opampcommander deployment's externally reachable URL.
-            endpoint: ws://opampcommander.example.com:8080/v1/opamp
+            endpoint: ws://opampcommander.example.com:8080/api/v1/opamp
             tls:
               insecure: true
-        # Agent identity reported to opampcommander.
+        # Set a unique, persistent UUID per installed Collector (do not share it).
+        # instance_uid: "019a0000-0000-7000-8000-000000000001"
+        # service.name/version/instance.id come from the Collector's own resource.
+        # Additional descriptive attributes:
         agent_description:
-          identifying_attributes:
-            service.name: my-service
-            service.version: 0.1.0
           non_identifying_attributes:
             deployment.environment: production
     receivers:

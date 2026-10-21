@@ -109,7 +109,7 @@ See [Custom messages](#custom-messages).
 | `agent_description` | ✅ | Ingested; non-string `AnyValue`s are preserved in their string form (`protobufsToDomain.go`, `anyValueToString`). |
 | `capabilities` | ✅ | Stored. |
 | `health` (`ComponentHealth`) | ✅ | Incl. nested sub-component health. |
-| `effective_config` | ✅ | Stored. |
+| `effective_config` | ✅ | All named entries are stored. For recognized Collector distributions, the `raw` source entry is excluded from active endpoint discovery. |
 | `remote_config_status` | ✅ | Stored; `LastUpdatedAt` is stamped from the injected clock. |
 | `connection_settings_status` | ✅ | Stored. |
 | `package_statuses` | ✅ | Stored. |
@@ -235,3 +235,46 @@ the `AgentToServer` converters in
 `pkg/apiserver/application/service/opamp/protobufstodomain_converters_test.go` and the
 `ServerToAgent` builder (including the connection-settings offer path) in
 `pkg/apiserver/domain/agent/service/servertoagent_test.go`.
+
+### Remote configuration acknowledgment and retry
+
+For agents advertising `ReportsRemoteConfig`, the shared delivery builder stops
+reoffering a desired hash once it is reported as `APPLYING`, `APPLIED`, or `FAILED`.
+A failed hash remains suppressed when a Supervisor reports `APPLIED` for an older,
+restored configuration. Failure information and report timestamps survive server
+restart and MongoDB persistence. Agents without status reporting retain redelivery.
+
+`Agent.status.remoteConfig` exposes desired/reported hashes (base64), reported
+status, `syncStatus` (`Unassigned`, `Unsupported`, `Pending`, `Applying`, `Applied`,
+`Failed`, or `RolledBack`), and the last failure. `RolledBack` means a different hash
+was reported applied after the desired hash failed; it is not a claim about the
+agent's internal rollback mechanism. An acknowledgment of an older hash is never
+proof that the current desired configuration was applied.
+
+Change the assigned configuration to deliver a new hash, or explicitly retry the
+unchanged configuration with `spec.retryRemoteConfig: true` in the existing agent
+update API. This write-only command clears acknowledgment/failure state, persists
+it, and notifies the agent. Normal reconciliation and reconnects do not clear it.
+An agent reporting `UNSET` after losing local state can receive its desired config
+again, unless that desired hash previously failed. Retry is not a revision barrier:
+late reports for the same hash may still describe the earlier attempt.
+
+### Collector identity across restarts
+
+OpAMP `instance_uid` and the Collector resource's `service.instance.id` are
+independent. A changed description on an existing session, after disconnect, or
+on a new HTTP poll does not allocate a new UID. Duplicate-session detection
+requires a different live WebSocket plus a conflicting reported identity.
+Overlapping WebSocket reconnects with the same identity are accepted. Without
+authenticated identity, simultaneous sessions reporting different identities
+cannot reliably be distinguished from a restart whose old socket is still open;
+clients should close the old socket before reconnecting with a changed identity.
+This heuristic does not replace mTLS certificate authorization.
+
+### Namespace attributes
+
+`service.namespace` is read from non-empty identifying attributes first, falling
+back to non-identifying attributes for Collector resource reports. Missing or
+empty attributes retain the existing namespace (the configured default for a new
+agent). Description updates reconcile matching groups and update connection
+namespace metadata in the same report cycle; certificate authorization is unchanged.

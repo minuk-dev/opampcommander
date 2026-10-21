@@ -1,0 +1,44 @@
+services:
+  commander:
+    build:
+      context: ./.demo
+      dockerfile: ../demo/Dockerfile
+    command: ['--config', '/etc/commander/config.yaml']
+    environment:
+      GOMEMLIMIT: 128MiB
+      AUTH_ADMIN_PASSWORD: ${COMMANDER_ADMIN_PASSWORD:?Run make grafana-demo}
+      AUTH_BASIC_PEPPER: ${COMMANDER_PEPPER:?Run make grafana-demo}
+      AUTH_JWT_SECRET: ${COMMANDER_JWT_SECRET:?Run make grafana-demo}
+    ports:
+      - '127.0.0.1:${COMMANDER_DEMO_PORT:-3301}:8080'
+    volumes:
+      - ./demo/server.yaml:/etc/commander/config.yaml:ro
+      - ./.demo/initial:/etc/commander/initial:ro
+  collector-a:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    command: ['--config=/etc/otelcol/demo.yaml']
+    environment:
+      DEMO_AGENT_NAME: demo-collector-a
+      GOMEMLIMIT: 64MiB
+    volumes:
+      - ./demo/collector.yaml:/etc/otelcol/demo.yaml:ro
+    depends_on: [commander]
+  collector-b:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    command: ['--config=/etc/otelcol/demo.yaml']
+    environment:
+      DEMO_AGENT_NAME: demo-collector-b
+      GOMEMLIMIT: 64MiB
+    volumes:
+      - ./demo/collector.yaml:/etc/otelcol/demo.yaml:ro
+    depends_on: [commander]
+  grafana:
+    mem_limit: ${GRAFANA_DEMO_MEMORY_LIMIT:-512m}
+    environment:
+      COMMANDER_DEMO_TOKEN: ${COMMANDER_DEMO_TOKEN:-}
+      GOMEMLIMIT: ${GRAFANA_GOMEMLIMIT:-128MiB}
+      GOGC: '50'
+      # This disposable demo only needs Commander, not other datasource backends.
+      GF_PLUGINS_DISABLE_PLUGINS: cloudwatch,elasticsearch,grafana-azure-monitor-datasource,grafana-postgresql-datasource,grafana-pyroscope-datasource,influxdb,jaeger,loki,mssql,mysql,opentsdb,prometheus,tempo,zipkin
+    volumes:
+      - ./demo/provisioning:/etc/grafana/provisioning:ro

@@ -43,3 +43,28 @@ func TestAgent_NoRestartRequest(t *testing.T) {
 			"a missing request must not restart an agent with an unknown start time")
 	}
 }
+
+func TestAgent_RemoteConfigFailureSurvivesBSON(t *testing.T) {
+	t.Parallel()
+
+	agent := agentmodel.NewAgent(uuid.New())
+
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	require.NoError(t, agent.ReportRemoteConfigStatus(&agentmodel.AgentRemoteConfigStatus{
+		LastRemoteConfigHash: []byte("bad"), Status: agentmodel.RemoteConfigStatusFailed,
+		ErrorMessage: "invalid collector config", LastUpdatedAt: now,
+	}))
+	require.NoError(t, agent.ReportRemoteConfigStatus(&agentmodel.AgentRemoteConfigStatus{
+		LastRemoteConfigHash: []byte("good"), Status: agentmodel.RemoteConfigStatusApplied,
+		LastUpdatedAt: now.Add(time.Second),
+	}))
+	encoded, err := bson.Marshal(entity.AgentFromDomain(agent))
+	require.NoError(t, err)
+
+	var stored entity.Agent
+	require.NoError(t, bson.Unmarshal(encoded, &stored))
+	require.Equal(t, agent.Status.RemoteConfigStatus, stored.ToDomain().Status.RemoteConfigStatus)
+	clone := agent.Clone()
+	clone.Status.RemoteConfigStatus.LastFailedHash[0] = 'x'
+	require.Equal(t, []byte("bad"), agent.Status.RemoteConfigStatus.LastFailedHash)
+}

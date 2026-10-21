@@ -1,0 +1,18 @@
+{{- if .Values.grafana.enabled }}
+{{- if or (empty .Values.grafana.image.repository) (empty .Values.grafana.image.tag) }}
+{{- fail "grafana.enabled requires grafana.image.repository and grafana.image.tag for an image containing the Commander plugin; see plugins/grafana/Dockerfile" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "opampcommander.grafanaProvisioningName" . }}
+  labels:
+    {{- include "opampcommander.labels" . | nindent 4 }}
+data:
+  apps.yaml: |
+    apiVersion: 1
+    apps:
+      - type: minukdev-opampcommander-app
+        org_id: 1
+        disabled: false
+{{- end }}

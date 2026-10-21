@@ -16,6 +16,7 @@ import (
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agent"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
@@ -428,4 +429,32 @@ func TestService_DeleteAgent_BroadcastsCacheInvalidation(t *testing.T) {
 
 	require.Len(t, spy.broadcasted, 1)
 	assert.Equal(t, instanceUID, spy.broadcasted[0])
+}
+
+func TestService_UpdateAgent_RetryRemoteConfig(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	agents := new(MockAgentUsecase)
+	notifications := new(MockAgentNotificationUsecase)
+	svc := agent.New(agents, notifications, stubEndpointDetectionUsecase{},
+		&spyCacheInvalidationPublisher{}, slog.Default())
+	caps := modelagent.Capabilities(modelagent.AgentCapabilityAcceptsRemoteConfig)
+	existing := agentmodel.NewAgent(uuid.New(), agentmodel.WithCapabilities(&caps))
+	require.NoError(t, existing.ApplyRemoteConfig("", agentmodel.AgentConfigFile{
+		Body: []byte("receivers: {}"), ContentType: "text/yaml",
+	}))
+	existing.Status.RemoteConfigStatus.LastFailedHash = []byte("failed")
+	agents.On("GetAgent", ctx, existing.Metadata.InstanceUID).Return(existing, nil).Once()
+	agents.On("SaveAgent", ctx, mock.MatchedBy(func(value *agentmodel.Agent) bool {
+		return len(value.Status.RemoteConfigStatus.LastFailedHash) == 0
+	})).Return(nil).Once()
+	notifications.On("NotifyAgentUpdated", ctx, existing).Return(nil).Once()
+	result, err := svc.UpdateAgent(ctx, "default", existing.Metadata.InstanceUID, &v1.Agent{
+		Spec: v1.AgentSpec{RetryRemoteConfig: true},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.Spec.RetryRemoteConfig, "retry is a command, not persisted desired state")
+	agents.AssertExpectations(t)
+	notifications.AssertExpectations(t)
 }

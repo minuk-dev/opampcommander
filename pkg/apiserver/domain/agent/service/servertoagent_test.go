@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
@@ -230,4 +231,48 @@ func TestServerToAgentBuilder_Build_AdvertisesCustomCapabilities(t *testing.T) {
 		assert.Nil(t, msg.GetCustomCapabilities())
 		assert.Nil(t, msg.GetCustomMessage())
 	})
+}
+
+func TestServerToAgentBuilder_RemoteConfigAcknowledgment(t *testing.T) {
+	t.Parallel()
+
+	for _, state := range []agentmodel.RemoteConfigStatus{
+		agentmodel.RemoteConfigStatusApplying, agentmodel.RemoteConfigStatusApplied, agentmodel.RemoteConfigStatusFailed,
+	} {
+		t.Run(state.String(), func(t *testing.T) {
+			t.Parallel()
+
+			caps := modelagent.Capabilities(
+				modelagent.AgentCapabilityAcceptsRemoteConfig | modelagent.AgentCapabilityReportsRemoteConfig,
+			)
+			agent := agentmodel.NewAgent(uuid.New(), agentmodel.WithCapabilities(&caps))
+			require.NoError(t, agent.ApplyRemoteConfig("", agentmodel.AgentConfigFile{
+				Body: []byte("receivers: {}"), ContentType: "text/yaml",
+			}))
+
+			builder := newTestBuilder()
+			offer := builder.Build(t.Context(), agent).GetRemoteConfig()
+			require.NotNil(t, offer)
+			require.NoError(t, agent.ReportRemoteConfigStatus(&agentmodel.AgentRemoteConfigStatus{
+				LastRemoteConfigHash: offer.GetConfigHash(), Status: state, LastUpdatedAt: time.Now().Truncate(time.Millisecond),
+			}))
+			assert.Nil(t, builder.Build(t.Context(), agent).GetRemoteConfig())
+
+			if state == agentmodel.RemoteConfigStatusFailed {
+				require.NoError(t, agent.ReportRemoteConfigStatus(&agentmodel.AgentRemoteConfigStatus{
+					LastRemoteConfigHash: []byte("previous-working-config"), Status: agentmodel.RemoteConfigStatusApplied,
+				}))
+				assert.Equal(t, "RolledBack", agent.RemoteConfigSyncStatus(offer.GetConfigHash()))
+				agent = entity.AgentFromDomain(agent).ToDomain().Clone()
+				assert.Nil(t, builder.Build(t.Context(), agent).GetRemoteConfig(), "rollback suppression survives reload and clone")
+				require.NoError(t, agent.RetryRemoteConfig())
+				assert.NotNil(t, builder.Build(t.Context(), agent).GetRemoteConfig(), "explicit retry reoffers the same revision")
+			}
+
+			require.NoError(t, agent.ApplyRemoteConfig("", agentmodel.AgentConfigFile{
+				Body: []byte("receivers: {otlp: {}}"), ContentType: "text/yaml",
+			}))
+			assert.NotNil(t, builder.Build(t.Context(), agent).GetRemoteConfig(), "a new revision must be offered")
+		})
+	}
 }

@@ -178,6 +178,11 @@ func (s *EndpointDetectionService) ExtractEndpointsFromAgent(
 	merged := map[string]*detectedExporter{}
 
 	for filename, file := range agent.Status.EffectiveConfig.ConfigMap.ConfigMap {
+		// Collector's raw entry is unexpanded source, not another active config.
+		if filename == "raw" && agent.Metadata.Description.AgentType().IsOTelCollector() {
+			continue
+		}
+
 		exporters, err := parseCollectorExporters(file.Body)
 		if err != nil {
 			return nil, fmt.Errorf("parse effective config %q: %w", filename, err)

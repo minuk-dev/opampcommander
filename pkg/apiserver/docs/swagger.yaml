@@ -292,6 +292,33 @@ definitions:
       status:
         $ref: '#/definitions/AgentRemoteConfigStatus'
     type: object
+  AgentRemoteConfigAcknowledgment:
+    properties:
+      desiredHash:
+        items:
+          type: integer
+        type: array
+      errorMessage:
+        type: string
+      lastFailedAt:
+        type: string
+      lastFailedError:
+        type: string
+      lastFailedHash:
+        items:
+          type: integer
+        type: array
+      lastUpdatedAt:
+        type: string
+      reportedHash:
+        items:
+          type: integer
+        type: array
+      status:
+        type: string
+      syncStatus:
+        type: string
+    type: object
   AgentRemoteConfigMetadata:
     properties:
       attributes:
@@ -352,6 +379,10 @@ definitions:
           RestartRequiredAt is the time when a restart was requested.
           If this time is after the agent's start time, the agent should be restarted.
         type: string
+      retryRemoteConfig:
+        description: RetryRemoteConfig is a write-only request to retry the currently
+          assigned config.
+        type: boolean
     type: object
   AgentSpecPackages:
     properties:
@@ -409,6 +440,11 @@ definitions:
         allOf:
         - $ref: '#/definitions/AgentPackageStatuses'
         description: PackageStatuses is a map of package statuses for the agent.
+      remoteConfig:
+        allOf:
+        - $ref: '#/definitions/AgentRemoteConfigAcknowledgment'
+        description: RemoteConfig reports acknowledgment and convergence of the desired
+          configuration.
       sequenceNum:
         description: SequenceNum is the sequence number from the last AgentToServer
           message.

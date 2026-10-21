@@ -60,26 +60,11 @@ func (b *ServerToAgentBuilder) Build(
 	var remoteConfig *protobufs.AgentRemoteConfig
 
 	if agentModel.HasRemoteConfig() {
-		configMap := make(map[string]*protobufs.AgentConfigObject)
-		for name, configFile := range agentModel.Spec.RemoteConfig.ConfigMap.ConfigMap {
-			configMap[name] = &protobufs.AgentConfigObject{
-				Body:        configFile.Body,
-				ContentType: configFile.ContentType,
-			}
-		}
-
-		hash, err := vo.NewHashFromAny(configMap)
+		offer, err := agentModel.RemoteConfigOffer()
 		if err != nil {
-			b.logger.Error("failed to compute hash for remote config", "instance_uid", instanceUID, "error", err)
-
-			remoteConfig = nil
-		} else {
-			remoteConfig = &protobufs.AgentRemoteConfig{
-				Config: &protobufs.AgentConfigMap{
-					ConfigMap: configMap,
-				},
-				ConfigHash: hash.Bytes(),
-			}
+			b.logger.Error("failed to build remote config", "instance_uid", instanceUID, "error", err)
+		} else if offer != nil && agentModel.ShouldOfferRemoteConfig(offer.GetConfigHash()) {
+			remoteConfig = offer
 		}
 	}
 

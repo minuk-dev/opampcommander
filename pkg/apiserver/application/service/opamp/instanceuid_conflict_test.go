@@ -242,7 +242,7 @@ func TestDetectInstanceUIDConflict_LiveConnectionAloneIsNotConflict(t *testing.T
 	assert.Nil(t, conflict)
 }
 
-func TestDetectInstanceUIDConflict_IdentifyingAttrsMismatch(t *testing.T) {
+func TestDetectInstanceUIDConflict_DescriptionChangeAfterDisconnect(t *testing.T) {
 	t.Parallel()
 
 	instanceUID := uuid.New()
@@ -274,9 +274,8 @@ func TestDetectInstanceUIDConflict_IdentifyingAttrsMismatch(t *testing.T) {
 
 	conflict := svc.detectInstanceUIDConflict(t.Context(), nil, instanceUID, msg)
 
-	require.NotNil(t, conflict)
-	assert.Equal(t, conflictReasonIdentifyingAttrs, conflict.reason)
-	assert.Same(t, stored, conflict.existingAgent)
+	assert.Nil(t, conflict)
+	assert.Nil(t, agentUC.saved, "a description update must not trigger UID reassignment")
 }
 
 func TestDetectInstanceUIDConflict_IdentifyingAttrsMatchNoConflict(t *testing.T) {
@@ -350,7 +349,7 @@ func TestRecordInstanceUIDConflict_AddsConditionAndSaves(t *testing.T) {
 	newUID := uuid.New()
 
 	svc.recordInstanceUIDConflict(t.Context(), svc.logger,
-		&instanceUIDConflict{reason: conflictReasonIdentifyingAttrs, existingAgent: stored},
+		&instanceUIDConflict{reason: conflictReasonLiveAndIdentifying, existingAgent: stored},
 		oldUID, newUID)
 
 	assert.Same(t, stored, agentUC.saved)
@@ -359,7 +358,7 @@ func TestRecordInstanceUIDConflict_AddsConditionAndSaves(t *testing.T) {
 	assert.Equal(t, agentmodel.AgentConditionStatusTrue, condition.Status)
 	assert.Contains(t, condition.Message, oldUID.String())
 	assert.Contains(t, condition.Message, newUID.String())
-	assert.Contains(t, condition.Message, conflictReasonIdentifyingAttrs)
+	assert.Contains(t, condition.Message, conflictReasonLiveAndIdentifying)
 }
 
 func TestRecordInstanceUIDConflict_NoExistingAgentSkipsSave(t *testing.T) {
@@ -369,7 +368,7 @@ func TestRecordInstanceUIDConflict_NoExistingAgentSkipsSave(t *testing.T) {
 	svc := newTestService(t, agentUC, &stubConnectionUsecase{})
 
 	svc.recordInstanceUIDConflict(t.Context(), svc.logger,
-		&instanceUIDConflict{reason: conflictReasonIdentifyingAttrs, existingAgent: nil},
+		&instanceUIDConflict{reason: conflictReasonLiveAndIdentifying, existingAgent: nil},
 		uuid.New(), uuid.New())
 
 	assert.Nil(t, agentUC.saved)
@@ -389,13 +388,13 @@ func TestRecordInstanceUIDConflict_ReplacesPreviousAudit(t *testing.T) {
 		&instanceUIDConflict{reason: conflictReasonLiveAndIdentifying, existingAgent: stored},
 		oldUID, firstNew)
 	svc.recordInstanceUIDConflict(t.Context(), svc.logger,
-		&instanceUIDConflict{reason: conflictReasonIdentifyingAttrs, existingAgent: stored},
+		&instanceUIDConflict{reason: conflictReasonLiveAndIdentifying, existingAgent: stored},
 		oldUID, secondNew)
 
 	condition := stored.GetCondition(agentmodel.AgentConditionTypeInstanceUIDConflict)
 	require.NotNil(t, condition)
 	assert.Contains(t, condition.Message, secondNew.String())
-	assert.Contains(t, condition.Message, conflictReasonIdentifyingAttrs)
+	assert.Contains(t, condition.Message, conflictReasonLiveAndIdentifying)
 	assert.NotContains(t, condition.Message, firstNew.String())
 
 	count := 0
@@ -444,7 +443,10 @@ func TestHandleInstanceUIDConflict_ReturnsRenewalAndAudits(t *testing.T) {
 	}))
 
 	agentUC := &stubAgentUsecase{getResult: stored}
-	connUC := &stubConnectionUsecase{byInstanceUIDErr: agentport.ErrConnectionNotFound}
+	connUC := &stubConnectionUsecase{
+		byInstanceUID: aliveConn(t, uuid.New(), instanceUID),
+		byID:          aliveConn(t, uuid.New(), instanceUID),
+	}
 
 	svc := newTestService(t, agentUC, connUC)
 
@@ -486,4 +488,37 @@ func TestHandleInstanceUIDConflict_NoConflictReturnsNil(t *testing.T) {
 	response := svc.handleInstanceUIDConflict(t.Context(), svc.logger, nil, uuid.New(), &protobufs.AgentToServer{})
 
 	assert.Nil(t, response)
+}
+
+func TestDetectInstanceUIDConflict_DescriptionChangeOnExistingSession(t *testing.T) {
+	t.Parallel()
+
+	transports := []agentmodel.ConnectionType{agentmodel.ConnectionTypeWebSocket, agentmodel.ConnectionTypeHTTP}
+	for _, transport := range transports {
+		t.Run(transport.String(), func(t *testing.T) {
+			t.Parallel()
+
+			uid := uuid.New()
+			stored := agentmodel.NewAgent(uid, agentmodel.WithDescription(&agent.Description{
+				IdentifyingAttributes: map[string]string{serviceInstanceIDAttribute: "before-restart"},
+			}))
+			connection := aliveConn(t, uuid.New(), uid)
+			connection.Type = transport
+
+			current := connection
+			if transport == agentmodel.ConnectionTypeHTTP {
+				current = aliveConn(t, uuid.New(), uid)
+				current.Type = transport
+			}
+
+			usecase := &stubAgentUsecase{getResult: stored}
+			svc := newTestService(t, usecase, &stubConnectionUsecase{byInstanceUID: connection, byID: current})
+			message := &protobufs.AgentToServer{AgentDescription: &protobufs.AgentDescription{
+				IdentifyingAttributes: []*protobufs.KeyValue{{Key: serviceInstanceIDAttribute,
+					Value: &protobufs.AnyValue{Value: &protobufs.AnyValue_StringValue{StringValue: "after-restart"}}}},
+			}}
+			assert.Nil(t, svc.handleInstanceUIDConflict(t.Context(), svc.logger, nil, uid, message))
+			assert.Nil(t, usecase.saved)
+		})
+	}
 }

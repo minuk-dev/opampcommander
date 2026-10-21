@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	conflictReasonIdentifyingAttrs   = "stored_agent_has_different_identifying_attributes"
 	conflictReasonLiveAndIdentifying = "live_connection_and_identifying_attributes_mismatch"
 	conflictTriggeredBy              = "system:opamp"
 	serviceInstanceIDAttribute       = "service.instance.id"
@@ -47,13 +46,11 @@ func (s *Service) handleInstanceUIDConflict(
 	return s.createRenewalServerToAgent(instanceUID, newInstanceUID)
 }
 
-// detectInstanceUIDConflict checks whether the incoming message claims an instanceUID that
-// is already owned by a different agent identity. A conflict requires the stored agent's
-// identifying attributes to differ from the incoming message — a different live connection
-// alone is not enough, since rapid reconnects routinely overlap with the asynchronous
-// cleanup of the previous Connection record. When a live-connection mismatch coincides with
-// an identifying-attribute mismatch, the reason is escalated so operators see the stronger
-// signal.
+// detectInstanceUIDConflict requires both another live WebSocket and a different
+// reported identity. Description changes alone are normal across Collector restarts:
+// service.instance.id is independent of the persistent OpAMP instance UID.
+// This is duplicate-session detection, not authentication; certificate authorization
+// runs before this handler when mTLS is required.
 func (s *Service) detectInstanceUIDConflict(
 	ctx context.Context,
 	conn types.Connection,
@@ -69,15 +66,12 @@ func (s *Service) detectInstanceUIDConflict(
 		return nil
 	}
 
-	if s.hasLiveConnectionConflict(ctx, conn, instanceUID) {
-		return &instanceUIDConflict{
-			reason:        conflictReasonLiveAndIdentifying,
-			existingAgent: existingAgent,
-		}
+	if !s.hasLiveConnectionConflict(ctx, conn, instanceUID) {
+		return nil
 	}
 
 	return &instanceUIDConflict{
-		reason:        conflictReasonIdentifyingAttrs,
+		reason:        conflictReasonLiveAndIdentifying,
 		existingAgent: existingAgent,
 	}
 }
@@ -94,7 +88,8 @@ func (s *Service) hasLiveConnectionConflict(
 		return false
 	}
 
-	if existingConn == nil {
+	// An HTTP connection record represents a poll, not a competing live session.
+	if existingConn == nil || existingConn.Type != agentmodel.ConnectionTypeWebSocket {
 		return false
 	}
 

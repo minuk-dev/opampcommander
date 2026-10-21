@@ -26,11 +26,15 @@ jobs:
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
         with:
-          version: v4.3.0
+          version: v4.3.1
       # Renders the chart with the defaults and with every permutation in ci/,
       # so a values combination that only breaks in one shape still fails here.
       - name: helm lint
         run: make helm-lint
+      - name: Grafana render contracts
+        run: |
+          python3 -m pip install PyYAML==6.0.3
+          python3 deploy/charts/opampcommander/ci/test_grafana.py
 
   validate:
     name: validate manifests
@@ -39,7 +43,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
         with:
-          version: v4.3.0
+          version: v4.3.1
       - name: Install kubeconform
         run: |
           curl -sSfL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz \
@@ -49,6 +53,7 @@ jobs:
       - name: kubeconform
         run: |
           set -euo pipefail
+          make helm-deps
           for values in "${CHART}"/ci/*-values.yaml; do
             echo "==> ${values}"
             helm template opampcommander "${CHART}" -f "${values}" \
@@ -63,9 +68,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
         with:
-          version: v4.3.0
+          version: v4.3.1
       - name: helm package
-        run: helm package "${CHART}" --destination ./dist
+        run: make helm-package
       - uses: actions/upload-artifact@v7
         with:
           name: helm-chart
