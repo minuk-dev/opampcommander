@@ -7,7 +7,7 @@
     "test": "jest --maxWorkers 4",
     "test:ci": "jest --ci --maxWorkers 4",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint --cache .",
+    "lint": "eslint --config eslint.config.mjs --cache .",
     "lint:fix": "npm run lint -- --fix && prettier --write --list-different .",
     "e2e": "playwright test",
     "server": "docker compose up -d --wait",
@@ -16,6 +16,7 @@
   "author": "minuk-dev",
   "license": "Apache-2.0",
   "devDependencies": {
+    "@eslint/compat": "^2.1.1",
     "@grafana/eslint-config": "^10.0.0",
     "@grafana/plugin-e2e": "^3.15.0",
     "@grafana/tsconfig": "^2.2.0",
@@ -35,7 +36,7 @@
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.0",
     "diagnostics-webpack-plugin": "^1.0.1",
-    "eslint": "^9.32.0",
+    "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.1.0",
     "eslint-plugin-jsdoc": "^65.0.0",
     "eslint-plugin-react": "^7.37.0",
@@ -63,6 +64,11 @@
     "webpack-livereload-plugin": "^3.0.2",
     "webpack-subresource-integrity": "^5.1.0",
     "webpack-virtual-modules": "^0.6.2"
+  },
+  "overrides": {
+    "eslint-plugin-react": {
+      "eslint": "$eslint"
+    }
   },
   "engines": {
     "node": ">=24.0.0"
