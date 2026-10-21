@@ -13,6 +13,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/listutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -25,6 +26,8 @@ type CommandOptions struct {
 	formatType    string
 	namespace     string
 	allNamespaces bool
+
+	pagination listutil.Flags
 
 	// internal
 	client *client.Client
@@ -53,6 +56,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringVarP(&options.formatType, "format", "f", "short", "Output format (short, text, json, yaml)")
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace")
 	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
+
+	options.pagination.Register(cmd)
 
 	return cmd
 }
@@ -94,28 +99,17 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the connection information for all connections in a namespace.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	var (
-		connections []v1.Connection
-		err         error
-	)
+	var listOpts []client.ListOption
 
-	if opt.allNamespaces {
-		connections, err = opt.listAllNamespaces(cmd)
-	} else {
-		connections, err = clientutil.ListConnectionFully(cmd.Context(), opt.client, opt.namespace)
-	}
-
+	err := listutil.Run(cmd, opt.client, opt.pagination, opt.namespace, opt.allNamespaces,
+		formatter.FormatType(opt.formatType),
+		func(
+			ctx context.Context, namespace string, pageOpts ...client.ListOption,
+		) (*v1.ListResponse[v1.Connection], error) {
+			return opt.client.ConnectionService.ListConnections(ctx, namespace, append(listOpts, pageOpts...)...)
+		}, func(items []v1.Connection) any { return items })
 	if err != nil {
-		return fmt.Errorf("failed to list connections: %w", err)
-	}
-
-	if len(connections) == 0 {
-		cmd.Println("No connections found.")
-	}
-
-	err = formatter.Format(cmd.OutOrStdout(), connections, formatter.FormatType(opt.formatType))
-	if err != nil {
-		return fmt.Errorf("failed to format connections: %w", err)
+		return fmt.Errorf("list connection: %w", err)
 	}
 
 	return nil
@@ -138,18 +132,4 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	}
 
 	return errors.Join(lookupErr, err)
-}
-
-func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.Connection, error) {
-	connections, err := clientutil.ListAcrossNamespaces(
-		cmd.Context(), opt.client,
-		func(ctx context.Context, namespace string) ([]v1.Connection, error) {
-			return clientutil.ListConnectionFully(ctx, opt.client, namespace)
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list connections across all namespaces: %w", err)
-	}
-
-	return connections, nil
 }

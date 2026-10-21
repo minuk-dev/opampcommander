@@ -1,6 +1,6 @@
 'use client';
 
-import { Eye, Pencil, RefreshCw, RotateCcw, Search, Trash2, Users, X } from 'lucide-react';
+import { Eye, Pencil, RefreshCw, RotateCcw, Search, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
@@ -45,8 +45,7 @@ import {
   type Agent,
 } from '@entities/agent';
 import { cn, type ColumnConfig, useColumnVisibility, useCursorPagination } from '@shared/lib';
-import { useApi, type ListResponse } from '@shared/api';
-import type { AgentGroup } from '@entities/agent-group';
+import AgentGroupPicker from './AgentGroupPicker';
 
 type SearchMode = 'uid' | 'group' | 'description' | 'attributes' | 'nattribute';
 
@@ -216,14 +215,6 @@ function AgentsInner() {
   const { items: agents, isLoading: loading, error: fetchError } = pagination;
   const error =
     fetchError instanceof Error ? fetchError.message : fetchError ? 'Failed to fetch agents' : null;
-
-  // Group list for the "Group" autocomplete + chip cross-reference. SWR dedupes
-  // this with the same fetch on other pages and silently no-ops on RBAC denial.
-  const { data: groupData } = useApi<ListResponse<AgentGroup>>([
-    `/api/v1/namespaces/${namespace}/agentgroups`,
-    { limit: 500 },
-  ]);
-  const groupOptions = groupData?.items ?? [];
 
   // The URL owns the search state, but both controls are also editable locally
   // between navigations, so each re-syncs on its own trigger: the mode when the
@@ -451,23 +442,13 @@ function AgentsInner() {
           <Field label={mode === 'group' ? 'Agent group' : 'Query'} className="flex-1">
             {(field) =>
               mode === 'group' ? (
-                <>
-                  {/* Native datalist keeps the free-text + suggestions behaviour
-                      of the old free-solo autocomplete without a popup widget. */}
-                  <Input
-                    {...field}
-                    list="agent-group-options"
-                    startSlot={<Users aria-hidden />}
-                    placeholder="Select or type an agent group name…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                  <datalist id="agent-group-options">
-                    {groupOptions.map((g) => (
-                      <option key={g.metadata.name} value={g.metadata.name} />
-                    ))}
-                  </datalist>
-                </>
+                <AgentGroupPicker
+                  key={namespace}
+                  {...field}
+                  namespace={namespace}
+                  value={query}
+                  onChange={setQuery}
+                />
               ) : (
                 <Input
                   {...field}

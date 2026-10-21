@@ -14,6 +14,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/listutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -32,6 +33,8 @@ type CommandOptions struct {
 	namespace      string
 	allNamespaces  bool
 	selectors      selectorflags.Flags
+
+	pagination listutil.Flags
 
 	// internal
 	client *client.Client
@@ -63,6 +66,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 
 	options.selectors.Register(cmd, selectorflags.Labels)
+
+	options.pagination.Register(cmd)
 
 	return cmd
 }
@@ -104,30 +109,24 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
 	selectorOpts, err := opt.selectors.ListOptions()
 	if err != nil {
-		return fmt.Errorf("failed to list remote config schemas: %w", err)
+		return fmt.Errorf("failed to list resources: %w", err)
 	}
 
 	listOpts := append([]client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}, selectorOpts...)
 
-	var schemas []v1.RemoteConfigSchema
-
-	if opt.allNamespaces {
-		schemas, err = opt.listAllNamespaces(cmd, listOpts...)
-	} else {
-		schemas, err = clientutil.ListRemoteConfigSchemaFully(cmd.Context(), opt.client, opt.namespace, listOpts...)
-	}
-
+	err = listutil.Run(cmd, opt.client, opt.pagination, opt.namespace, opt.allNamespaces,
+		formatter.FormatType(opt.formatType),
+		func(
+			ctx context.Context, namespace string, pageOpts ...client.ListOption,
+		) (*v1.ListResponse[v1.RemoteConfigSchema], error) {
+			return opt.client.RemoteConfigSchemaService.ListRemoteConfigSchemas(ctx, namespace, append(listOpts, pageOpts...)...)
+		}, func(items []v1.RemoteConfigSchema) any {
+			return lo.Map(items, func(item v1.RemoteConfigSchema, _ int) formattedRemoteConfigSchema {
+				return toFormatted(item)
+			})
+		})
 	if err != nil {
-		return fmt.Errorf("failed to list remote config schemas: %w", err)
-	}
-
-	displayed := lo.Map(schemas, func(s v1.RemoteConfigSchema, _ int) formattedRemoteConfigSchema {
-		return toFormatted(s)
-	})
-
-	err = formatter.Format(cmd.OutOrStdout(), displayed, formatter.FormatType(opt.formatType))
-	if err != nil {
-		return fmt.Errorf("failed to format remote config schema: %w", err)
+		return fmt.Errorf("list remoteconfigschema: %w", err)
 	}
 
 	return nil
@@ -151,22 +150,6 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	}
 
 	return errors.Join(lookupErr, err)
-}
-
-func (opt *CommandOptions) listAllNamespaces(
-	cmd *cobra.Command, listOpts ...client.ListOption,
-) ([]v1.RemoteConfigSchema, error) {
-	schemas, err := clientutil.ListAcrossNamespaces(
-		cmd.Context(), opt.client,
-		func(ctx context.Context, namespace string) ([]v1.RemoteConfigSchema, error) {
-			return clientutil.ListRemoteConfigSchemaFully(ctx, opt.client, namespace, listOpts...)
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list remote config schemas across all namespaces: %w", err)
-	}
-
-	return schemas, nil
 }
 
 //nolint:lll
