@@ -25,6 +25,54 @@ flags override the config file. For example `management.log.level` can be set as
 MANAGEMENT_LOG_LEVEL=debug            # environment variable
 ```
 
+## External secrets
+
+Keep plaintext credentials in YAML only for local development. In production,
+set a nonempty environment variable or its `_FILE` counterpart pointing to a
+readable secret file. Names use uppercase with dots replaced by underscores;
+camel-case words are not separated (for example `clientSecret` → `CLIENTSECRET`).
+
+| Configuration key | Environment variable (append `_FILE` for a path) |
+|---|---|
+| `auth.admin.password` | `AUTH_ADMIN_PASSWORD` |
+| `auth.basic.pepper` | `AUTH_BASIC_PEPPER` |
+| `auth.jwt.secret` | `AUTH_JWT_SECRET` |
+| `auth.oauth2.clientSecret` | `AUTH_OAUTH2_CLIENTSECRET` |
+| `auth.oauth2.state.jwt.secret` | `AUTH_OAUTH2_STATE_JWT_SECRET` |
+| `event.direct.authToken` | `EVENT_DIRECT_AUTHTOKEN` |
+| `liveness.redis.password` | `LIVENESS_REDIS_PASSWORD` |
+| `database.endpoints` | `DATABASE_ENDPOINTS` |
+
+```sh
+AUTH_JWT_SECRET_FILE=/run/secrets/jwtSecret \
+AUTH_BASIC_PEPPER_FILE=/run/secrets/basicPepper \
+DATABASE_ENDPOINTS_FILE=/run/secrets/databaseURI \
+  /apiserver --config /etc/opampcommander/config.yaml
+```
+
+Precedence for these fields is **explicit flag → nonempty environment value →
+file → YAML → default**. An empty environment value or `_FILE` path is treated as
+unset; an explicitly empty flag still wins. Higher-priority values skip reading
+the file. A selected file that is unreadable or empty stops startup, without
+falling back to YAML. Files contain the literal value, with one trailing LF or
+CRLF removed; spaces are preserved. `DATABASE_ENDPOINTS_FILE` contains **one
+complete MongoDB URI**, preserving commas in replica-set host lists. TLS private
+keys already use `tls.keyFile` / `management.tls.keyFile` directly.
+
+Secrets are read once at startup; restart the server after rotation. Keep the
+basic-auth pepper stable: changing it invalidates stored password hashes.
+Restrict file permissions to the server user and keep credentials out of
+ConfigMaps, Git, and command-line arguments. For Helm-mounted Secrets, see the
+[chart example](https://github.com/minuk-dev/opampcommander/blob/main/deploy/charts/opampcommander/ci/secret-files-values.yaml).
+
+`apiserver config view` masks secret fields, including database endpoints.
+`opampctl config view` masks user passwords and bearer tokens without changing
+the saved configuration. Both commands accept `--show-secrets` for intentional
+plaintext output; do not send that output to shared logs. File source comments
+list only the environment variable names, never file contents. MongoDB URI
+validation errors omit driver details because those can contain credentials;
+check `database.endpoints` if startup reports an invalid MongoDB configuration.
+
 ## Server
 
 ```yaml

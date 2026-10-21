@@ -193,6 +193,28 @@ Two things are handled outside that map:
   Service can never drift from what the process actually binds. Both must bind
   `0.0.0.0`, not `localhost`, or the pod is unreachable.
 
+### Mounted secret files
+
+To read credentials from a Secret volume instead of injecting their values as
+pod environment variables, use [ci/secret-files-values.yaml](ci/secret-files-values.yaml):
+
+```sh
+helm upgrade --install opampcommander ./deploy/charts/opampcommander \
+  -f ./deploy/charts/opampcommander/ci/secret-files-values.yaml
+```
+
+Create the referenced `opampcommander-secret-files` Secret in the release
+namespace first, with every key named in the example. `databaseURI` holds one
+complete MongoDB URI, including any replica-set host list. The example reuses
+`extraEnv`, `extraVolumes`, and `extraVolumeMounts`; credentials never enter the
+chart ConfigMap. Set the appropriate public OAuth2 client ID and callback URL
+separately. Mount files readable by the pod's configured user/group.
+
+Keep `secrets.create: false` and `secrets.existingSecret: ""` in file mode so the
+chart does not inject direct secret environment values, which would take
+precedence over `_FILE`. A missing or empty selected file prevents startup.
+Restart the deployment after changing mounted secrets; values are read at startup.
+
 ### Secrets
 
 | Secret key | Environment variable | Purpose |

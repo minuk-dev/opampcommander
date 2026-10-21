@@ -3,6 +3,7 @@ package view
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -13,12 +14,14 @@ import (
 // CommandOptions contains the options for the view command.
 type CommandOptions struct {
 	*config.GlobalConfig
+
+	showSecrets bool
 }
 
 // NewCommand creates a new view command.
 func NewCommand(options CommandOptions) *cobra.Command {
 	//exhaustruct:ignore
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "view",
 		Short: "view",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -35,6 +38,9 @@ func NewCommand(options CommandOptions) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&options.showSecrets, "show-secrets", false, "print secret values instead of redacting them")
+
+	return cmd
 }
 
 // Prepare prepares the command to run.
@@ -45,7 +51,20 @@ func (opt *CommandOptions) Prepare(_ *cobra.Command, _ []string) error {
 
 // Run runs the command.
 func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
-	configData := opt.GlobalConfig
+	configData := *opt.GlobalConfig
+	if !opt.showSecrets {
+		configData.Users = slices.Clone(configData.Users)
+		for index := range configData.Users {
+			auth := &configData.Users[index].Auth
+			if auth.Password != "" {
+				auth.Password = "<redacted>"
+			}
+
+			if auth.BearerToken != "" {
+				auth.BearerToken = "<redacted>"
+			}
+		}
+	}
 
 	err := formatter.FormatYAML(cmd.OutOrStdout(), configData)
 	if err != nil {
