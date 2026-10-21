@@ -274,7 +274,7 @@ with the official Collector binary; no custom client substitutes for either.
 Containers, their writable state and failed-test logs are managed by the fixture.
 The ordinary E2E suite skips these lifecycle tests unless
 `OPAMP_TEST_CURRENT_CLIENTS=1`; the bounded `collector-compatibility` CI job runs
-them with `-parallel=1`, then runs the reference-client mTLS rotation regression
+them with `-parallel=1` in separate WebSocket/HTTP jobs, then runs the reference-client mTLS rotation regression
 and validates the shipped Collector examples (including the embedded template).
 
 Coverage includes both WebSocket and HTTP:
@@ -285,7 +285,7 @@ Coverage includes both WebSocket and HTTP:
 - Supervisor: named effective config forwarding, applied desired hash, runtime
   startup failure and automatic rollback to an older hash, preserved failure across
   persistent reconnect, explicit retry, invalid config validation, recovery with a
-  new desired hash, heartbeat/health, own-metrics settings and OpAMP client replacement.
+  new desired hash, heartbeat/health, own-metrics settings.
 
 The default existing Collector fixture stays at **0.115.1** as a historical
 baseline and accepts `OPAMP_TEST_COLLECTOR_IMAGE` for an explicit alternative.
@@ -298,3 +298,11 @@ covered by the domain/builder tests. The container suite observes normal asynchr
 application; it does not inject arbitrary network delay or packet loss. mTLS
 rotation remains tested with the reference client, not the released Supervisor.
 Package installation is outside this suite and remains unsupported.
+
+Supervisor 0.163.0 does not acknowledge connection-settings hashes. Own-metrics
+configuration is verified through effective configuration and health, not the
+absence of an error. Offering an OpAMP endpoint change repeatedly triggers client
+replacement/reconnects in this release; real Supervisor endpoint/certificate
+rotation is therefore **not supported by this matrix**. The reproducible failure
+and required regression are tracked in [#850](https://github.com/minuk-dev/opampcommander/issues/850).
+The suite deliberately does not label that failing path as a successful rotation.

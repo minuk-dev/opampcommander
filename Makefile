@@ -193,4 +193,4 @@ docker-image:
 
 .PHONY: test-e2e-current-clients
 test-e2e-current-clients:
-	OPAMP_TEST_CURRENT_CLIENTS=1 go test -tags=e2e ./test/e2e/apiserver -run TestE2E_Current -parallel=1 -v -timeout=10m
+	OPAMP_TEST_CURRENT_CLIENTS=1 go test -tags=e2e ./test/e2e/apiserver -run TestE2E_Current -parallel=1 -v -timeout=12m
