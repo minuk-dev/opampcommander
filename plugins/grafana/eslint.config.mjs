@@ -1,3 +1,4 @@
+import { fixupConfigRules } from '@eslint/compat';
 import { defineConfig } from 'eslint/config';
 import baseConfig from './.config/eslint.config.mjs';
 
@@ -35,5 +36,6 @@ export default defineConfig([
       '**/.eslintcache',
     ],
   },
-  ...baseConfig,
+  // shortcut: React rules still use removed ESLint APIs; remove compat and the peer override when they support ESLint 10.
+  ...fixupConfigRules(baseConfig),
 ]);
