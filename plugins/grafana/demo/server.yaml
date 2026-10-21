@@ -1,0 +1,26 @@
+address: 0.0.0.0:8080
+bootstrap:
+  dir: /etc/commander/initial
+  defaultNamespace: default
+  defaultRole: default
+database:
+  type: inmemory
+event:
+  enabled: false
+  type: inmemory
+management:
+  address: 0.0.0.0:9090
+  log:
+    level: info
+    format: text
+  trace:
+    enabled: false
+auth:
+  enabled: true
+  admin:
+    username: admin
+  jwt:
+    issuer: opampcommander-demo
+    audience: [opampcommander-demo]
+    expire: 24h
+    refreshExpire: 24h

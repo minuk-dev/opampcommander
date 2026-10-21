@@ -109,7 +109,7 @@ See [Custom messages](#custom-messages).
 | `agent_description` | ✅ | Ingested; non-string `AnyValue`s are preserved in their string form (`protobufsToDomain.go`, `anyValueToString`). |
 | `capabilities` | ✅ | Stored. |
 | `health` (`ComponentHealth`) | ✅ | Incl. nested sub-component health. |
-| `effective_config` | ✅ | Stored. |
+| `effective_config` | ✅ | All named entries are stored. For recognized Collector distributions, the `raw` source entry is excluded from active endpoint discovery. |
 | `remote_config_status` | ✅ | Stored; `LastUpdatedAt` is stamped from the injected clock. |
 | `connection_settings_status` | ✅ | Stored. |
 | `package_statuses` | ✅ | Stored. |
@@ -245,3 +245,23 @@ it, and notifies the agent. Normal reconciliation and reconnects do not clear it
 An agent reporting `UNSET` after losing local state can receive its desired config
 again, unless that desired hash previously failed. Retry is not a revision barrier:
 late reports for the same hash may still describe the earlier attempt.
+
+### Collector identity across restarts
+
+OpAMP `instance_uid` and the Collector resource's `service.instance.id` are
+independent. A changed description on an existing session, after disconnect, or
+on a new HTTP poll does not allocate a new UID. Duplicate-session detection
+requires a different live WebSocket plus a conflicting reported identity.
+Overlapping WebSocket reconnects with the same identity are accepted. Without
+authenticated identity, simultaneous sessions reporting different identities
+cannot reliably be distinguished from a restart whose old socket is still open;
+clients should close the old socket before reconnecting with a changed identity.
+This heuristic does not replace mTLS certificate authorization.
+
+### Namespace attributes
+
+`service.namespace` is read from non-empty identifying attributes first, falling
+back to non-identifying attributes for Collector resource reports. Missing or
+empty attributes retain the existing namespace (the configured default for a new
+agent). Description updates reconcile matching groups and update connection
+namespace metadata in the same report cycle; certificate authorization is unchanged.

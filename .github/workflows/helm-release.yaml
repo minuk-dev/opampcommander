@@ -27,7 +27,7 @@ jobs:
           fetch-depth: 0
       - uses: azure/setup-helm@v5
         with:
-          version: v4.3.0
+          version: v4.3.1
       # scripts/version.sh is the same version source the apiserver and web
       # images use, so a chart pushed from a commit carries the tag of the
       # images it defaults to. Snapshot-ness is decided off github.ref, exactly
@@ -55,6 +55,7 @@ jobs:
       # the images built from the same commit.
       - name: Package
         run: |
+          make helm-deps
           helm package "${CHART}" \
             --version "${VERSION}" \
             --app-version "${VERSION}" \
