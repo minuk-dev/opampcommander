@@ -78,6 +78,6 @@
     "react-dom": "^19.0.0",
     "rxjs": "7.8.2"
   },
-  "packageManager": "npm@11.6.0",
+  "packageManager": "npm@11.21.1",
   "private": true
 }
