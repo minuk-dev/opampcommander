@@ -8,7 +8,6 @@ import (
 	"github.com/samber/lo"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model/vo"
 )
 
 // ServerCustomCapabilities lists the OpAMP custom capability strings the server advertises

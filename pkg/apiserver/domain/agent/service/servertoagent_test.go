@@ -3,6 +3,7 @@ package agentservice_test
 import (
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
