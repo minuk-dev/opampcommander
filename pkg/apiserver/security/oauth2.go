@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/go-github/v72/github"
+	"github.com/google/go-github/v93/github"
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 )
@@ -48,7 +48,10 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (LoginResult
 		return LoginResult{}, ErrOAuth2ClientCreationFailed
 	}
 
-	client := github.NewClient(authClient)
+	client, err := github.NewClient(github.WithHTTPClient(authClient))
+	if err != nil {
+		return LoginResult{}, fmt.Errorf("failed to create GitHub client: %w", err)
+	}
 
 	emails, resp, err := client.Users.ListEmails(ctx, nil)
 	if err != nil {
@@ -124,7 +127,10 @@ func (s *Service) ExchangeDeviceAuth(
 		return LoginResult{}, ErrOAuth2ClientCreationFailed
 	}
 
-	client := github.NewClient(authClient)
+	client, err := github.NewClient(github.WithHTTPClient(authClient))
+	if err != nil {
+		return LoginResult{}, fmt.Errorf("failed to create GitHub client: %w", err)
+	}
 
 	emails, resp, err := client.Users.ListEmails(ctx, nil)
 	if err != nil {
