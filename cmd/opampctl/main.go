@@ -2,8 +2,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
 
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl"
 )
@@ -13,7 +15,12 @@ func main() {
 	options := opampctl.CommandOption{}
 	cmd := opampctl.NewCommand(options)
 
-	err := cmd.Execute()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+
+	err := cmd.ExecuteContext(ctx)
+
+	stop()
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "opampctl not executed. err=%+v\n", err)
 		os.Exit(1)

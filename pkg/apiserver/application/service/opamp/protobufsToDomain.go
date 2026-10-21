@@ -36,6 +36,9 @@ func remoteConfigStatusToDomain(
 
 	return &agentmodel.AgentRemoteConfigStatus{
 		LastRemoteConfigHash: remoteConfigStatus.GetLastRemoteConfigHash(),
+		LastFailedHash:       nil,
+		LastFailedError:      "",
+		LastFailedAt:         time.Time{},
 		Status:               agentmodel.RemoteConfigStatus(remoteConfigStatus.GetStatus()),
 		ErrorMessage:         remoteConfigStatus.GetErrorMessage(),
 		LastUpdatedAt:        lastUpdatedAt,

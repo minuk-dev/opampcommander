@@ -17,6 +17,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/listutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -44,6 +45,7 @@ type CommandOptions struct {
 	decodeCapabilities     bool
 	includeDisconnected    bool
 	selectors              selectorflags.Flags
+	pagination             listutil.Flags
 	nonIdentifyingSelector map[string]string
 
 	// internal
@@ -89,6 +91,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	)
 
 	options.selectors.Register(cmd, selectorflags.Attributes)
+	options.pagination.Register(cmd)
 
 	return cmd
 }
@@ -143,22 +146,59 @@ type ItemForCLI struct {
 
 // List retrieves the list of agents.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	var (
-		agents []v1.Agent
-		err    error
-	)
-
-	if opt.allNamespaces {
-		agents, err = opt.listAllNamespaces(cmd)
-	} else {
-		agents, err = opt.listSingleNamespace(cmd)
-	}
-
+	opts, err := opt.listOptions()
 	if err != nil {
 		return err
 	}
 
-	return opt.formatAgents(cmd, agents)
+	var filter selectorflags.LocalFilter
+	if opt.byAgentGroup != "" {
+		filter, err = opt.selectors.LocalFilter()
+		if err != nil {
+			return fmt.Errorf("invalid agent filter: %w", err)
+		}
+	}
+
+	fetch := func(
+		ctx context.Context, namespace string, pageOpts ...client.ListOption,
+	) (*v1.ListResponse[v1.Agent], error) {
+		if opt.byAgentGroup == "" {
+			return opt.client.AgentService.ListAgents(ctx, namespace, append(opts, pageOpts...)...)
+		}
+
+		resp, err := opt.client.AgentGroupService.ListAgentsByAgentGroup(ctx, namespace, opt.byAgentGroup,
+			append(opt.connectionOptions(), pageOpts...)...)
+		if err != nil {
+			return nil, fmt.Errorf("list group members: %w", err)
+		}
+
+		resp.Items = lo.Filter(resp.Items, func(agent v1.Agent, _ int) bool {
+			return filter.Matches(agent.Metadata.InstanceUID.String(), agent.Metadata.Description.IdentifyingAttributes,
+				agent.Metadata.Description.NonIdentifyingAttributes) &&
+				attributesMatch(agent.Metadata.Description.NonIdentifyingAttributes, opt.nonIdentifyingSelector)
+		})
+
+		return resp, nil
+	}
+
+	err = listutil.Run(cmd, opt.client, opt.pagination, opt.namespace, opt.allNamespaces,
+		formatter.FormatType(opt.formatType), fetch, func(agents []v1.Agent) any {
+			switch formatter.FormatType(opt.formatType) {
+			case formatter.SHORT, formatter.TEXT:
+				return lo.Map(agents, func(agent v1.Agent, _ int) ItemForCLI { return ToItemForCLI(agent) })
+			case formatter.JSON, formatter.YAML:
+				if opt.decodeCapabilities {
+					return decodeAgentCapabilities(agents)
+				}
+			}
+
+			return agents
+		})
+	if err != nil {
+		return fmt.Errorf("list agent: %w", err)
+	}
+
+	return nil
 }
 
 // attributesMatch reports whether stored contains every key=value pair in selector.
@@ -250,130 +290,6 @@ func (opt *CommandOptions) connectionOptions() []client.ListOption {
 	}
 
 	return []client.ListOption{client.WithConnectedOnly(true)}
-}
-
-func (opt *CommandOptions) listSingleNamespace(cmd *cobra.Command) ([]v1.Agent, error) {
-	if opt.byAgentGroup != "" {
-		return opt.listByAgentGroup(cmd.Context(), opt.namespace)
-	}
-
-	opts, err := opt.listOptions()
-	if err != nil {
-		return nil, err
-	}
-
-	agents, err := clientutil.ListAgentFully(cmd.Context(), opt.client, opt.namespace, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agents: %w", err)
-	}
-
-	return agents, nil
-}
-
-// listByAgentGroup lists a group's member agents in one namespace.
-func (opt *CommandOptions) listByAgentGroup(ctx context.Context, namespace string) ([]v1.Agent, error) {
-	filter, err := opt.selectors.LocalFilter()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agents by agent group: %w", err)
-	}
-
-	return opt.listAgentGroupMembers(ctx, namespace, filter)
-}
-
-// listAgentGroupMembers lists a group's member agents against an already-parsed
-// filter. That endpoint takes no selectors, so the filtering flags are evaluated
-// here rather than dropped — a caller must never mistake the whole membership for
-// a narrowed one.
-func (opt *CommandOptions) listAgentGroupMembers(
-	ctx context.Context, namespace string, filter selectorflags.LocalFilter,
-) ([]v1.Agent, error) {
-	agents, err := clientutil.ListAgentFullyByAgentGroup(
-		ctx, opt.client, namespace, opt.byAgentGroup, opt.connectionOptions()...,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agents by agent group: %w", err)
-	}
-
-	return lo.Filter(agents, func(agent v1.Agent, _ int) bool {
-		return filter.Matches(
-			agent.Metadata.InstanceUID.String(),
-			agent.Metadata.Description.IdentifyingAttributes,
-			agent.Metadata.Description.NonIdentifyingAttributes,
-		) && attributesMatch(agent.Metadata.Description.NonIdentifyingAttributes, opt.nonIdentifyingSelector)
-	}), nil
-}
-
-func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.Agent, error) {
-	// The filtering flags are parsed once here, before the namespace listing that
-	// ListAcrossNamespaces starts with. Parsing inside the per-namespace closure
-	// would put a request ahead of the local validation, so a malformed selector
-	// would surface as whatever that request failed with — and be re-parsed once
-	// per namespace.
-	listFn, err := opt.namespaceLister()
-	if err != nil {
-		return nil, err
-	}
-
-	agents, err := clientutil.ListAcrossNamespaces(cmd.Context(), opt.client, listFn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agents across all namespaces: %w", err)
-	}
-
-	return agents, nil
-}
-
-// namespaceLister resolves the per-namespace listing, failing before the first
-// request when a filtering flag is malformed.
-func (opt *CommandOptions) namespaceLister() (
-	func(ctx context.Context, namespace string) ([]v1.Agent, error), error,
-) {
-	if opt.byAgentGroup != "" {
-		filter, err := opt.selectors.LocalFilter()
-		if err != nil {
-			return nil, fmt.Errorf("failed to list agents by agent group: %w", err)
-		}
-
-		return func(ctx context.Context, namespace string) ([]v1.Agent, error) {
-			return opt.listAgentGroupMembers(ctx, namespace, filter)
-		}, nil
-	}
-
-	opts, err := opt.listOptions()
-	if err != nil {
-		return nil, err
-	}
-
-	return func(ctx context.Context, namespace string) ([]v1.Agent, error) {
-		return clientutil.ListAgentFully(ctx, opt.client, namespace, opts...)
-	}, nil
-}
-
-func (opt *CommandOptions) formatAgents(cmd *cobra.Command, agents []v1.Agent) error {
-	switch formatType := formatter.FormatType(opt.formatType); formatType {
-	case formatter.SHORT, formatter.TEXT:
-		displayedAgents := lo.Map(agents, func(agent v1.Agent, _ int) ItemForCLI {
-			return ToItemForCLI(agent)
-		})
-
-		err := formatter.Format(cmd.OutOrStdout(), displayedAgents, formatType)
-		if err != nil {
-			return fmt.Errorf("failed to format agents: %w", err)
-		}
-	case formatter.JSON, formatter.YAML:
-		var target any = agents
-		if opt.decodeCapabilities {
-			target = decodeAgentCapabilities(agents)
-		}
-
-		err := formatter.Format(cmd.OutOrStdout(), target, formatType)
-		if err != nil {
-			return fmt.Errorf("failed to format agents: %w", err)
-		}
-	default:
-		return fmt.Errorf("unsupported format type: %s, %w", opt.formatType, ErrCommandExecutionFailed)
-	}
-
-	return nil
 }
 
 // decodeAgentCapabilities converts agents to a JSON-serializable form with capabilities

@@ -4,6 +4,7 @@ package agentgroup
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/minuk-dev/opampcommander/pkg/client"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/listutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 )
 
@@ -55,7 +57,7 @@ func TestListByAgentStreamsPages(t *testing.T) {
 
 			options := CommandOptions{
 				client: client.New(server.URL), namespace: "team", agent: "collector",
-				includeDeleted: true, formatType: format,
+				includeDeleted: true, formatType: format, pagination: listutil.Flags{Stream: true},
 			}
 			cmd := &cobra.Command{}
 			cmd.SetContext(t.Context())
@@ -72,7 +74,20 @@ func TestListByAgentStreamsPages(t *testing.T) {
 				if format == "json" {
 					require.NoError(t, json.Unmarshal(output.Bytes(), &groups))
 				} else {
-					require.NoError(t, yaml.Unmarshal(output.Bytes(), &groups))
+					decoder := yaml.NewDecoder(&output)
+
+					for {
+						var page []formattedAgentGroup
+
+						err := decoder.Decode(&page)
+						if errors.Is(err, io.EOF) {
+							break
+						}
+
+						require.NoError(t, err)
+
+						groups = append(groups, page...)
+					}
 				}
 
 				require.Len(t, groups, 2)
@@ -97,7 +112,10 @@ func TestListByAgentEmpty(t *testing.T) {
 			}))
 			defer server.Close()
 
-			options := CommandOptions{client: client.New(server.URL), namespace: "team", agent: "collector", formatType: format}
+			options := CommandOptions{
+				client: client.New(server.URL), namespace: "team", agent: "collector", formatType: format,
+				pagination: listutil.Flags{Stream: true},
+			}
 			cmd := &cobra.Command{}
 
 			var output bytes.Buffer
@@ -105,7 +123,12 @@ func TestListByAgentEmpty(t *testing.T) {
 			cmd.SetContext(t.Context())
 			cmd.SetOut(&output)
 			require.NoError(t, options.ListByAgent(cmd))
-			require.Equal(t, "[]\n", output.String())
+
+			if format == "json" {
+				require.Equal(t, "[]\n", output.String())
+			} else {
+				require.Equal(t, "---\n[]\n", output.String())
+			}
 		})
 	}
 }
@@ -134,7 +157,10 @@ func TestListByAgentStopsOnOutputError(t *testing.T) {
 			}))
 			defer server.Close()
 
-			options := CommandOptions{client: client.New(server.URL), namespace: "team", agent: "collector", formatType: format}
+			options := CommandOptions{
+				client: client.New(server.URL), namespace: "team", agent: "collector", formatType: format,
+				pagination: listutil.Flags{Stream: true},
+			}
 			cmd := &cobra.Command{}
 			cmd.SetContext(t.Context())
 			cmd.SetOut(failedWriter{})
@@ -178,7 +204,10 @@ func TestListByAgentCursorAndRequestErrors(t *testing.T) {
 			}))
 			defer server.Close()
 
-			options := CommandOptions{client: client.New(server.URL), namespace: "team", agent: "collector", formatType: "json"}
+			options := CommandOptions{
+				client: client.New(server.URL), namespace: "team", agent: "collector", formatType: "json",
+				pagination: listutil.Flags{Stream: true},
+			}
 			cmd := &cobra.Command{}
 
 			var output bytes.Buffer
@@ -188,7 +217,7 @@ func TestListByAgentCursorAndRequestErrors(t *testing.T) {
 			require.Error(t, err)
 
 			if test.status == http.StatusOK {
-				require.ErrorIs(t, err, ErrCommandExecutionFailed)
+				require.ErrorIs(t, err, listutil.ErrPagination)
 			} else {
 				assert.Contains(t, err.Error(), "namespace \"team\"")
 			}

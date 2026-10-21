@@ -3,10 +3,8 @@ package agentgroup
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/samber/lo"
@@ -16,6 +14,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/listutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -39,6 +38,7 @@ type CommandOptions struct {
 	namespace      string
 	allNamespaces  bool
 	selectors      selectorflags.Flags
+	pagination     listutil.Flags
 	agent          string
 
 	// internal
@@ -73,6 +73,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		"List only the agent groups that contain the agent with this instance UID")
 
 	options.selectors.Register(cmd, selectorflags.Labels)
+	options.pagination.Register(cmd)
 
 	return cmd
 }
@@ -125,7 +126,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// List retrieves the list of agents.
+// List retrieves one page, or streams all pages when requested.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
 	selectorOpts, err := opt.selectors.ListOptions()
 	if err != nil {
@@ -133,101 +134,33 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 	}
 
 	listOpts := append([]client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}, selectorOpts...)
+	fetch := func(
+		ctx context.Context, namespace string, pageOpts ...client.ListOption,
+	) (*v1.ListResponse[v1.AgentGroup], error) {
+		pageOpts = append(pageOpts, listOpts...)
+		if opt.agent != "" {
+			return opt.client.AgentGroupService.ListAgentGroupsByAgent(ctx, namespace, opt.agent, pageOpts...)
+		}
 
-	var agentgroups []v1.AgentGroup
-
-	if opt.allNamespaces {
-		agentgroups, err = opt.listAllNamespaces(cmd, listOpts...)
-	} else {
-		agentgroups, err = clientutil.ListAgentGroupFully(cmd.Context(), opt.client, opt.namespace, listOpts...)
+		return opt.client.AgentGroupService.ListAgentGroups(ctx, namespace, pageOpts...)
 	}
 
+	err = listutil.Run(cmd, opt.client, opt.pagination, opt.namespace, opt.allNamespaces,
+		formatter.FormatType(opt.formatType), fetch, func(groups []v1.AgentGroup) any {
+			return lo.Map(groups, func(group v1.AgentGroup, _ int) formattedAgentGroup {
+				return opt.toFormattedAgentGroup(group)
+			})
+		})
 	if err != nil {
-		return fmt.Errorf("failed to list agents: %w", err)
-	}
-
-	displayedAgents := make([]formattedAgentGroup, len(agentgroups))
-	for idx, agentgroup := range agentgroups {
-		displayedAgents[idx] = opt.toFormattedAgentGroup(agentgroup)
-	}
-
-	err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
-	if err != nil {
-		return fmt.Errorf("failed to format agentgroup: %w", err)
+		return fmt.Errorf("list agentgroup: %w", err)
 	}
 
 	return nil
 }
 
-// ListByAgent streams matching groups a page at a time.
-//
-//nolint:funlen // Keep streaming output and cursor/error handling together.
+// ListByAgent uses the same bounded listing path for membership queries.
 func (opt *CommandOptions) ListByAgent(cmd *cobra.Command) error {
-	selectorOpts, err := opt.selectors.ListOptions()
-	if err != nil {
-		return fmt.Errorf("list agent groups for agent %q: %w", opt.agent, err)
-	}
-
-	writer := cmd.OutOrStdout()
-
-	jsonOutput := formatter.FormatType(opt.formatType) == formatter.JSON
-	if jsonOutput {
-		_, err = io.WriteString(writer, "[")
-		if err != nil {
-			return fmt.Errorf("write groups: %w", err)
-		}
-	}
-
-	first := true
-
-	token := ""
-	for {
-		opts := append([]client.ListOption{
-			client.WithIncludeDeleted(opt.includeDeleted),
-			client.WithLimit(clientutil.ChunkSize), client.WithContinueToken(token),
-		}, selectorOpts...)
-
-		resp, err := opt.client.AgentGroupService.ListAgentGroupsByAgent(cmd.Context(), opt.namespace, opt.agent, opts...)
-		if err != nil {
-			return fmt.Errorf("failed to list agent groups for agent %q in namespace %q: %w", opt.agent, opt.namespace, err)
-		}
-
-		displayed := lo.Map(resp.Items, func(group v1.AgentGroup, _ int) formattedAgentGroup {
-			return opt.toFormattedAgentGroup(group)
-		})
-		if len(displayed) > 0 {
-			err = opt.formatMembershipPage(writer, displayed, first)
-			if err != nil {
-				return err
-			}
-
-			first = false
-		}
-
-		if resp.Metadata.RemainingItemCount == 0 {
-			break
-		}
-
-		if resp.Metadata.Continue == "" || resp.Metadata.Continue == token {
-			return fmt.Errorf("%w: membership cursor did not advance", ErrCommandExecutionFailed)
-		}
-
-		token = resp.Metadata.Continue
-	}
-
-	if jsonOutput {
-		_, err = io.WriteString(writer, "]\n")
-		if err != nil {
-			return fmt.Errorf("write groups: %w", err)
-		}
-	} else if first {
-		err = opt.formatMembershipPage(writer, []formattedAgentGroup{}, true)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return opt.List(cmd)
 }
 
 // Get retrieves the agent information for the given agent UIDs.
@@ -248,22 +181,6 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	}
 
 	return errors.Join(lookupErr, err)
-}
-
-func (opt *CommandOptions) listAllNamespaces(
-	cmd *cobra.Command, listOpts ...client.ListOption,
-) ([]v1.AgentGroup, error) {
-	agentgroups, err := clientutil.ListAcrossNamespaces(
-		cmd.Context(), opt.client,
-		func(ctx context.Context, namespace string) ([]v1.AgentGroup, error) {
-			return clientutil.ListAgentGroupFully(ctx, opt.client, namespace, listOpts...)
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agent groups across all namespaces: %w", err)
-	}
-
-	return agentgroups, nil
 }
 
 //nolint:lll
@@ -345,32 +262,4 @@ func (opt *CommandOptions) toFormattedAgentGroup(
 		DeletedAt:                        deletedAt,
 		DeletedBy:                        deletedBy,
 	}
-}
-
-func (opt *CommandOptions) formatMembershipPage(writer io.Writer, groups []formattedAgentGroup, first bool) error {
-	if formatter.FormatType(opt.formatType) != formatter.JSON {
-		err := formatter.Format(writer, groups, formatter.FormatType(opt.formatType))
-		if err != nil {
-			return fmt.Errorf("format agent groups: %w", err)
-		}
-
-		return nil
-	}
-
-	page, err := json.Marshal(groups)
-	if err != nil {
-		return fmt.Errorf("encode agent groups: %w", err)
-	}
-
-	separator := ""
-	if !first {
-		separator = ","
-	}
-	// The command owns the outer array; this page contributes only its elements.
-	_, err = fmt.Fprintf(writer, "%s%s", separator, page[1:len(page)-1])
-	if err != nil {
-		return fmt.Errorf("write agent groups: %w", err)
-	}
-
-	return nil
 }

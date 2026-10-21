@@ -86,7 +86,7 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 			svc := newTestService(t, agentUC, connUC)
 			svc.connectionStore = store
 			svc.serverIdentityProvider = &lifecycleIdentityProvider{}
-			svc.serverToAgentBuilder = agentservice.NewServerToAgentBuilder(nil, nil, svc.logger)
+			svc.serverToAgentBuilder = agentservice.NewServerToAgentBuilder(nil, svc.logger)
 			// Separate stateless Services share one Store-owned session scope.
 			replacementService := newTestService(t, agentUC, connUC)
 			replacementService.connectionStore = store

@@ -1,8 +1,6 @@
 package agentservice_test
 
 import (
-	"context"
-	"errors"
 	"log/slog"
 	"testing"
 	"time"
@@ -12,68 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
-// newTestBuilder builds a ServerToAgentBuilder with no package usecase: the tests here do
-// not exercise packages, so it is never invoked.
 func newTestBuilder() *agentservice.ServerToAgentBuilder {
-	return agentservice.NewServerToAgentBuilder(nil, nil, slog.Default())
-}
-
-var (
-	errPkgUsecaseNotImplemented = errors.New("not implemented")
-	errPackageNotFound          = errors.New("package not found")
-)
-
-// fakeAgentPackageUsecase is a hand-rolled AgentPackageUsecase for the package-offer tests:
-// GetAgentPackage returns the package registered under its name, or getErr when the name is
-// unknown. Only GetAgentPackage is exercised; the rest satisfy the interface.
-type fakeAgentPackageUsecase struct {
-	packages map[string]*agentmodel.AgentPackage
-	getErr   error
-}
-
-func (f *fakeAgentPackageUsecase) GetAgentPackage(
-	_ context.Context, _ string, name string, _ *model.GetOptions,
-) (*agentmodel.AgentPackage, error) {
-	if pkg, ok := f.packages[name]; ok {
-		return pkg, nil
-	}
-
-	return nil, f.getErr
-}
-
-func (f *fakeAgentPackageUsecase) ListAgentPackages(
-	_ context.Context, _ string, _ *model.ListOptions,
-) (*model.ListResponse[*agentmodel.AgentPackage], error) {
-	return nil, errPkgUsecaseNotImplemented
-}
-
-func (f *fakeAgentPackageUsecase) SaveAgentPackage(
-	_ context.Context, pkg *agentmodel.AgentPackage,
-) (*agentmodel.AgentPackage, error) {
-	return pkg, nil
-}
-
-func (f *fakeAgentPackageUsecase) CreateAgentPackage(
-	_ context.Context, pkg *agentmodel.AgentPackage, _ string,
-) (*agentmodel.AgentPackage, error) {
-	return pkg, nil
-}
-
-func (f *fakeAgentPackageUsecase) UpdateAgentPackage(
-	_ context.Context, _ string, _ string, pkg *agentmodel.AgentPackage,
-) (*agentmodel.AgentPackage, error) {
-	return pkg, nil
-}
-
-func (f *fakeAgentPackageUsecase) DeleteAgentPackage(
-	_ context.Context, _ string, _ string, _ time.Time, _ string, _ ...int64) error {
-	return nil
+	return agentservice.NewServerToAgentBuilder(nil, slog.Default())
 }
 
 // agentWithPackages returns an agent advertising the given package names. It carries the
@@ -104,7 +48,6 @@ func TestServerToAgentBuilder_Build_AdvertisesServerCapabilities(t *testing.T) {
 		protobufs.ServerCapabilities_ServerCapabilities_OffersRemoteConfig,
 		protobufs.ServerCapabilities_ServerCapabilities_AcceptsEffectiveConfig,
 		protobufs.ServerCapabilities_ServerCapabilities_OffersConnectionSettings,
-		protobufs.ServerCapabilities_ServerCapabilities_OffersPackages,
 		protobufs.ServerCapabilities_ServerCapabilities_AcceptsPackagesStatus,
 	} {
 		assert.NotZero(t, msg.GetCapabilities()&uint64(capability),
@@ -250,64 +193,14 @@ func TestServerToAgentBuilder_Build_IncludesConnectionSettings(t *testing.T) {
 	assert.Equal(t, "https://other.example", offers.GetOtherConnections()["custom"].GetDestinationEndpoint())
 }
 
-// TestServerToAgentBuilder_Build_PackageType pins that the advertised PackageType derives
-// from the package spec (case-insensitive), instead of the previously hardcoded TopLevel.
-func TestServerToAgentBuilder_Build_PackageType(t *testing.T) {
+// Even stale or internally injected assignments must not emit unsupported offers.
+func TestServerToAgentBuilder_Build_WithholdsPackages(t *testing.T) {
 	t.Parallel()
-
-	tests := []struct {
-		name     string
-		specType string
-		want     protobufs.PackageType
-	}{
-		{"empty defaults to TopLevel", "", protobufs.PackageType_PackageType_TopLevel},
-		{"TopLevel", "TopLevel", protobufs.PackageType_PackageType_TopLevel},
-		{"AddOn is mapped", "AddOn", protobufs.PackageType_PackageType_Addon},
-		{"case-insensitive addon", "addon", protobufs.PackageType_PackageType_Addon},
-		{"unknown falls back to TopLevel", "nonsense", protobufs.PackageType_PackageType_TopLevel},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			fake := &fakeAgentPackageUsecase{
-				packages: map[string]*agentmodel.AgentPackage{
-					"pkg": {Spec: agentmodel.AgentPackageSpec{PackageType: tt.specType, Version: "1.0.0"}},
-				},
-			}
-			builder := agentservice.NewServerToAgentBuilder(fake, nil, slog.Default())
-
-			msg := builder.Build(t.Context(), agentWithPackages("pkg"))
-
-			pkg, ok := msg.GetPackagesAvailable().GetPackages()["pkg"]
-			require.True(t, ok, "package should be offered")
-			assert.Equal(t, tt.want, pkg.GetType())
-		})
-	}
-}
-
-// TestServerToAgentBuilder_Build_UnresolvedPackage guards issue #496: a package that fails
-// to resolve is withheld from the offer, but the failure does not drop the packages that DID
-// resolve, nor the rest of the ServerToAgent message.
-func TestServerToAgentBuilder_Build_UnresolvedPackage(t *testing.T) {
-	t.Parallel()
-
-	fake := &fakeAgentPackageUsecase{
-		packages: map[string]*agentmodel.AgentPackage{
-			"good": {Spec: agentmodel.AgentPackageSpec{Version: "2.0.0"}},
-		},
-		getErr: errPackageNotFound,
-	}
-	builder := agentservice.NewServerToAgentBuilder(fake, nil, slog.Default())
-
-	msg := builder.Build(t.Context(), agentWithPackages("good", "missing"))
-
-	packages := msg.GetPackagesAvailable().GetPackages()
-	assert.Contains(t, packages, "good", "resolvable package must still be offered")
-	assert.NotContains(t, packages, "missing", "unresolvable package must be withheld")
-	// The message itself is still well-formed (capabilities advertised) despite the failure.
-	assert.NotZero(t, msg.GetCapabilities())
+	message := newTestBuilder().Build(t.Context(), agentWithPackages("otelcol-contrib"))
+	assert.Nil(t, message.GetPackagesAvailable())
+	assert.Zero(t, message.GetCapabilities()&uint64(protobufs.ServerCapabilities_ServerCapabilities_OffersPackages))
+	assert.NotZero(t,
+		message.GetCapabilities()&uint64(protobufs.ServerCapabilities_ServerCapabilities_AcceptsPackagesStatus))
 }
 
 // TestServerToAgentBuilder_Build_AdvertisesCustomCapabilities verifies that the server's
@@ -320,7 +213,6 @@ func TestServerToAgentBuilder_Build_AdvertisesCustomCapabilities(t *testing.T) {
 		t.Parallel()
 
 		builder := agentservice.NewServerToAgentBuilder(
-			nil,
 			agentservice.ServerCustomCapabilities{"com.example.a", "com.example.b"},
 			slog.Default(),
 		)
@@ -340,4 +232,48 @@ func TestServerToAgentBuilder_Build_AdvertisesCustomCapabilities(t *testing.T) {
 		assert.Nil(t, msg.GetCustomCapabilities())
 		assert.Nil(t, msg.GetCustomMessage())
 	})
+}
+
+func TestServerToAgentBuilder_RemoteConfigAcknowledgment(t *testing.T) {
+	t.Parallel()
+
+	for _, state := range []agentmodel.RemoteConfigStatus{
+		agentmodel.RemoteConfigStatusApplying, agentmodel.RemoteConfigStatusApplied, agentmodel.RemoteConfigStatusFailed,
+	} {
+		t.Run(state.String(), func(t *testing.T) {
+			t.Parallel()
+
+			caps := modelagent.Capabilities(
+				modelagent.AgentCapabilityAcceptsRemoteConfig | modelagent.AgentCapabilityReportsRemoteConfig,
+			)
+			agent := agentmodel.NewAgent(uuid.New(), agentmodel.WithCapabilities(&caps))
+			require.NoError(t, agent.ApplyRemoteConfig("", agentmodel.AgentConfigFile{
+				Body: []byte("receivers: {}"), ContentType: "text/yaml",
+			}))
+
+			builder := newTestBuilder()
+			offer := builder.Build(t.Context(), agent).GetRemoteConfig()
+			require.NotNil(t, offer)
+			require.NoError(t, agent.ReportRemoteConfigStatus(&agentmodel.AgentRemoteConfigStatus{
+				LastRemoteConfigHash: offer.GetConfigHash(), Status: state, LastUpdatedAt: time.Now().Truncate(time.Millisecond),
+			}))
+			assert.Nil(t, builder.Build(t.Context(), agent).GetRemoteConfig())
+
+			if state == agentmodel.RemoteConfigStatusFailed {
+				require.NoError(t, agent.ReportRemoteConfigStatus(&agentmodel.AgentRemoteConfigStatus{
+					LastRemoteConfigHash: []byte("previous-working-config"), Status: agentmodel.RemoteConfigStatusApplied,
+				}))
+				assert.Equal(t, "RolledBack", agent.RemoteConfigSyncStatus(offer.GetConfigHash()))
+				agent = entity.AgentFromDomain(agent).ToDomain().Clone()
+				assert.Nil(t, builder.Build(t.Context(), agent).GetRemoteConfig(), "rollback suppression survives reload and clone")
+				require.NoError(t, agent.RetryRemoteConfig())
+				assert.NotNil(t, builder.Build(t.Context(), agent).GetRemoteConfig(), "explicit retry reoffers the same revision")
+			}
+
+			require.NoError(t, agent.ApplyRemoteConfig("", agentmodel.AgentConfigFile{
+				Body: []byte("receivers: {otlp: {}}"), ContentType: "text/yaml",
+			}))
+			assert.NotNil(t, builder.Build(t.Context(), agent).GetRemoteConfig(), "a new revision must be offered")
+		})
+	}
 }

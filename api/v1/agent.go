@@ -46,6 +46,8 @@ type AgentMetadata struct {
 
 // AgentSpec contains the desired configuration for the agent.
 type AgentSpec struct {
+	// RetryRemoteConfig is a write-only request to retry the currently assigned config.
+	RetryRemoteConfig bool `json:"retryRemoteConfig,omitempty"`
 	// NewInstanceUID is a new instance UID to inform the agent of its new identity.
 	NewInstanceUID string `json:"newInstanceUid,omitempty"`
 
@@ -74,6 +76,8 @@ type AgentSpecRemoteConfig struct {
 
 // AgentStatus contains the observed state of the agent.
 type AgentStatus struct {
+	// RemoteConfig reports acknowledgment and convergence of the desired configuration.
+	RemoteConfig AgentRemoteConfigAcknowledgment `json:"remoteConfig,omitzero"`
 	// ConnectionSettings reports the latest OpAMP offer application result.
 	ConnectionSettings AgentConnectionSettingsStatus `json:"connectionSettings,omitzero"`
 	// EffectiveConfig is the effective configuration of the agent.
@@ -282,3 +286,16 @@ type TLSCertificate struct {
 	// CaCert is the PEM-encoded CA certificate.
 	CaCert string `json:"caCert,omitempty"`
 } // @name TLSCertificate
+
+// AgentRemoteConfigAcknowledgment distinguishes the desired revision from an agent report.
+type AgentRemoteConfigAcknowledgment struct {
+	DesiredHash     []byte `json:"desiredHash,omitempty"`
+	ReportedHash    []byte `json:"reportedHash,omitempty"`
+	Status          string `json:"status,omitempty"`
+	SyncStatus      string `json:"syncStatus"`
+	ErrorMessage    string `json:"errorMessage,omitempty"`
+	LastUpdatedAt   string `json:"lastUpdatedAt,omitempty"`
+	LastFailedHash  []byte `json:"lastFailedHash,omitempty"`
+	LastFailedError string `json:"lastFailedError,omitempty"`
+	LastFailedAt    string `json:"lastFailedAt,omitempty"`
+} // @name AgentRemoteConfigAcknowledgment

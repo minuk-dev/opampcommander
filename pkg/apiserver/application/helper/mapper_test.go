@@ -15,6 +15,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 )
 
 func TestMapAgentConnectionSettingsSyncStatus(t *testing.T) {
@@ -200,4 +201,34 @@ func TestMapAPIToEndpoint_Nil(t *testing.T) {
 
 	mapper := helper.NewMapper(clock.RealClock{}, 0)
 	assert.Nil(t, mapper.MapAPIToEndpoint(nil))
+}
+
+func TestMapAgentRemoteConfigAcknowledgment(t *testing.T) {
+	t.Parallel()
+
+	caps := modelagent.Capabilities(
+		modelagent.AgentCapabilityAcceptsRemoteConfig | modelagent.AgentCapabilityReportsRemoteConfig,
+	)
+	agent := agentmodel.NewAgent(uuid.New(), agentmodel.WithCapabilities(&caps))
+	require.NoError(t, agent.ApplyRemoteConfig("", agentmodel.AgentConfigFile{
+		Body: []byte("receivers: {}"), ContentType: "text/yaml",
+	}))
+	offer, err := agent.RemoteConfigOffer()
+	require.NoError(t, err)
+
+	now := time.Now().UTC()
+	require.NoError(t, agent.ReportRemoteConfigStatus(&agentmodel.AgentRemoteConfigStatus{
+		LastRemoteConfigHash: offer.GetConfigHash(), Status: agentmodel.RemoteConfigStatusFailed,
+		ErrorMessage: "invalid config", LastUpdatedAt: now,
+	}))
+	require.NoError(t, agent.ReportRemoteConfigStatus(&agentmodel.AgentRemoteConfigStatus{
+		LastRemoteConfigHash: []byte("older"), Status: agentmodel.RemoteConfigStatusApplied,
+		LastUpdatedAt: now,
+	}))
+	status := helper.NewMapper(clock.RealClock{}, 0).MapAgentToAPI(agent).Status.RemoteConfig
+	assert.Equal(t, "RolledBack", status.SyncStatus)
+	assert.Equal(t, offer.GetConfigHash(), status.DesiredHash)
+	assert.Equal(t, []byte("older"), status.ReportedHash)
+	assert.Equal(t, "invalid config", status.LastFailedError)
+	assert.Equal(t, now.Format(time.RFC3339Nano), status.LastUpdatedAt)
 }

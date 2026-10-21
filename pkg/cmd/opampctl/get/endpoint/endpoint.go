@@ -15,6 +15,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/listutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -35,6 +36,8 @@ type CommandOptions struct {
 	namespace      string
 	allNamespaces  bool
 	selectors      selectorflags.Flags
+
+	pagination listutil.Flags
 
 	// internal
 	client *client.Client
@@ -66,6 +69,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 
 	options.selectors.Register(cmd, selectorflags.Labels)
+
+	options.pagination.Register(cmd)
 
 	return cmd
 }
@@ -109,33 +114,24 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
 	selectorOpts, err := opt.selectors.ListOptions()
 	if err != nil {
-		return fmt.Errorf("failed to list endpoints: %w", err)
+		return fmt.Errorf("failed to list resources: %w", err)
 	}
 
 	listOpts := append([]client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}, selectorOpts...)
 
-	var endpoints []v1.Endpoint
-
-	if opt.allNamespaces {
-		endpoints, err = opt.listAllNamespaces(cmd, listOpts...)
-	} else {
-		endpoints, err = clientutil.ListEndpointFully(
-			cmd.Context(), opt.client, opt.namespace, listOpts...,
-		)
-	}
-
+	err = listutil.Run(cmd, opt.client, opt.pagination, opt.namespace, opt.allNamespaces,
+		formatter.FormatType(opt.formatType),
+		func(
+			ctx context.Context, namespace string, pageOpts ...client.ListOption,
+		) (*v1.ListResponse[v1.Endpoint], error) {
+			return opt.client.EndpointService.ListEndpoints(ctx, namespace, append(listOpts, pageOpts...)...)
+		}, func(items []v1.Endpoint) any {
+			return lo.Map(items, func(item v1.Endpoint, _ int) formattedEndpoint {
+				return toFormattedEndpoint(item)
+			})
+		})
 	if err != nil {
-		return fmt.Errorf("failed to list endpoints: %w", err)
-	}
-
-	displayed := make([]formattedEndpoint, len(endpoints))
-	for idx, endpoint := range endpoints {
-		displayed[idx] = toFormattedEndpoint(endpoint)
-	}
-
-	err = formatter.Format(cmd.OutOrStdout(), displayed, formatter.FormatType(opt.formatType))
-	if err != nil {
-		return fmt.Errorf("failed to format endpoint: %w", err)
+		return fmt.Errorf("list endpoint: %w", err)
 	}
 
 	return nil
@@ -159,22 +155,6 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	}
 
 	return errors.Join(lookupErr, err)
-}
-
-func (opt *CommandOptions) listAllNamespaces(
-	cmd *cobra.Command, listOpts ...client.ListOption,
-) ([]v1.Endpoint, error) {
-	endpoints, err := clientutil.ListAcrossNamespaces(
-		cmd.Context(), opt.client,
-		func(ctx context.Context, namespace string) ([]v1.Endpoint, error) {
-			return clientutil.ListEndpointFully(ctx, opt.client, namespace, listOpts...)
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list endpoints across all namespaces: %w", err)
-	}
-
-	return endpoints, nil
 }
 
 //nolint:lll

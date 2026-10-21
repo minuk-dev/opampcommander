@@ -358,8 +358,10 @@ and filters fixed during traversal; cursors are currently storage-specific and
 not bound to these inputs. Opaque encoding/filter binding is tracked in #596.
 
 The Go client's `ListAgentGroupsByAgent` accepts the same `ListOption` values as
-other list methods. `opampctl get agentgroup --agent <uid> -n <namespace>` follows
-pages and streams output (JSON is one array, YAML one sequence; text/short output
-has a header per page). Cancellation or a later-page error can leave partial
-output. In the web UI, an agent's **Agent groups** link opens the existing paginated
+other list methods. `opampctl get agentgroup --agent <uid> -n <namespace>` returns
+one bounded page by default. Add `--stream` to follow all pages (JSON is one array,
+YAML one document per page; text/short output has a header per page), or use
+`--continue` to resume. Cancellation or a later-page error can leave partial
+output and returns a nonzero exit status with retry details on stderr.
+In the web UI, an agent's **Agent groups** link opens the existing paginated
 group table, with filters and Previous/Next controls.

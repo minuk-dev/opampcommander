@@ -784,7 +784,7 @@ func TestAgentService_HeartbeatReadsReloadAfterLostInvalidation(t *testing.T) {
 		refreshed, err := svc.GetOrCreateAgent(ctx, instanceUID)
 		require.NoError(t, err)
 
-		builder := agentservice.NewServerToAgentBuilder(nil, nil, logger)
+		builder := agentservice.NewServerToAgentBuilder(nil, logger)
 		response := builder.Build(ctx, refreshed)
 		require.Equal(t, updated.Spec.NewInstanceUID[:], response.GetAgentIdentification().GetNewInstanceUid())
 		persistence.AssertExpectations(t)

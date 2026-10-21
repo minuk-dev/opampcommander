@@ -212,6 +212,13 @@ func (s *Service) UpdateAgent(
 		existing.Spec.RemoteConfig = agent.Spec.RemoteConfig
 	}
 
+	if api.Spec.RetryRemoteConfig {
+		err := existing.RetryRemoteConfig()
+		if err != nil {
+			return nil, fmt.Errorf("retry remote config: %w", err)
+		}
+	}
+
 	err = s.agentUsecase.SaveAgent(ctx, existing)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update agent: %w", err)
