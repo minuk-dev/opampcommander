@@ -265,11 +265,24 @@ OpAMP `instance_uid` and the Collector resource's `service.instance.id` are
 independent. A changed description on an existing session, after disconnect, or
 on a new HTTP poll does not allocate a new UID. Duplicate-session detection
 requires a different live WebSocket plus a conflicting reported identity.
+Once a WebSocket close is observed, it is excluded from conflict detection even
+while background cleanup is pending or its queue is full. In-flight writes cannot
+make that closed session live again.
 Overlapping WebSocket reconnects with the same identity are accepted. Without
 authenticated identity, simultaneous sessions reporting different identities
 cannot reliably be distinguished from a restart whose old socket is still open;
 clients should close the old socket before reconnecting with a changed identity.
 This heuristic does not replace mTLS certificate authorization.
+
+`TestE2E_Conformance_CollectorStableInstanceUID` runs the real Contrib v0.163.2
+extension with a fixed `instance_uid` and independently configured
+`service.instance.id`, then restarts it with a different service instance ID.
+It checks that one agent record and its desired remote-config assignment
+survive. Run it with Docker available:
+
+```sh
+go test -tags=e2e ./test/e2e/apiserver -run TestE2E_Conformance_CollectorStableInstanceUID -v -timeout=5m
+```
 
 ### Namespace attributes
 

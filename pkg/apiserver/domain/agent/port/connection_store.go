@@ -33,6 +33,7 @@ type ConnectionStore interface {
 	// call Store methods. This provides ordering, not rollback or an HA lock.
 	WithinSession(ctx context.Context, uid uuid.UUID, fn func(context.Context) error) error
 
+	// EnqueueClosedConnection marks a WebSocket closed even if the cleanup queue is full.
 	EnqueueClosedConnection(id any) bool
 	NextClosedConnection(ctx context.Context) (any, error)
 	SnapshotState() ConnectionSnapshotState

@@ -21,6 +21,7 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/certutil"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
@@ -278,6 +279,37 @@ func TestDetectInstanceUIDConflict_DescriptionChangeAfterDisconnect(t *testing.T
 	assert.Nil(t, agentUC.saved, "a description update must not trigger UID reassignment")
 }
 
+func TestDetectInstanceUIDConflict_ReconnectBeforeCloseCleanup(t *testing.T) {
+	t.Parallel()
+
+	uid := uuid.New()
+	stored := agentmodel.NewAgent(uid, agentmodel.WithDescription(&agent.Description{
+		IdentifyingAttributes: map[string]string{serviceInstanceIDAttribute: "before-restart"},
+	}))
+	agentUC := &stubAgentUsecase{getResult: stored}
+	store := connectionstore.NewConnectionStore()
+	connUC := agentservice.NewConnectionService(nil, store, nil, nil, slog.New(slog.DiscardHandler))
+	svc := newTestService(t, agentUC, connUC)
+	svc.connectionStore = store
+	oldWire := lifecycleWire(t)
+	old := agentmodel.NewConnection(oldWire, agentmodel.ConnectionTypeWebSocket)
+	old.SetInstanceUID(uid)
+	require.NoError(t, store.Put(t.Context(), old))
+
+	message := &protobufs.AgentToServer{AgentDescription: &protobufs.AgentDescription{
+		IdentifyingAttributes: []*protobufs.KeyValue{{Key: serviceInstanceIDAttribute,
+			Value: &protobufs.AnyValue{Value: &protobufs.AnyValue_StringValue{StringValue: "after-restart"}}}},
+	}}
+	newWire := lifecycleWire(t)
+	require.NotNil(t, svc.detectInstanceUIDConflict(t.Context(), newWire, uid, message),
+		"a competing live session must still be detected")
+
+	svc.OnConnectionClose(oldWire)
+	// Deliberately do not run the asynchronous cleanup worker.
+	assert.Nil(t, svc.handleInstanceUIDConflict(t.Context(), svc.logger, newWire, uid, message))
+	assert.Nil(t, agentUC.saved, "a pending close must not split the agent record")
+}
+
 func TestDetectInstanceUIDConflict_IdentifyingAttrsMatchNoConflict(t *testing.T) {
 	t.Parallel()
 
@@ -287,7 +319,10 @@ func TestDetectInstanceUIDConflict_IdentifyingAttrsMatchNoConflict(t *testing.T)
 	}))
 
 	agentUC := &stubAgentUsecase{getResult: stored}
-	connUC := &stubConnectionUsecase{byInstanceUIDErr: agentport.ErrConnectionNotFound}
+	connUC := &stubConnectionUsecase{
+		byInstanceUID: aliveConn(t, uuid.New(), instanceUID),
+		byID:          aliveConn(t, uuid.New(), instanceUID),
+	}
 
 	svc := newTestService(t, agentUC, connUC)
 

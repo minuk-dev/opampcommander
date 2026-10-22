@@ -79,10 +79,10 @@ service:
 `, opampPort, instanceUID.String())
 }
 
-func buildCollectorContainerRequest(configPath string) testcontainers.ContainerRequest {
+func buildCollectorContainerRequest(configPath, image string) testcontainers.ContainerRequest {
 	//exhaustruct:ignore
 	return testcontainers.ContainerRequest{
-		Image:        otelCollectorImage,
+		Image:        image,
 		ExposedPorts: []string{"4317/tcp", "4318/tcp"},
 		Files: []testcontainers.ContainerFile{
 			//exhaustruct:ignore
@@ -207,14 +207,14 @@ service:
 
 // startCollector runs the collector with the given config and terminates it when the
 // test ends. A test that needs the collector gone earlier can still call Terminate.
-func (b *Base) startCollector(instanceUID uuid.UUID, configPath string) *OTelCollector {
+func (b *Base) startCollector(instanceUID uuid.UUID, configPath, image string) *OTelCollector {
 	b.t.Helper()
 
 	//exhaustruct:ignore
 	container, err := testcontainers.GenericContainer(
 		//exhaustruct:ignore
 		b.t.Context(), testcontainers.GenericContainerRequest{
-			ContainerRequest: buildCollectorContainerRequest(configPath),
+			ContainerRequest: buildCollectorContainerRequest(configPath, image),
 			Started:          true,
 		})
 	require.NoError(b.t, err)
@@ -240,7 +240,7 @@ func (b *Base) StartOTelCollector(opampPort int) *OTelCollector {
 	err := os.WriteFile(configPath, []byte(collectorConfigContent(opampPort, instanceUID)), collectorConfigFileMode)
 	require.NoError(b.t, err)
 
-	return b.startCollector(instanceUID, configPath)
+	return b.startCollector(instanceUID, configPath, otelCollectorImage)
 }
 
 // StartOTelCollectorHTTP starts an OTel Collector container using HTTP polling to connect to the given OpAMP port.
@@ -253,7 +253,7 @@ func (b *Base) StartOTelCollectorHTTP(opampPort int) *OTelCollector {
 	err := os.WriteFile(configPath, []byte(collectorConfigContentHTTP(opampPort, instanceUID)), collectorConfigFileMode)
 	require.NoError(b.t, err)
 
-	return b.startCollector(instanceUID, configPath)
+	return b.startCollector(instanceUID, configPath, otelCollectorImage)
 }
 
 // nonIdentifyingAttrBlock renders the `non_identifying_attributes` block of the
@@ -345,7 +345,7 @@ func (b *Base) StartOTelCollectorWithDescription(
 	err := os.WriteFile(configPath, []byte(content), collectorConfigFileMode)
 	require.NoError(b.t, err)
 
-	return b.startCollector(instanceUID, configPath)
+	return b.startCollector(instanceUID, configPath, otelCollectorImage)
 }
 
 // StartOTelCollectorWithAttributes starts an OTel Collector container with custom resource attributes.
@@ -359,5 +359,21 @@ func (b *Base) StartOTelCollectorWithAttributes(opampPort int, resourceAttrs map
 	err := os.WriteFile(configPath, []byte(content), collectorConfigFileMode)
 	require.NoError(b.t, err)
 
-	return b.startCollector(instanceUID, configPath)
+	return b.startCollector(instanceUID, configPath, otelCollectorImage)
+}
+
+// StartOTelCollectorWithIdentity starts a pinned Collector with independently configured
+// OpAMP and service instance identities, allowing restart tests to reuse the OpAMP UID.
+func (b *Base) StartOTelCollectorWithIdentity(
+	opampPort int, image string, instanceUID uuid.UUID, serviceInstanceID string,
+) *OTelCollector {
+	b.t.Helper()
+
+	configPath := filepath.Join(b.CacheDir, fmt.Sprintf("collector-identity-%s.yaml", uuid.New()))
+	content := collectorConfigContentWithAttributes(opampPort, instanceUID,
+		map[string]string{"service.instance.id": serviceInstanceID})
+	err := os.WriteFile(configPath, []byte(content), collectorConfigFileMode)
+	require.NoError(b.t, err)
+
+	return b.startCollector(instanceUID, configPath, image)
 }
