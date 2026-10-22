@@ -67,7 +67,7 @@ func TestE2E_Conformance_CollectorStableInstanceUID(t *testing.T) {
 	assert.Equal(t, configured.Spec.RemoteConfig, resumed.Spec.RemoteConfig)
 
 	for _, condition := range resumed.Status.Conditions {
-		assert.NotEqual(t, "InstanceUIDConflict", condition.Type)
+		assert.NotEqual(t, v1.ConditionType("InstanceUIDConflict"), condition.Type)
 	}
 
 	agents, err := apiClient.AgentService.ListAgents(t.Context(), "default")
