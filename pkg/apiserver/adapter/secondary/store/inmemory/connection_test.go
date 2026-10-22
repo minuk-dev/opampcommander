@@ -3,6 +3,7 @@ package inmemory_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -129,6 +130,44 @@ func TestConnectionStoreClosedQueue(t *testing.T) {
 
 	_, err = store.NextClosedConnection(ctx)
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestConnectionStoreCloseSurvivesPendingWritesAndFullQueue(t *testing.T) {
+	t.Parallel()
+
+	store := inmemory.NewConnectionStore()
+	require.True(t, store.EnqueueClosedConnection(new(int)))
+	connection := agentmodel.NewConnection(new(int), agentmodel.ConnectionTypeWebSocket)
+	connection.SetInstanceUID(uuid.New())
+	require.NoError(t, store.Put(t.Context(), connection))
+	require.False(t, store.EnqueueClosedConnection(connection.ID))
+
+	// A message that read the connection before close can still finish saving it.
+	require.NoError(t, store.Put(t.Context(), connection))
+	stored, err := store.GetConnectionByInstanceUID(t.Context(), connection.InstanceUID)
+	require.NoError(t, err)
+	assert.False(t, stored.IsAlive(time.Now()))
+	assert.False(t, connection.Closed, "Put must not mutate the caller's snapshot")
+
+	replacement := agentmodel.NewConnection(connection.ID, agentmodel.ConnectionTypeWebSocket)
+	replacement.SetInstanceUID(connection.InstanceUID)
+	require.NoError(t, store.Put(t.Context(), replacement))
+	stored, err = store.GetConnectionByInstanceUID(t.Context(), connection.InstanceUID)
+	require.NoError(t, err)
+	assert.True(t, stored.IsAlive(time.Now()), "a new session must not inherit the old close")
+}
+
+func TestConnectionStoreHTTPCloseKeepsPollingLiveness(t *testing.T) {
+	t.Parallel()
+
+	store := inmemory.NewConnectionStore()
+	connection := agentmodel.NewConnection(new(int), agentmodel.ConnectionTypeHTTP)
+	connection.LastCommunicatedAt = time.Now()
+	require.NoError(t, store.Put(t.Context(), connection))
+	require.True(t, store.EnqueueClosedConnection(connection.ID))
+	stored, err := store.Get(t.Context(), connection.ID)
+	require.NoError(t, err)
+	assert.True(t, stored.IsAlive(time.Now()), "ending an HTTP poll is not an agent disconnect")
 }
 
 func TestConnectionStoreOwnsSnapshotState(t *testing.T) {

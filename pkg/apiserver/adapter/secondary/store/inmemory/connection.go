@@ -75,11 +75,20 @@ func (s *ConnectionStore) Put(_ context.Context, connection *agentmodel.Connecti
 	defer s.mu.Unlock()
 
 	key := connection.IDString()
-	if previous, ok := s.byID[key]; ok && s.byAgent[previous.InstanceUID] == key {
-		delete(s.byAgent, previous.InstanceUID)
+	stored := *connection
+
+	if previous, ok := s.byID[key]; ok {
+		if s.byAgent[previous.InstanceUID] == key {
+			delete(s.byAgent, previous.InstanceUID)
+		}
+
+		// An in-flight message must not undo a transport close observed after its read.
+		if previous.UID == stored.UID {
+			stored.Closed = stored.Closed || previous.Closed
+		}
 	}
 
-	s.byID[key] = *connection
+	s.byID[key] = stored
 	if !connection.IsAnonymous() {
 		s.byAgent[connection.InstanceUID] = key
 	}
@@ -128,8 +137,17 @@ func (s *ConnectionStore) WithinSession(
 	return nil
 }
 
-// EnqueueClosedConnection records a close for background cleanup without blocking.
+// EnqueueClosedConnection marks a WebSocket closed before scheduling background cleanup.
 func (s *ConnectionStore) EnqueueClosedConnection(id any) bool {
+	s.mu.Lock()
+
+	key := agentmodel.ConvertConnIDToString(id)
+	if connection, ok := s.byID[key]; ok && connection.Type == agentmodel.ConnectionTypeWebSocket {
+		connection.Closed = true
+		s.byID[key] = connection
+	}
+	s.mu.Unlock()
+
 	select {
 	case s.closed <- id:
 		return true

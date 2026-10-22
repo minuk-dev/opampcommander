@@ -78,6 +78,9 @@ type Connection struct {
 
 	// LastCommunicatedAt is the last time the connection was communicated with.
 	LastCommunicatedAt time.Time
+
+	// Closed records WebSocket shutdown before asynchronous cleanup completes.
+	Closed bool
 }
 
 // NewConnection creates a new Connection instance with the given ID and type.
@@ -89,12 +92,14 @@ func NewConnection(id any, typ ConnectionType) *Connection {
 		InstanceUID:        uuid.Nil,
 		Namespace:          DefaultNamespaceName,
 		LastCommunicatedAt: time.Time{},
+		Closed:             false,
 	}
 }
 
 // IsAlive returns true if the connection is alive.
 func (conn *Connection) IsAlive(now time.Time) bool {
-	return conn.Type == ConnectionTypeWebSocket || now.Sub(conn.LastCommunicatedAt) < 2*OpAMPPollingInterval
+	return !conn.Closed &&
+		(conn.Type == ConnectionTypeWebSocket || now.Sub(conn.LastCommunicatedAt) < 2*OpAMPPollingInterval)
 }
 
 // IDString returns a string value
