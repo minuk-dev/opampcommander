@@ -15,7 +15,7 @@ services:
       - ./demo/server.yaml:/etc/commander/config.yaml:ro
       - ./.demo/initial:/etc/commander/initial:ro
   collector-a:
-    image: otel/opentelemetry-collector-contrib:0.115.1
+    image: otel/opentelemetry-collector-contrib:0.163.2
     command: ['--config=/etc/otelcol/demo.yaml']
     environment:
       DEMO_AGENT_NAME: demo-collector-a
@@ -24,7 +24,7 @@ services:
       - ./demo/collector.yaml:/etc/otelcol/demo.yaml:ro
     depends_on: [commander]
   collector-b:
-    image: otel/opentelemetry-collector-contrib:0.115.1
+    image: otel/opentelemetry-collector-contrib:0.163.2
     command: ['--config=/etc/otelcol/demo.yaml']
     environment:
       DEMO_AGENT_NAME: demo-collector-b
