@@ -1,7 +1,6 @@
 package agentservice
 
 import (
-	"bytes"
 	"context"
 	"log/slog"
 
@@ -142,12 +141,7 @@ func connectionSettingsToProtobuf(agent *agentmodel.Agent) *protobufs.Connection
 		return nil
 	}
 
-	status := agent.Status.ConnectionSettingsStatus
-	if status.Status == agentmodel.ConnectionSettingsStatusApplied &&
-		bytes.Equal(status.LastConnectionSettingsHash, connectionInfo.Hash.Bytes()) {
-		return nil
-	}
-
+	// A persisted ACK may belong to a previous client process; clients deduplicate by hash.
 	offers := &protobufs.ConnectionSettingsOffers{
 		Hash: connectionInfo.Hash.Bytes(),
 	}

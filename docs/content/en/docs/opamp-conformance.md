@@ -87,7 +87,7 @@ See [Custom messages](#custom-messages).
 |---|:---:|---|
 | `instance_uid` | ✅ | |
 | `remote_config` | ✅ | Built from the agent's materialized `Spec.RemoteConfig.ConfigMap` with a content hash. |
-| `connection_settings` | 🟡 | OpAMP bundles require acceptance and status reporting; an exact `APPLIED` hash stops repeat offers. Other capability filtering and heartbeat negotiation are incomplete. |
+| `connection_settings` | 🟡 | OpAMP bundles require acceptance and status reporting; desired bundles remain deliverable after acknowledgment and clients deduplicate by hash. Other capability filtering and heartbeat negotiation are incomplete. |
 | `packages_available` | ❌ | Intentionally unset until package assignment/persistence and real client installation are supported (#839). |
 | `agent_identification` | ✅ | Sent when the server assigns a new instance UID. |
 | `command` | 🟡 | `Restart` delivery exists, but the builder can include other desired-state fields and does not recheck withdrawn restart support. |
@@ -166,7 +166,8 @@ See [Custom messages](#custom-messages).
 
 8. **Connection capability negotiation is incomplete.** OpAMP bundles are withheld
    unless the agent advertises both acceptance and connection-settings status reporting.
-   The entire desired hash must be acknowledged as `APPLIED` before repeat offers stop.
+   Acknowledgments record application status without suppressing offers to restarted clients;
+   clients deduplicate repeated offers by hash.
    Supervisor 0.163.0 cannot meet this policy; endpoint/certificate rotation is unsupported
    (see the [delivery policy](/docs/configuration/collector-opamp/#connection-settings-delivery-and-rotation)
    and [#850](https://github.com/minuk-dev/opampcommander/issues/850)). Telemetry-only

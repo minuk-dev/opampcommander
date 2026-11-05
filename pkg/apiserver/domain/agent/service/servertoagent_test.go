@@ -251,7 +251,7 @@ func TestServerToAgentBuilder_ConnectionSettingsCapabilities(t *testing.T) {
 	}
 }
 
-func TestServerToAgentBuilder_ConnectionSettingsAcknowledgment(t *testing.T) {
+func TestServerToAgentBuilder_ConnectionSettingsRemainDeliverable(t *testing.T) {
 	t.Parallel()
 
 	agent := agentmodel.NewAgent(uuid.New())
@@ -268,15 +268,14 @@ func TestServerToAgentBuilder_ConnectionSettingsAcknowledgment(t *testing.T) {
 		"an unacknowledged offer must remain deliverable after a lost response")
 
 	for _, tt := range []struct {
-		name      string
-		status    agentmodel.ConnectionSettingsStatus
-		hash      []byte
-		wantOffer bool
+		name   string
+		status agentmodel.ConnectionSettingsStatus
+		hash   []byte
 	}{
-		{name: "no acknowledgment", wantOffer: true},
-		{name: "applying", status: agentmodel.ConnectionSettingsStatusApplying, hash: offer.GetHash(), wantOffer: true},
-		{name: "failed", status: agentmodel.ConnectionSettingsStatusFailed, hash: offer.GetHash(), wantOffer: true},
-		{name: "stale applied", status: agentmodel.ConnectionSettingsStatusApplied, hash: []byte("old"), wantOffer: true},
+		{name: "no acknowledgment"},
+		{name: "applying", status: agentmodel.ConnectionSettingsStatusApplying, hash: offer.GetHash()},
+		{name: "failed", status: agentmodel.ConnectionSettingsStatusFailed, hash: offer.GetHash()},
+		{name: "stale applied", status: agentmodel.ConnectionSettingsStatusApplied, hash: []byte("old")},
 		{name: "applied", status: agentmodel.ConnectionSettingsStatusApplied, hash: offer.GetHash()},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -289,12 +288,8 @@ func TestServerToAgentBuilder_ConnectionSettingsAcknowledgment(t *testing.T) {
 
 			for range 3 {
 				got := newTestBuilder().Build(t.Context(), member).GetConnectionSettings()
-				if tt.wantOffer {
-					require.NotNil(t, got)
-					assert.Equal(t, offer.GetHash(), got.GetHash())
-				} else {
-					assert.Nil(t, got, "an applied hash stays suppressed across reconnect and server restart")
-				}
+				require.NotNil(t, got, "persisted status must not prevent a new client from receiving its settings")
+				assert.Equal(t, offer.GetHash(), got.GetHash())
 
 				member = entity.AgentFromDomain(member).ToDomain().Clone()
 			}

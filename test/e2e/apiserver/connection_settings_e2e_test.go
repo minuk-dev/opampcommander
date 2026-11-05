@@ -86,6 +86,61 @@ func TestE2E_ConnectionSettingsWithoutAcknowledgment(t *testing.T) {
 	}
 }
 
+func TestE2E_ConnectionSettingsAfterClientRestart(t *testing.T) {
+	t.Parallel()
+
+	if testing.Short() {
+		t.Skip("skipping E2E test in short mode")
+	}
+
+	for _, transport := range []testutil.ReferenceAgentTransport{
+		testutil.ReferenceAgentTransportWebSocket, testutil.ReferenceAgentTransportHTTP,
+	} {
+		t.Run(string(transport), func(t *testing.T) {
+			t.Parallel()
+
+			base := testutil.NewBase(t)
+			server := base.StartStandaloneAPIServer()
+			server.WaitForReady()
+			apiClient := server.Client()
+			uid := uuid.New()
+			name := "restart-" + string(transport)
+			endpoint := "http://metrics.example:4318"
+			_, err := apiClient.AgentGroupService.CreateAgentGroup(t.Context(), "default", &v1.AgentGroup{
+				Metadata: v1.Metadata{Name: name},
+				Spec: v1.Spec{
+					Selector: v1.AgentSelector{IdentifyingAttributes: map[string]string{"service.name": name}},
+					AgentConfig: &v1.AgentConfig{ConnectionSettings: &v1.ConnectionSettings{
+						OwnMetrics: v1.TelemetryConnectionSettings{DestinationEndpoint: endpoint},
+					}},
+				},
+			})
+			require.NoError(t, err)
+
+			opts := []testutil.ReferenceAgentOption{
+				testutil.WithReferenceAgentUID(uid),
+				testutil.WithReferenceAgentTransport(transport),
+				testutil.WithReferenceAgentHeartbeat(100 * time.Millisecond),
+				testutil.WithReferenceAgentIdentifyingAttributes(map[string]string{"service.name": name}),
+			}
+			first := base.StartReferenceAgent(server.Port, opts...)
+
+			require.Eventually(t, func() bool { return first.OwnMetricsEndpoint() == endpoint },
+				10*time.Second, 100*time.Millisecond)
+			testutil.EventuallyAgent(t, apiClient, "default", uid, func(agent *v1.Agent) bool {
+				return agent.Status.ConnectionSettings.SyncStatus == "applied"
+			}, 10*time.Second, 100*time.Millisecond, "first client applied the settings")
+			first.Stop()
+
+			// A fresh client has the same UID but neither the old settings nor its acknowledgment.
+			second := base.StartReferenceAgent(server.Port, opts...)
+
+			require.Eventually(t, func() bool { return second.OwnMetricsEndpoint() == endpoint },
+				10*time.Second, 100*time.Millisecond, "persisted APPLIED must not prevent settings recovery")
+		})
+	}
+}
+
 // Each exchange opens a replacement socket for the same agent identity.
 func exchangeConnectionSettingsWebSocket(
 	t *testing.T, port int, message *protobufs.AgentToServer,

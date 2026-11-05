@@ -81,15 +81,15 @@ client. Supervisor own-metrics settings can reach the Collector without a hash
 acknowledgment; verify effective configuration and health, while REST
 `connectionSettings.syncStatus` remains `pending`.
 
-For eligible clients, Commander resends the same bundle until the agent reports
-`APPLIED` for its exact hash. Sending a response alone never counts as delivery
-or application. The persisted acknowledgment suppresses identical offers across
-reconnects, server restarts and cross-server pushes; a changed desired hash is
-offered again. An absent, stale, `APPLYING` or `FAILED` report does not suppress
-delivery. Clients must deduplicate identical offers while processing them and
-preserve their applied connection settings and acknowledgment across client
-replacement and process restart. A client that loses applied state must report
-that loss rather than continue reporting the old applied hash.
+For eligible clients, Commander continues offering the desired bundle, even after
+an `APPLIED` acknowledgment. A saved acknowledgment may belong to a previous
+client process; using it to suppress delivery would prevent a fresh client with
+the same UID from recovering its settings. Clients deduplicate repeated offers
+by hash while retaining their applied settings. After a restart that loses local
+state, the client can receive and apply the bundle again; changed hashes also
+remain deliverable. Sending a response alone never counts as application: REST
+status reflects the last reported hash and status, not proof of the current
+process's state. Clients should report lost state explicitly when possible.
 
 There is **no validated Supervisor release for rotation in this repository**.
 Before enabling it, require a release that advertises and correctly implements
