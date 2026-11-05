@@ -150,6 +150,10 @@ test-e2e-conformance:
 	@echo "Running the OpAMP conformance/interop E2E suite only..."
 	go test -tags=e2e ./test/e2e/apiserver -run TestE2E_Conformance -v -timeout=10m
 
+.PHONY: test-e2e-supervisor-policy
+test-e2e-supervisor-policy:
+	OPAMP_TEST_SUPERVISOR_POLICY=1 go test -tags=e2e ./test/e2e/apiserver -run '^TestE2E_SupervisorConnectionSettingsPolicy$$' -parallel=1 -v -timeout=15m
+
 bench-liveness:
 	@echo "Measuring what a heartbeat costs the database (writes per heartbeat, by shape)..."
 	go test ./pkg/apiserver/domain/agent/service -run XXX -bench BenchmarkHeartbeatWriteCost -benchtime 2000x
