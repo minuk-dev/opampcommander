@@ -242,6 +242,14 @@ the `AgentToServer` converters in
 `ServerToAgent` builder (including the connection-settings offer path) in
 `pkg/apiserver/domain/agent/service/servertoagent_test.go`.
 
+`make test-e2e-supervisor-policy` additionally runs released Supervisor 0.163.0
+with Collector Contrib 0.163.1 over WSS and HTTPS. It verifies withheld endpoint
+and certificate assignments, health continuity, restart with the original
+credentials, and subsequent telemetry changes. This is the explicit
+[supported-client policy](/docs/configuration/collector-opamp/#connection-settings-delivery-and-rotation),
+not a claim of Supervisor rotation support. The normal E2E suite separately
+checks reference-client offer idempotence and delivery after client restart.
+
 ### Remote configuration acknowledgment and retry
 
 For agents advertising `ReportsRemoteConfig`, the shared delivery builder stops

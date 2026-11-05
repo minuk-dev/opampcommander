@@ -91,16 +91,43 @@ remain deliverable. Sending a response alone never counts as application: REST
 status reflects the last reported hash and status, not proof of the current
 process's state. Clients should report lost state explicitly when possible.
 
-There is **no validated Supervisor release for rotation in this repository**.
-Before enabling it, require a release that advertises and correctly implements
-status reporting, preserves/deduplicates offer state across replacement and
-restart, and reports success only after application. Restore the real Supervisor
-endpoint-replacement/health-continuity regression from
-[#846](https://github.com/minuk-dev/opampcommander/pull/846) on both WebSocket and
-HTTP, including repeated offers and new settings after restart. Verify actual
-Supervisor certificate rotation separately before claiming support. The
-reference-client mTLS regression verifies Commander's path, not Supervisor
-compatibility. Until then, change Supervisor endpoint/TLS settings locally.
+There is **no supported Supervisor release for endpoint/certificate rotation**.
+As of 2026-11-05, the 0.164.1 release and upstream `main` still lack Supervisor
+connection-settings status reporting and offer-state restoration. Upstream
+[#46157](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/46157)
+describes the missing acknowledgment/persistence work, but its closure after
+library changes is not proof that Supervisor implements it.
+[#51015](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/51015)
+preserves health across client replacement; it does not fix this delivery loop.
+Keep remote rotation disabled and change Supervisor endpoint/TLS settings locally.
+
+The required future release must advertise and correctly implement status
+reporting, deduplicate offers across client replacement, recover settings after
+process restart, and report success only after application. Enabling support
+also requires real Supervisor endpoint replacement, uninterrupted Collector
+health, repeated-offer idempotence and actual certificate rotation on both
+WebSocket and HTTP. A reference-client mTLS test does not satisfy that gate.
+
+### Regression coverage
+
+`make test-e2e-supervisor-policy` runs released Supervisor **0.163.0** managing
+Collector Contrib **0.163.1** in Docker, sequentially on **WSS and HTTPS**.
+It deliberately enables `accepts_opamp_connection_settings` and verifies:
+
+- Endpoint and certificate assignments remain pending without an invented ACK.
+- Multiple subsequent reports do not replace the client or interrupt health.
+- A mixed bundle is withheld in full, including its own-metrics destination.
+- Restarting Supervisor with its original certificate and UID remains possible.
+- Removing the unsupported OpAMP part unblocks telemetry, and two successive
+  destinations reach the actual managed Collector after restart.
+
+This runs in the dedicated `test-supervisor-policy` CI job. It brings the real
+Supervisor scenario from [#846](https://github.com/minuk-dev/opampcommander/pull/846)
+back into CI with the supported-client policy required by
+[#850](https://github.com/minuk-dev/opampcommander/issues/850); it does not claim
+that a withheld endpoint or certificate was rotated. The normal E2E suite also
+counts reference-client OpAMP applications to verify identical offers apply
+once, recovery after a fresh client starts, and delivery of a new revision.
 
 ## Capability option migration
 

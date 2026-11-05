@@ -51,3 +51,18 @@ jobs:
       - name: Run E2E tests
         run: make test-e2e
         # Note: E2E tests run without -race flag due to known issues in external Kafka library (IBM/sarama)
+
+  test-supervisor-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Verify released Supervisor connection-settings policy
+        run: make test-e2e-supervisor-policy

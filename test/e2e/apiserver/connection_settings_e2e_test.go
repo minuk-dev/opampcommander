@@ -3,6 +3,7 @@
 package apiserver_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -106,11 +108,20 @@ func TestE2E_ConnectionSettingsAfterClientRestart(t *testing.T) {
 			uid := uuid.New()
 			name := "restart-" + string(transport)
 			endpoint := "http://metrics.example:4318"
-			_, err := apiClient.AgentGroupService.CreateAgentGroup(t.Context(), "default", &v1.AgentGroup{
+
+			scheme := "ws"
+			if transport == testutil.ReferenceAgentTransportHTTP {
+				scheme = "http"
+			}
+
+			group, err := apiClient.AgentGroupService.CreateAgentGroup(t.Context(), "default", &v1.AgentGroup{
 				Metadata: v1.Metadata{Name: name},
 				Spec: v1.Spec{
 					Selector: v1.AgentSelector{IdentifyingAttributes: map[string]string{"service.name": name}},
 					AgentConfig: &v1.AgentConfig{ConnectionSettings: &v1.ConnectionSettings{
+						OpAMP: v1.OpAMPConnectionSettings{
+							DestinationEndpoint: fmt.Sprintf("%s://localhost:%d/api/v1/opamp?revision=1", scheme, server.Port),
+						},
 						OwnMetrics: v1.TelemetryConnectionSettings{DestinationEndpoint: endpoint},
 					}},
 				},
@@ -120,6 +131,7 @@ func TestE2E_ConnectionSettingsAfterClientRestart(t *testing.T) {
 			opts := []testutil.ReferenceAgentOption{
 				testutil.WithReferenceAgentUID(uid),
 				testutil.WithReferenceAgentTransport(transport),
+				testutil.WithReferenceAgentOpAMPSettings(),
 				testutil.WithReferenceAgentHeartbeat(100 * time.Millisecond),
 				testutil.WithReferenceAgentIdentifyingAttributes(map[string]string{"service.name": name}),
 			}
@@ -130,13 +142,37 @@ func TestE2E_ConnectionSettingsAfterClientRestart(t *testing.T) {
 			testutil.EventuallyAgent(t, apiClient, "default", uid, func(agent *v1.Agent) bool {
 				return agent.Status.ConnectionSettings.SyncStatus == "applied"
 			}, 10*time.Second, 100*time.Millisecond, "first client applied the settings")
+
+			for index := range 3 {
+				status := fmt.Sprintf("repeat-%d", index)
+				require.NoError(t, first.ReportHealth(true, status))
+				testutil.EventuallyAgent(t, apiClient, "default", uid, func(agent *v1.Agent) bool {
+					return agent.Status.ComponentHealth.Status == status
+				}, 10*time.Second, 100*time.Millisecond, "reports must continue while the same bundle is reoffered")
+			}
+
+			require.Eventually(t, func() bool { return first.OpAMPSettingsApplications() == 1 },
+				10*time.Second, 100*time.Millisecond)
+			assert.Never(t, func() bool { return first.OpAMPSettingsApplications() > 1 },
+				time.Second, 100*time.Millisecond, "identical offers must not invoke application twice")
 			first.Stop()
 
 			// A fresh client has the same UID but neither the old settings nor its acknowledgment.
 			second := base.StartReferenceAgent(server.Port, opts...)
 
-			require.Eventually(t, func() bool { return second.OwnMetricsEndpoint() == endpoint },
+			require.Eventually(t, func() bool {
+				return second.OwnMetricsEndpoint() == endpoint && second.OpAMPSettingsApplications() == 1
+			},
 				10*time.Second, 100*time.Millisecond, "persisted APPLIED must not prevent settings recovery")
+
+			group.Spec.AgentConfig.ConnectionSettings.OpAMP.DestinationEndpoint += "&revision=2"
+			patchConnectionSettings(t, apiClient, group)
+			require.NoError(t, second.ReportHealth(true, "request-new-settings"))
+			require.EventuallyWithT(t, func(collect *assert.CollectT) {
+				assert.Equal(collect, 2, second.OpAMPSettingsApplications())
+			}, 10*time.Second, 100*time.Millisecond, "a new bundle must still be applied after client restart")
+			assert.Never(t, func() bool { return second.OpAMPSettingsApplications() > 2 },
+				time.Second, 100*time.Millisecond, "repeated new offers must remain idempotent")
 		})
 	}
 }
@@ -172,4 +208,23 @@ func exchangeConnectionSettingsWebSocket(
 	require.NoError(t, proto.Unmarshal(payload[1:], &reply))
 
 	return &reply
+}
+
+func patchConnectionSettings(t *testing.T, apiClient *client.Client, group *v1.AgentGroup) {
+	t.Helper()
+
+	connections := map[string]any{
+		"opamp":      map[string]any{"destinationEndpoint": "", "certificateName": nil},
+		"ownMetrics": group.Spec.AgentConfig.ConnectionSettings.OwnMetrics,
+	}
+	if group.Spec.AgentConfig.ConnectionSettings.OpAMP.DestinationEndpoint != "" {
+		connections["opamp"] = group.Spec.AgentConfig.ConnectionSettings.OpAMP
+	}
+
+	patch, err := json.Marshal(map[string]any{"spec": map[string]any{"agentConfig": map[string]any{
+		"connectionSettings": connections,
+	}}})
+	require.NoError(t, err)
+	_, err = apiClient.AgentGroupService.PatchAgentGroup(t.Context(), "default", group.Metadata.Name, patch)
+	require.NoError(t, err)
 }

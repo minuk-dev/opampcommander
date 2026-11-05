@@ -134,17 +134,18 @@ type ReferenceAgent struct {
 	client   client.OpAMPClient
 	packages *memPackagesStore
 
-	mu                 sync.Mutex
-	effectiveConfig    map[string]*protobufs.AgentConfigObject
-	remoteConfigHash   []byte
-	remoteConfigs      int
-	ownMetrics         *protobufs.TelemetryConnectionSettings
-	restarts           int
-	startTime          time.Time
-	serverErrors       []*protobufs.ServerErrorResponse
-	offeredCertificate *protobufs.TLSCertificate
-	offeredHash        []byte
-	offeredEndpoint    string
+	mu                   sync.Mutex
+	effectiveConfig      map[string]*protobufs.AgentConfigObject
+	remoteConfigHash     []byte
+	remoteConfigs        int
+	ownMetrics           *protobufs.TelemetryConnectionSettings
+	restarts             int
+	startTime            time.Time
+	serverErrors         []*protobufs.ServerErrorResponse
+	offeredCertificate   *protobufs.TLSCertificate
+	offeredHash          []byte
+	offeredEndpoint      string
+	opampSettingsApplied int
 }
 
 // StartReferenceAgent connects a ReferenceAgent to the OpAMP endpoint of the server
@@ -276,6 +277,14 @@ func (a *ReferenceAgent) OfferedClientCertificate() *protobufs.TLSCertificate {
 	return a.offeredCertificate
 }
 
+// OpAMPSettingsApplications returns how many times the client applied an OpAMP offer.
+func (a *ReferenceAgent) OpAMPSettingsApplications() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return a.opampSettingsApplied
+}
+
 // ReportHealth reports the agent's top-level health and status string.
 func (a *ReferenceAgent) ReportHealth(healthy bool, status string) error {
 	//nolint:wrapcheck // test helper surfaces the client error as-is.
@@ -309,6 +318,7 @@ func (a *ReferenceAgent) onOpAMPConnectionSettings(
 	a.mu.Lock()
 	a.offeredCertificate = settings.GetCertificate()
 	a.offeredEndpoint = settings.GetDestinationEndpoint()
+	a.opampSettingsApplied++
 	hash := bytes.Clone(a.offeredHash)
 	a.mu.Unlock()
 
