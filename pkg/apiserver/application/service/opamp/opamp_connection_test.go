@@ -120,7 +120,7 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 			}), mock.Anything).Return(false).Once()
 
 			if tc.cleanupFirst {
-				read.Times(2) // Cleanup and the replacement's conflict check each load the agent.
+				read.Once()
 				agentUC.EXPECT().SaveAgent(mock.Anything, mock.MatchedBy(func(saved *agentmodel.Agent) bool {
 					return saved.Metadata.InstanceUID == uid && !saved.Status.Connected
 				})).Return(nil).Once()
@@ -147,7 +147,8 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 				require.Nil(t, (<-messageDone).GetErrorResponse())
 				require.True(t, waiting)
 			} else {
-				read.Once()
+				read.Unset()
+				svc.OnConnectionClose(oldWire)
 				require.Nil(t, replacementService.OnMessage(t.Context(), newWire, message).GetErrorResponse())
 				require.NoError(t, svc.cleanUpConnection(t.Context(), oldWire))
 			}

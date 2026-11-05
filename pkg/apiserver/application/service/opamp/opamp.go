@@ -325,7 +325,7 @@ func (s *Service) onMessage(
 	)
 	logger.Info("start")
 
-	if response := s.handleInstanceUIDConflict(ctx, logger, conn, instanceUID, message); response != nil {
+	if response := s.handleInstanceUIDConflict(ctx, logger, conn, instanceUID); response != nil {
 		return response
 	}
 

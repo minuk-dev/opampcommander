@@ -2,78 +2,35 @@ package opamp
 
 import (
 	"context"
-	"errors"
 	"log/slog"
-	"maps"
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/open-telemetry/opamp-go/server/types"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
-const (
-	conflictReasonLiveAndIdentifying = "live_connection_and_identifying_attributes_mismatch"
-	conflictTriggeredBy              = "system:opamp"
-	serviceInstanceIDAttribute       = "service.instance.id"
-)
-
-// instanceUIDConflict describes a detected conflict on the incoming instanceUID.
-type instanceUIDConflict struct {
-	reason        string
-	existingAgent *agentmodel.Agent
-}
-
-// handleInstanceUIDConflict runs conflict detection and, when a conflict is found, audits
-// the event and returns a renewal ServerToAgent response. Returns nil when no conflict.
+// handleInstanceUIDConflict keeps one live WebSocket owner per UID. A competing
+// session may be a reconnect, so ask it to retry without changing its identity.
+// Mutable description attributes cannot distinguish reconnects from duplicates.
+// mTLS certificate authorization runs before this handler when required.
 func (s *Service) handleInstanceUIDConflict(
 	ctx context.Context,
 	logger *slog.Logger,
 	conn types.Connection,
 	instanceUID uuid.UUID,
-	message *protobufs.AgentToServer,
 ) *protobufs.ServerToAgent {
-	conflict := s.detectInstanceUIDConflict(ctx, conn, instanceUID, message)
-	if conflict == nil {
+	if instanceUID == uuid.Nil || !s.hasLiveConnectionConflict(ctx, conn, instanceUID) {
 		return nil
 	}
 
-	newInstanceUID := s.newInstanceUID(logger)
-	s.recordInstanceUIDConflict(ctx, logger, conflict, instanceUID, newInstanceUID)
+	logger.Warn("instanceUID already has a live WebSocket; deferring competing session",
+		slog.String("instanceUID", instanceUID.String()))
 
-	return s.createRenewalServerToAgent(instanceUID, newInstanceUID)
-}
-
-// detectInstanceUIDConflict requires both another live WebSocket and a different
-// reported identity. Description changes alone are normal across Collector restarts:
-// service.instance.id is independent of the persistent OpAMP instance UID.
-// This is duplicate-session detection, not authentication; certificate authorization
-// runs before this handler when mTLS is required.
-func (s *Service) detectInstanceUIDConflict(
-	ctx context.Context,
-	conn types.Connection,
-	instanceUID uuid.UUID,
-	message *protobufs.AgentToServer,
-) *instanceUIDConflict {
-	if instanceUID == uuid.Nil {
-		return nil
-	}
-
-	existingAgent, attrsConflict := s.hasIdentifyingAttrsConflict(ctx, instanceUID, message)
-	if !attrsConflict {
-		return nil
-	}
-
-	if !s.hasLiveConnectionConflict(ctx, conn, instanceUID) {
-		return nil
-	}
-
-	return &instanceUIDConflict{
-		reason:        conflictReasonLiveAndIdentifying,
-		existingAgent: existingAgent,
-	}
+	return s.createErrorServerToAgent(instanceUID,
+		protobufs.ServerErrorResponseType_ServerErrorResponseType_Unavailable,
+		"instance UID already has an active WebSocket session; retry after it disconnects")
 }
 
 // hasLiveConnectionConflict reports whether another connection (distinct from conn) is
@@ -105,109 +62,4 @@ func (s *Service) hasLiveConnectionConflict(
 	}
 
 	return existingConn.UID != currentConn.UID
-}
-
-// hasIdentifyingAttrsConflict reports whether a stored agent record for instanceUID exists
-// and whose identifying attributes differ from those reported in the incoming message.
-// Returns the stored agent (or nil) alongside the verdict so callers can attach audit info.
-func (s *Service) hasIdentifyingAttrsConflict(
-	ctx context.Context,
-	instanceUID uuid.UUID,
-	message *protobufs.AgentToServer,
-) (*agentmodel.Agent, bool) {
-	existing, err := s.agentUsecase.GetAgent(ctx, instanceUID)
-	if err != nil {
-		if !errors.Is(err, model.ErrResourceNotExist) {
-			s.logger.Warn("failed to load agent for instanceUID conflict check",
-				slog.String("instanceUID", instanceUID.String()),
-				slog.String("error", err.Error()))
-		}
-
-		return nil, false
-	}
-
-	desc := message.GetAgentDescription()
-	if desc == nil {
-		return existing, false
-	}
-
-	incoming := toMap(desc.GetIdentifyingAttributes())
-	stored := existing.Metadata.Description.IdentifyingAttributes
-
-	if len(incoming) == 0 || len(stored) == 0 {
-		return existing, false
-	}
-
-	incomingID, incomingHasID := incoming[serviceInstanceIDAttribute]
-	storedID, storedHasID := stored[serviceInstanceIDAttribute]
-
-	if incomingHasID && storedHasID {
-		return existing, incomingID != storedID
-	}
-
-	return existing, !maps.Equal(incoming, stored)
-}
-
-// recordInstanceUIDConflict appends an audit condition onto the stored agent (if any) and
-// emits a structured log. The audit captures the old/new instanceUID and the reason so
-// operators can trace renewals after the fact.
-func (s *Service) recordInstanceUIDConflict(
-	ctx context.Context,
-	logger *slog.Logger,
-	conflict *instanceUIDConflict,
-	oldInstanceUID, newInstanceUID uuid.UUID,
-) {
-	logger.Warn("instanceUID conflict detected; redirecting new arrival to a fresh instanceUID",
-		slog.String("oldInstanceUID", oldInstanceUID.String()),
-		slog.String("newInstanceUID", newInstanceUID.String()),
-		slog.String("reason", conflict.reason),
-	)
-
-	if conflict.existingAgent == nil {
-		return
-	}
-
-	conflict.existingAgent.RecordInstanceUIDConflict(
-		s.clock.Now(),
-		oldInstanceUID, newInstanceUID,
-		conflict.reason,
-		conflictTriggeredBy,
-	)
-
-	err := s.agentUsecase.SaveAgent(ctx, conflict.existingAgent)
-	if err != nil {
-		logger.Error("failed to persist instanceUID conflict audit on existing agent",
-			slog.String("existingAgentInstanceUID", conflict.existingAgent.Metadata.InstanceUID.String()),
-			slog.String("error", err.Error()),
-		)
-	}
-}
-
-// createRenewalServerToAgent builds a ServerToAgent response that asks the agent to switch
-// to a freshly issued instanceUID. The InstanceUid field echoes the UID the agent currently
-// believes it has, per the OpAMP spec.
-func (s *Service) createRenewalServerToAgent(
-	oldInstanceUID, newInstanceUID uuid.UUID,
-) *protobufs.ServerToAgent {
-	return &protobufs.ServerToAgent{
-		InstanceUid: oldInstanceUID[:],
-		AgentIdentification: &protobufs.AgentIdentification{
-			NewInstanceUid: newInstanceUID[:],
-		},
-	}
-}
-
-// newInstanceUID generates a fresh UUID v7 to hand to the conflicting agent. Falls back to
-// a random UUID v4 if v7 generation fails (clock/entropy issue) so the protocol can still
-// progress.
-func (s *Service) newInstanceUID(logger *slog.Logger) uuid.UUID {
-	id, err := uuid.NewV7()
-	if err != nil {
-		logger.Warn("uuid.NewV7 failed; falling back to uuid.New",
-			slog.String("error", err.Error()))
-
-		return uuid.New()
-	}
-
-	return id
 }

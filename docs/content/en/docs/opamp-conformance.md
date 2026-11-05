@@ -104,7 +104,7 @@ See [Custom messages](#custom-messages).
 
 | Field | Status | Notes |
 |---|:---:|---|
-| `instance_uid` | ✅ | Incl. instance-UID conflict handling (`instanceuid_conflict.go`). |
+| `instance_uid` | ✅ | One live WebSocket owner per UID on each server; competing sessions retry without UID reassignment. |
 | `sequence_num` | ✅ | Recorded per report. |
 | `agent_description` | ✅ | Ingested; non-string `AnyValue`s are preserved in their string form (`protobufsToDomain.go`, `anyValueToString`). |
 | `capabilities` | ✅ | Stored. |
@@ -276,26 +276,32 @@ late reports for the same hash may still describe the earlier attempt.
 ### Collector identity across restarts
 
 OpAMP `instance_uid` and the Collector resource's `service.instance.id` are
-independent. A changed description on an existing session, after disconnect, or
-on a new HTTP poll does not allocate a new UID. Duplicate-session detection
-requires a different live WebSocket plus a conflicting reported identity.
+independent. Description attributes never determine session ownership or trigger
+UID reassignment. The first live WebSocket owns the UID on a server; messages
+from a competing connection receive `UNAVAILABLE` without changing the agent
+record, desired state, or UID. This includes duplicates with identical or absent
+descriptions. An overlapping reconnect can retry with the same UID after the
+old socket closes. Operators must give genuinely distinct agents unique UIDs.
+
 Once a WebSocket close is observed, it is excluded from conflict detection even
 while background cleanup is pending or its queue is full. In-flight writes cannot
-make that closed session live again.
-Overlapping WebSocket reconnects with the same identity are accepted. Without
-authenticated identity, simultaneous sessions reporting different identities
-cannot reliably be distinguished from a restart whose old socket is still open;
-clients should close the old socket before reconnecting with a changed identity.
-This heuristic does not replace mTLS certificate authorization.
+make that closed session live again. Description updates on the owning session,
+after disconnect, and across HTTP polls remain accepted. HTTP polls do not prove
+concurrent sessions; ownership checks use the server's local WebSocket registry,
+not a cluster-wide lease. mTLS certificate-to-UID authorization runs before
+session admission, including the existing authorized certificate rotation path.
 
 `TestE2E_Conformance_CollectorStableInstanceUID` runs the real Contrib v0.163.2
 extension with a fixed `instance_uid` and independently configured
 `service.instance.id`, then restarts it with a different service instance ID.
 It checks that one agent record and its desired remote-config assignment
-survive. Run it with Docker available:
+survive. `TestE2E_Conformance_OverlappingInstanceUIDSessions` checks description
+updates, identical/changed/missing descriptions on competing sessions, and
+recovery after the owner closes without splitting the record. Run both with
+Docker available:
 
 ```sh
-go test -tags=e2e ./test/e2e/apiserver -run TestE2E_Conformance_CollectorStableInstanceUID -v -timeout=5m
+go test -tags=e2e ./test/e2e/apiserver -run 'TestE2E_Conformance_(CollectorStableInstanceUID|OverlappingInstanceUIDSessions)$' -v -timeout=5m
 ```
 
 ### Namespace attributes
