@@ -166,6 +166,10 @@ func TestServerToAgentBuilder_Build_IncludesConnectionSettings(t *testing.T) {
 
 	agent := agentmodel.NewAgent(uuid.New())
 	agent.Spec.ConnectionInfo = connectionInfo
+	agent.Metadata.Capabilities = modelagent.Capabilities(
+		protobufs.AgentCapabilities_AgentCapabilities_AcceptsOpAMPConnectionSettings |
+			protobufs.AgentCapabilities_AgentCapabilities_ReportsConnectionSettingsStatus,
+	)
 
 	msg := newTestBuilder().Build(t.Context(), agent)
 
@@ -191,6 +195,116 @@ func TestServerToAgentBuilder_Build_IncludesConnectionSettings(t *testing.T) {
 
 	require.Contains(t, offers.GetOtherConnections(), "custom")
 	assert.Equal(t, "https://other.example", offers.GetOtherConnections()["custom"].GetDestinationEndpoint())
+}
+
+func TestServerToAgentBuilder_ConnectionSettingsCapabilities(t *testing.T) {
+	t.Parallel()
+
+	accepts := protobufs.AgentCapabilities_AgentCapabilities_AcceptsOpAMPConnectionSettings
+	reports := protobufs.AgentCapabilities_AgentCapabilities_ReportsConnectionSettingsStatus
+
+	for _, tt := range []struct {
+		name         string
+		capabilities protobufs.AgentCapabilities
+		wantOffer    bool
+	}{
+		{name: "unknown capabilities"},
+		{name: "Supervisor accepts without reporting", capabilities: accepts},
+		{name: "reports without accepting", capabilities: reports},
+		{name: "accepts and reports", capabilities: accepts | reports, wantOffer: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			agent := agentmodel.NewAgent(uuid.New())
+			agent.Metadata.Capabilities = modelagent.Capabilities(tt.capabilities)
+			require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+				DestinationEndpoint: "wss://example.test/api/v1/opamp?replacement=1",
+				Certificate:         &agentmodel.AgentCertificate{Cert: []byte("replacement certificate")},
+			}, &agentmodel.AgentTelemetryConnectionSettings{DestinationEndpoint: "https://metrics.test"}, nil, nil, nil))
+			hash := agent.Spec.ConnectionInfo.Hash.Bytes()
+
+			for range 3 {
+				offer := newTestBuilder().Build(t.Context(), agent).GetConnectionSettings()
+				if tt.wantOffer {
+					require.NotNil(t, offer)
+					assert.Equal(t, hash, offer.GetHash())
+					require.NotNil(t, offer.GetOpamp())
+					require.NotNil(t, offer.GetOwnMetrics())
+				} else {
+					assert.Nil(t, offer, "withhold the entire bundle rather than acknowledge a partial hash")
+				}
+
+				assert.Empty(t, agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash)
+				assert.Equal(t, agentmodel.ConnectionSettingsStatusUnset, agent.Status.ConnectionSettingsStatus.Status)
+				agent = entity.AgentFromDomain(agent).ToDomain().Clone()
+			}
+
+			// A telemetry-only bundle remains usable by clients without acknowledgment support.
+			require.NoError(t, agent.ApplyConnectionSettings(nil,
+				&agentmodel.AgentTelemetryConnectionSettings{DestinationEndpoint: "https://metrics.test"}, nil, nil, nil))
+			offer := newTestBuilder().Build(t.Context(), agent).GetConnectionSettings()
+			require.NotNil(t, offer)
+			assert.Nil(t, offer.GetOpamp())
+			assert.Equal(t, agent.Spec.ConnectionInfo.Hash.Bytes(), offer.GetHash())
+		})
+	}
+}
+
+func TestServerToAgentBuilder_ConnectionSettingsAcknowledgment(t *testing.T) {
+	t.Parallel()
+
+	agent := agentmodel.NewAgent(uuid.New())
+	agent.Metadata.Capabilities = modelagent.Capabilities(
+		protobufs.AgentCapabilities_AgentCapabilities_AcceptsOpAMPConnectionSettings |
+			protobufs.AgentCapabilities_AgentCapabilities_ReportsConnectionSettingsStatus,
+	)
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://example.test/api/v1/opamp",
+	}, nil, nil, nil, nil))
+	offer := newTestBuilder().Build(t.Context(), agent).GetConnectionSettings()
+	require.NotNil(t, offer)
+	assert.Equal(t, offer, newTestBuilder().Build(t.Context(), agent).GetConnectionSettings(),
+		"an unacknowledged offer must remain deliverable after a lost response")
+
+	for _, tt := range []struct {
+		name      string
+		status    agentmodel.ConnectionSettingsStatus
+		hash      []byte
+		wantOffer bool
+	}{
+		{name: "no acknowledgment", wantOffer: true},
+		{name: "applying", status: agentmodel.ConnectionSettingsStatusApplying, hash: offer.GetHash(), wantOffer: true},
+		{name: "failed", status: agentmodel.ConnectionSettingsStatusFailed, hash: offer.GetHash(), wantOffer: true},
+		{name: "stale applied", status: agentmodel.ConnectionSettingsStatusApplied, hash: []byte("old"), wantOffer: true},
+		{name: "applied", status: agentmodel.ConnectionSettingsStatusApplied, hash: offer.GetHash()},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			member := agent.Clone()
+			require.NoError(t, member.ReportConnectionSettingsStatus(&agentmodel.AgentConnectionSettingsStatus{
+				LastConnectionSettingsHash: tt.hash, Status: tt.status,
+			}))
+
+			for range 3 {
+				got := newTestBuilder().Build(t.Context(), member).GetConnectionSettings()
+				if tt.wantOffer {
+					require.NotNil(t, got)
+					assert.Equal(t, offer.GetHash(), got.GetHash())
+				} else {
+					assert.Nil(t, got, "an applied hash stays suppressed across reconnect and server restart")
+				}
+
+				member = entity.AgentFromDomain(member).ToDomain().Clone()
+			}
+
+			require.NoError(t, member.SetOpAMPConnectionSettings("wss://example.test/api/v1/opamp?replacement=2"))
+			next := newTestBuilder().Build(t.Context(), member).GetConnectionSettings()
+			require.NotNil(t, next, "a new revision must remain deliverable")
+			assert.NotEqual(t, offer.GetHash(), next.GetHash())
+		})
+	}
 }
 
 // Even stale or internally injected assignments must not emit unsupported offers.

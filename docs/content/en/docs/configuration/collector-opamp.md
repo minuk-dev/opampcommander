@@ -63,6 +63,45 @@ injects its own OpAMP extension. Do not point the managed Collector's extension
 directly at Commander. For HTTP transport, change only `server.endpoint` in the
 Supervisor config to `http://localhost:8080/api/v1/opamp`.
 
+## Connection-settings delivery and rotation
+
+Commander requires both `AcceptsOpAMPConnectionSettings` and
+`ReportsConnectionSettingsStatus` before sending a bundle containing an OpAMP
+endpoint or certificate. Supervisor **0.163.0 is not supported for endpoint or
+certificate rotation**: it replaces its client on each offer, loses the offer
+hash, and does not report connection-settings status. Advertising acceptance
+alone is insufficient. See [#850](https://github.com/minuk-dev/opampcommander/issues/850)
+and the [upstream implementation](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/cmd/opampsupervisor/supervisor/supervisor.go).
+
+For clients missing either capability, Commander withholds the **entire bundle**,
+including any telemetry settings in that bundle. It keeps the desired settings
+and hash intact; it does not synthesize an acknowledgment or mark the bundle
+applied. Remove the OpAMP settings to deliver a telemetry-only bundle to such a
+client. Supervisor own-metrics settings can reach the Collector without a hash
+acknowledgment; verify effective configuration and health, while REST
+`connectionSettings.syncStatus` remains `pending`.
+
+For eligible clients, Commander resends the same bundle until the agent reports
+`APPLIED` for its exact hash. Sending a response alone never counts as delivery
+or application. The persisted acknowledgment suppresses identical offers across
+reconnects, server restarts and cross-server pushes; a changed desired hash is
+offered again. An absent, stale, `APPLYING` or `FAILED` report does not suppress
+delivery. Clients must deduplicate identical offers while processing them and
+preserve their applied connection settings and acknowledgment across client
+replacement and process restart. A client that loses applied state must report
+that loss rather than continue reporting the old applied hash.
+
+There is **no validated Supervisor release for rotation in this repository**.
+Before enabling it, require a release that advertises and correctly implements
+status reporting, preserves/deduplicates offer state across replacement and
+restart, and reports success only after application. Restore the real Supervisor
+endpoint-replacement/health-continuity regression from
+[#846](https://github.com/minuk-dev/opampcommander/pull/846) on both WebSocket and
+HTTP, including repeated offers and new settings after restart. Verify actual
+Supervisor certificate rotation separately before claiming support. The
+reference-client mTLS regression verifies Commander's path, not Supervisor
+compatibility. Until then, change Supervisor endpoint/TLS settings locally.
+
 ## Capability option migration
 
 - Since v0.163.0, `reports_remote_config: true` causes Supervisor startup to fail.

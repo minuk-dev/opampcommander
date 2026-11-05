@@ -1,6 +1,7 @@
 package agentservice
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
 
@@ -94,10 +95,7 @@ func (b *ServerToAgentBuilder) Build(
 	// Withhold OffersPackages and package offers until that workflow is implemented.
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsPackagesStatus)
 
-	var connectionSettings *protobufs.ConnectionSettingsOffers
-	if agentModel.Spec.ConnectionInfo.HasConnectionSettings() {
-		connectionSettings = connectionInfoToProtobuf(agentModel.Spec.ConnectionInfo)
-	}
+	connectionSettings := connectionSettingsToProtobuf(agentModel)
 
 	var customCapabilities *protobufs.CustomCapabilities
 	if len(b.customCapabilities) > 0 {
@@ -127,9 +125,26 @@ func (b *ServerToAgentBuilder) Build(
 	}
 }
 
-// connectionInfoToProtobuf converts ConnectionInfo to protobuf ConnectionSettingsOffers.
-func connectionInfoToProtobuf(connectionInfo *agentmodel.ConnectionInfo) *protobufs.ConnectionSettingsOffers {
+// connectionSettingsToProtobuf applies the delivery policy to the complete desired bundle.
+func connectionSettingsToProtobuf(agent *agentmodel.Agent) *protobufs.ConnectionSettingsOffers {
+	connectionInfo := agent.Spec.ConnectionInfo
 	if connectionInfo == nil || !connectionInfo.HasConnectionSettings() {
+		return nil
+	}
+
+	opamp := connectionInfo.OpAMP()
+	capabilities := protobufs.AgentCapabilities(agent.Metadata.Capabilities)
+	required := protobufs.AgentCapabilities_AgentCapabilities_AcceptsOpAMPConnectionSettings |
+		protobufs.AgentCapabilities_AgentCapabilities_ReportsConnectionSettingsStatus
+	// Supervisor 0.163.0 replaces its client on every offer without acknowledging it (#850).
+	// Withhold the whole bundle: removing just OpAMP would misrepresent the desired hash.
+	if opamp.HasEndpoint() && capabilities&required != required {
+		return nil
+	}
+
+	status := agent.Status.ConnectionSettingsStatus
+	if status.Status == agentmodel.ConnectionSettingsStatusApplied &&
+		bytes.Equal(status.LastConnectionSettingsHash, connectionInfo.Hash.Bytes()) {
 		return nil
 	}
 
@@ -137,7 +152,6 @@ func connectionInfoToProtobuf(connectionInfo *agentmodel.ConnectionInfo) *protob
 		Hash: connectionInfo.Hash.Bytes(),
 	}
 
-	opamp := connectionInfo.OpAMP()
 	if opamp.HasEndpoint() {
 		offers.Opamp = opampConnectionSettingsToProtobuf(opamp)
 	}

@@ -38,7 +38,7 @@ These flags describe the server, independently of the capabilities an agent repo
 | `AcceptsStatus` | ✅ | ✅ | Reports are ingested by [Handler][handler] `report()`. |
 | `OffersRemoteConfig` | ✅ | ✅ | [Builder][builder] sends the assigned config/hash when [Agent model][agent-model] `HasRemoteConfig` permits it. |
 | `AcceptsEffectiveConfig` | ✅ | ✅ | [Handler][handler] stores reports through `ReportEffectiveConfig`. |
-| `OffersConnectionSettings` | ✅ | 🟡 | [Builder][builder] emits OpAMP, telemetry and other destinations with headers/TLS; per-agent capability filtering and heartbeat interval negotiation remain incomplete. |
+| `OffersConnectionSettings` | ✅ | 🟡 | [Builder][builder] emits OpAMP, telemetry and other destinations with headers/TLS; OpAMP bundles require acceptance and status-reporting capabilities; other capability filtering and heartbeat negotiation remain incomplete. |
 | `AcceptsConnectionSettingsRequest` | ⛔ | ⛔ | [Builder][builder] deliberately withholds the bit because [Handler][handler] does not process requests; no automatic credential issuance. |
 | `OffersPackages` | ❌ | ❌ | Withheld until package assignment and persistence are supported; no package offers are emitted. |
 | `AcceptsPackagesStatus` | ✅ | ✅ | [Handler][handler] stores package status through `ReportPackageStatuses`. |
@@ -60,7 +60,7 @@ through the OpAMP endpoint.
 | `ReportsOwnTraces` | 🟡 | [Builder][builder] converts `own_traces` destinations, headers and TLS; offers are not filtered by this bit. |
 | `ReportsOwnMetrics` | 🟡 | [Builder][builder] converts `own_metrics` destinations, headers and TLS; offers are not filtered by this bit. |
 | `ReportsOwnLogs` | 🟡 | [Builder][builder] converts `own_logs` destinations, headers and TLS; offers are not filtered by this bit. |
-| `AcceptsOpAMPConnectionSettings` | 🟡 | [Group reconciliation][groups] and [Builder][builder] offer OpAMP endpoints/certificates; the builder does not filter by the current capability bit. |
+| `AcceptsOpAMPConnectionSettings` | 🟡 | [Group reconciliation][groups] and [Builder][builder] offer OpAMP endpoints/certificates; the builder requires both this bit and `ReportsConnectionSettingsStatus` for the complete bundle. |
 | `AcceptsOtherConnectionSettings` | 🟡 | [Builder][builder] emits `other_connections`; the builder does not filter by this capability bit. |
 | `AcceptsRestartCommand` | 🟡 | [Agent model][agent-model] checks the bit when a restart is requested; [Builder][builder] does not recheck it if the agent later withdraws support, and can combine the command with other fields. |
 | `ReportsHealth` | ✅ | [Handler][handler] stores component health including nested subcomponents via [Converters][converters]. |
@@ -87,7 +87,7 @@ See [Custom messages](#custom-messages).
 |---|:---:|---|
 | `instance_uid` | ✅ | |
 | `remote_config` | ✅ | Built from the agent's materialized `Spec.RemoteConfig.ConfigMap` with a content hash. |
-| `connection_settings` | 🟡 | Destination offers include TLS and headers; capability filtering and heartbeat interval negotiation are incomplete. |
+| `connection_settings` | 🟡 | OpAMP bundles require acceptance and status reporting; an exact `APPLIED` hash stops repeat offers. Other capability filtering and heartbeat negotiation are incomplete. |
 | `packages_available` | ❌ | Intentionally unset until package assignment/persistence and real client installation are supported (#839). |
 | `agent_identification` | ✅ | Sent when the server assigns a new instance UID. |
 | `command` | 🟡 | `Restart` delivery exists, but the builder can include other desired-state fields and does not recheck withdrawn restart support. |
@@ -164,9 +164,14 @@ See [Custom messages](#custom-messages).
    tests cover status ingestion only. Do not enable package support based on capability
    bits or archive-format support alone.
 
-8. **Connection capability negotiation is incomplete.** Group reconciliation assigns a
-   connection bundle and the builder converts it without checking each current agent
-   capability. The unused `IsOwnMetricsSupported`/`IsOwnTracesSupported` helpers also
+8. **Connection capability negotiation is incomplete.** OpAMP bundles are withheld
+   unless the agent advertises both acceptance and connection-settings status reporting.
+   The entire desired hash must be acknowledged as `APPLIED` before repeat offers stop.
+   Supervisor 0.163.0 cannot meet this policy; endpoint/certificate rotation is unsupported
+   (see the [delivery policy](/docs/configuration/collector-opamp/#connection-settings-delivery-and-rotation)
+   and [#850](https://github.com/minuk-dev/opampcommander/issues/850)). Telemetry-only
+   bundles remain deliverable without acknowledgment support; their capability filtering
+   is still incomplete. The unused `IsOwnMetricsSupported`/`IsOwnTracesSupported` helpers also
    check each other's bits, and `IsOtherConnectionSettingsSupported` checks the OpAMP
    bit. These helpers do not make the active offer path capability-aware.
 9. **Heartbeat interval and component hash recovery.** Heartbeats update liveness, but

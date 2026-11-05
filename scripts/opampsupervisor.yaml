@@ -4,6 +4,8 @@ server:
   tls:
     insecure: true
 capabilities:
+  # Commander withholds rotation offers without connection-settings acknowledgment support (#850).
+  accepts_opamp_connection_settings: false
   accepts_remote_config: true
   accepts_restart_command: true
   reports_effective_config: true

@@ -191,7 +191,11 @@ certificate. It can differ from the CA that signs agent client certificates.
 
 The rotation lifecycle is: externally issue and register a Certificate, offer
 it through ConnectionSettings, then confirm reconnection and an `applied`
-connection settings status on the Agent resource. Once the replacement
+connection settings status on the Agent resource. This requires a client that
+accepts OpAMP connection settings and reports their application status;
+Supervisor 0.163.0 does not qualify. See the
+[connection-settings support policy](/docs/configuration/collector-opamp/#connection-settings-delivery-and-rotation).
+Once the replacement
 certificate is active, messages using the old certificate are rejected and the
 previous connection on the same server node is closed. A previous connection
 on another node is rejected on its next message. This is an OpAMP authorization
