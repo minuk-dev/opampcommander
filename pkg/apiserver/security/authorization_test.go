@@ -2,6 +2,7 @@ package security_test
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -170,6 +171,14 @@ func TestAuthorizationMiddleware_NamespacePermissions(t *testing.T) {
 				assert.Equal(t, http.StatusOK, recorder.Code)
 			} else {
 				assert.Equal(t, http.StatusForbidden, recorder.Code)
+				assert.Equal(t, "application/problem+json", recorder.Header().Get("Content-Type"))
+
+				var body map[string]any
+				require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
+				assert.Equal(t, "about:blank", body["type"])
+				assert.Equal(t, "Forbidden", body["title"])
+				assert.Equal(t, "insufficient permissions", body["detail"])
+				assert.NotContains(t, body, "error")
 			}
 		})
 	}

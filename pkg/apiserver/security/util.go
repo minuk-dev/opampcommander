@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
 type userContextKeyType struct {
@@ -96,9 +98,8 @@ func NewAuthJWTMiddleware(
 		if found {
 			claims, err := service.ValidateToken(tokenString)
 			if err != nil {
-				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-					errorKey: unauthorizedMessage,
-				})
+				ctx.Abort()
+				ginutil.ProblemResponse(ctx, http.StatusUnauthorized, unauthorizedMessage)
 
 				return
 			}
@@ -110,9 +111,8 @@ func NewAuthJWTMiddleware(
 		}
 
 		if !user.Authenticated && hasAnyPrefix(ctx.Request.URL.Path, []string{"/api/v1"}) {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				errorKey: unauthorizedMessage,
-			})
+			ctx.Abort()
+			ginutil.ProblemResponse(ctx, http.StatusUnauthorized, unauthorizedMessage)
 
 			return
 		}

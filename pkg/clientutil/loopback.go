@@ -13,6 +13,7 @@ import (
 
 	"github.com/pkg/browser"
 
+	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 )
 
@@ -122,10 +123,10 @@ func newLoopbackServer(resultCh chan<- callbackResult) *http.Server {
 		res := callbackResult{
 			access:  params.Get("token"),
 			refresh: params.Get("refreshToken"),
-			errMsg:  params.Get("error"),
+			errMsg:  params.Get(v1auth.OAuth2ErrorParam),
 		}
 
-		if desc := params.Get("error_description"); desc != "" && res.errMsg != "" {
+		if desc := params.Get(v1auth.OAuth2ErrorDescriptionParam); desc != "" && res.errMsg != "" {
 			res.errMsg = res.errMsg + ": " + desc
 		}
 

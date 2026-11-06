@@ -16,18 +16,13 @@ import (
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
-// Keys of the JSON error payloads this controller writes.
-const (
-	errorKey   = "error"
-	detailsKey = "details"
-
-	// stateGenerationFailed is the message every OAuth entry point returns when
-	// the anti-CSRF state cannot be produced.
-	stateGenerationFailed = "failed to generate state"
-)
+// stateGenerationFailed is the message every OAuth entry point returns when
+// the anti-CSRF state cannot be produced.
+const stateGenerationFailed = "failed to generate state"
 
 // Controller is a struct that implements the GitHub OAuth2 authentication controller.
 type Controller struct {
@@ -97,17 +92,15 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Tags auth, github
 // @Description Redirects to GitHub for OAuth2 authentication.
 // @Accept   json
-// @Produce  json
+// @Produce json,application/problem+json
 // @Success  302
-// @Failure  500 {object} map[string]any
+// @Failure  500 {object} ErrorModel
 // @Router   /auth/github [get].
 func (c *Controller) HTTPAuth(ctx *gin.Context) {
 	authcodeURL, err := c.service.AuthCodeURL("")
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			errorKey:   stateGenerationFailed,
-			detailsKey: fmt.Sprintf("error: %v", err),
-		})
+		c.logger.Error(stateGenerationFailed, slog.Any("error", err))
+		ginutil.ProblemResponse(ctx, http.StatusInternalServerError, stateGenerationFailed)
 
 		return
 	}
@@ -121,17 +114,15 @@ func (c *Controller) HTTPAuth(ctx *gin.Context) {
 // @Tags auth, github
 // @Description Returns the GitHub OAuth2 authentication URL.
 // @Accept json
-// @Produce json
+// @Produce json,application/problem+json
 // @Success 200 {object} OAuth2AuthCodeURLResponse
-// @Failure 500 {object} map[string]any
+// @Failure 500 {object} ErrorModel
 // @Router  /api/v1/auth/github [get].
 func (c *Controller) APIAuth(ctx *gin.Context) {
 	authcodeURL, err := c.service.AuthCodeURL("")
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			errorKey:   stateGenerationFailed,
-			detailsKey: fmt.Sprintf("error: %v", err),
-		})
+		c.logger.Error(stateGenerationFailed, slog.Any("error", err))
+		ginutil.ProblemResponse(ctx, http.StatusInternalServerError, stateGenerationFailed)
 
 		return
 	}
@@ -150,38 +141,31 @@ func (c *Controller) APIAuth(ctx *gin.Context) {
 // @Tags auth, github
 // @Description Returns an OAuth2 authorization URL whose state encodes a CLI loopback redirect URI.
 // @Accept json
-// @Produce json
+// @Produce json,application/problem+json
 // @Param redirect_uri query string true "Loopback redirect URI (http(s)://127.0.0.1:PORT/...)"
 // @Success 200 {object} OAuth2AuthCodeURLResponse
-// @Failure 400 {object} map[string]any
-// @Failure 500 {object} map[string]any
+// @Failure 400 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
 // @Router /api/v1/auth/github/authcode [get].
 func (c *Controller) AuthCodeURL(ctx *gin.Context) {
 	redirectURI := ctx.Query("redirect_uri")
 	if redirectURI == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			errorKey: "redirect_uri is required",
-		})
+		ginutil.ProblemResponse(ctx, http.StatusBadRequest, "redirect_uri is required")
 
 		return
 	}
 
 	err := ValidateRedirect(redirectURI, c.service.AllowedRedirectHosts())
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			errorKey:   "invalid redirect_uri",
-			detailsKey: err.Error(),
-		})
+		ginutil.ProblemResponse(ctx, http.StatusBadRequest, "invalid redirect_uri")
 
 		return
 	}
 
 	authcodeURL, err := c.service.AuthCodeURL(redirectURI)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			errorKey:   stateGenerationFailed,
-			detailsKey: fmt.Sprintf("error: %v", err),
-		})
+		c.logger.Error(stateGenerationFailed, slog.Any("error", err))
+		ginutil.ProblemResponse(ctx, http.StatusInternalServerError, stateGenerationFailed)
 
 		return
 	}
@@ -252,12 +236,14 @@ func ValidateRedirect(rawURL string, allowedHosts []string) error {
 // @Tags auth, github
 // @Description Exchanges the code received from GitHub for an authentication token.
 // @Accept json
-// @Produce json
+// @Produce json,application/problem+json
 // @Param state query string true "State parameter to prevent CSRF attacks"
 // @Param code query string true "Code received from GitHub after authentication"
 // @Success 200 {object} AuthnTokenResponse
 // @Success 302
-// @Failure 500 {object} map[string]any
+// @Failure 400 {object} ErrorModel
+// @Failure 403 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
 // @Router /auth/github/callback [get].
 func (c *Controller) Callback(ctx *gin.Context) {
 	state := ctx.Query("state")
@@ -265,17 +251,31 @@ func (c *Controller) Callback(ctx *gin.Context) {
 
 	cliRedirect, err := c.service.CLIRedirectFromState(state)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			errorKey:   stateGenerationFailed,
-			detailsKey: fmt.Sprintf("error: %v", err),
-		})
+		ginutil.ProblemResponse(ctx, http.StatusBadRequest, "invalid or expired state")
+
+		return
+	}
+
+	if providerError := ctx.Query(v1auth.OAuth2ErrorParam); providerError != "" {
+		if providerError == v1auth.OAuth2ErrorAccessDenied {
+			c.handleCallbackError(ctx, cliRedirect, v1auth.OAuth2ErrorAccessDenied, "authorization was denied")
+		} else {
+			c.handleCallbackError(ctx, cliRedirect, v1auth.OAuth2ErrorServerError, "authorization failed")
+		}
+
+		return
+	}
+
+	if code == "" {
+		c.handleCallbackError(ctx, cliRedirect, v1auth.OAuth2ErrorInvalidRequest, "authorization code is required")
 
 		return
 	}
 
 	result, err := c.service.Exchange(ctx.Request.Context(), state, code)
 	if err != nil {
-		c.handleCallbackError(ctx, cliRedirect, "failed to exchange code for token", err)
+		c.logger.Error("failed to exchange code for token", slog.Any("error", err))
+		c.handleCallbackError(ctx, cliRedirect, v1auth.OAuth2ErrorServerError, "failed to exchange code for token")
 
 		return
 	}
@@ -306,17 +306,15 @@ func (c *Controller) Callback(ctx *gin.Context) {
 // @Tags auth, github
 // @Description Initiates device authorization for GitHub OAuth2.
 // @Accept json
-// @Produce json
+// @Produce json,application/problem+json
 // @Success 200 {object} DeviceAuthnTokenResponse
-// @Failure 500 {object} map[string]any
+// @Failure 500 {object} ErrorModel
 // @Router /api/v1/auth/github/device [get].
 func (c *Controller) GetDeviceAuth(ctx *gin.Context) {
 	dar, err := c.service.DeviceAuth(ctx.Request.Context())
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			errorKey:   "failed to initiate device authorization",
-			detailsKey: fmt.Sprintf("error: %v", err),
-		})
+		c.logger.Error("failed to initiate device authorization", slog.Any("error", err))
+		ginutil.ProblemResponse(ctx, http.StatusInternalServerError, "failed to initiate device authorization")
 
 		return
 	}
@@ -338,12 +336,12 @@ func (c *Controller) GetDeviceAuth(ctx *gin.Context) {
 // @Tags auth, github
 // @Description Exchanges a device code for an authentication token.
 // @Accept json
-// @Produce json
+// @Produce json,application/problem+json
 // @Param device_code query string true "Device code to exchange"
 // @Param expiry  query string false "Optional expiry time in RFC3339 format"
 // @Success 200 {object} AuthnTokenResponse
-// @Failure 400 {object} map[string]any
-// @Failure 500 {object} map[string]any
+// @Failure 400 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
 // @Router /api/v1/auth/github/device/exchange [get].
 func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 	deviceCode := ctx.Query("device_code")
@@ -355,10 +353,7 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 	if expiry != "" {
 		expiryTime, err = time.Parse(time.RFC3339, expiry)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				errorKey:   "invalid expiry format",
-				detailsKey: fmt.Sprintf("error: %v", err),
-			})
+			ginutil.ProblemResponse(ctx, http.StatusBadRequest, "invalid expiry format")
 
 			return
 		}
@@ -370,10 +365,8 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 		expiryTime,
 	)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			errorKey:   "failed to exchange device code for token",
-			detailsKey: fmt.Sprintf("error: %v", err),
-		})
+		c.logger.Error("failed to exchange device code for token", slog.Any("error", err))
+		ginutil.ProblemResponse(ctx, http.StatusInternalServerError, "failed to exchange device code for token")
 
 		return
 	}
@@ -397,10 +390,8 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 func (c *Controller) redirectToLoopback(ctx *gin.Context, cliRedirect string, result security.LoginResult) {
 	target, err := url.Parse(cliRedirect)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			errorKey:   "invalid cliRedirect URI",
-			detailsKey: err.Error(),
-		})
+		c.logger.Error("invalid cliRedirect URI", slog.Any("error", err))
+		ginutil.ProblemResponse(ctx, http.StatusInternalServerError, "invalid cliRedirect URI")
 
 		return
 	}
@@ -421,32 +412,35 @@ func (c *Controller) redirectToLoopback(ctx *gin.Context, cliRedirect string, re
 	ctx.Redirect(http.StatusTemporaryRedirect, target.String())
 }
 
-// handleCallbackError reports callback failures back to the CLI loopback (when present)
-// or as a JSON 500 otherwise. Errors are surfaced as ?error=&error_description= params.
-func (c *Controller) handleCallbackError(ctx *gin.Context, cliRedirect, message string, err error) {
+// handleCallbackError uses OAuth 2.0 authorization error parameters for redirects
+// and RFC 9457 for HTTP error bodies. Descriptions are fixed, public messages.
+func (c *Controller) handleCallbackError(ctx *gin.Context, cliRedirect, code, message string) {
+	status := http.StatusInternalServerError
+
+	switch code {
+	case v1auth.OAuth2ErrorAccessDenied:
+		status = http.StatusForbidden
+	case v1auth.OAuth2ErrorInvalidRequest:
+		status = http.StatusBadRequest
+	}
+
 	if cliRedirect == "" {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			errorKey:   message,
-			detailsKey: fmt.Sprintf("error: %v", err),
-		})
+		ginutil.ProblemResponse(ctx, status, message)
 
 		return
 	}
 
-	target, parseErr := url.Parse(cliRedirect)
-	if parseErr != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			errorKey:   message,
-			detailsKey: fmt.Sprintf("error: %v", err),
-		})
+	target, err := url.Parse(cliRedirect)
+	if err != nil {
+		c.logger.Error("invalid cliRedirect URI", slog.Any("error", err))
+		ginutil.ProblemResponse(ctx, http.StatusInternalServerError, message)
 
 		return
 	}
 
 	params := target.Query()
-	params.Set("error", message)
-	params.Set("error_description", err.Error())
+	params.Set(v1auth.OAuth2ErrorParam, code)
+	params.Set(v1auth.OAuth2ErrorDescriptionParam, message)
 	target.RawQuery = params.Encode()
-
 	ctx.Redirect(http.StatusTemporaryRedirect, target.String())
 }

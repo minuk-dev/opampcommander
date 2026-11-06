@@ -358,7 +358,7 @@ func TestHandleValidationError(t *testing.T) {
 			ginutil.HandleValidationError(ctx, tt.paramName, tt.paramValue, tt.err, tt.isPathParam)
 
 			assert.Equal(t, tt.expectedCode, w.Code)
-			assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+			assert.Equal(t, "application/problem+json", w.Header().Get("Content-Type"))
 		})
 	}
 }

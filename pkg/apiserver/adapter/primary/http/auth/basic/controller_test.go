@@ -195,7 +195,13 @@ func TestController_BasicAuth(t *testing.T) {
 		newRouter(controller).ServeHTTP(recorder, req)
 
 		require.Equal(t, http.StatusUnauthorized, recorder.Code)
-		assert.Equal(t, "missing basic auth credentials", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "missing basic auth credentials", gjson.Get(recorder.Body.String(), "detail").String())
+		assert.Equal(t, "application/problem+json", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, "about:blank", gjson.Get(recorder.Body.String(), "type").String())
+		assert.Equal(t, "Unauthorized", gjson.Get(recorder.Body.String(), "title").String())
+		assert.Equal(t, int64(http.StatusUnauthorized), gjson.Get(recorder.Body.String(), "status").Int())
+		assert.False(t, gjson.Get(recorder.Body.String(), "error").Exists())
+		assert.False(t, gjson.Get(recorder.Body.String(), "details").Exists())
 		assert.Empty(t, spy.calls)
 	})
 
@@ -213,7 +219,7 @@ func TestController_BasicAuth(t *testing.T) {
 		newRouter(controller).ServeHTTP(recorder, req)
 
 		require.Equal(t, http.StatusUnauthorized, recorder.Code)
-		assert.Equal(t, "invalid username or password", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "invalid username or password", gjson.Get(recorder.Body.String(), "detail").String())
 		assert.Empty(t, spy.calls)
 	})
 
@@ -232,7 +238,7 @@ func TestController_BasicAuth(t *testing.T) {
 		newRouter(controller).ServeHTTP(recorder, req)
 
 		require.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, "failed to authenticate", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "failed to authenticate", gjson.Get(recorder.Body.String(), "detail").String())
 		assert.Empty(t, spy.calls)
 	})
 }
@@ -278,7 +284,7 @@ func TestController_Refresh(t *testing.T) {
 		newRouter(controller).ServeHTTP(recorder, req)
 
 		require.Equal(t, http.StatusBadRequest, recorder.Code)
-		assert.Equal(t, "invalid request body", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "invalid request body", gjson.Get(recorder.Body.String(), "detail").String())
 	})
 
 	t.Run("returns 400 when refresh token is missing", func(t *testing.T) {
@@ -311,7 +317,7 @@ func TestController_Refresh(t *testing.T) {
 		newRouter(controller).ServeHTTP(recorder, req)
 
 		require.Equal(t, http.StatusUnauthorized, recorder.Code)
-		assert.Equal(t, "invalid or expired refresh token", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "invalid or expired refresh token", gjson.Get(recorder.Body.String(), "detail").String())
 	})
 }
 
@@ -349,6 +355,6 @@ func TestController_Info(t *testing.T) {
 		newAuthedRouter(controller, nil).ServeHTTP(recorder, req)
 
 		require.Equal(t, http.StatusUnauthorized, recorder.Code)
-		assert.Equal(t, "unauthorized", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "unauthorized", gjson.Get(recorder.Body.String(), "detail").String())
 	})
 }

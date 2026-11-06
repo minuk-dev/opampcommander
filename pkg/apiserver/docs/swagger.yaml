@@ -2013,6 +2013,7 @@ paths:
       description: Authenticate using basic auth credentials.
       produces:
       - application/json
+      - application/problem+json
       responses:
         "200":
           description: OK
@@ -2021,8 +2022,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
       summary: Basic Authentication
       tags:
       - auth
@@ -2034,6 +2038,7 @@ paths:
       description: Returns the GitHub OAuth2 authentication URL.
       produces:
       - application/json
+      - application/problem+json
       responses:
         "200":
           description: OK
@@ -2042,8 +2047,7 @@ paths:
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: GitHub OAuth2 Authentication
       tags:
       - auth
@@ -2062,6 +2066,7 @@ paths:
         type: string
       produces:
       - application/json
+      - application/problem+json
       responses:
         "200":
           description: OK
@@ -2070,13 +2075,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: GitHub OAuth2 Auth Code URL with CLI loopback redirect
       tags:
       - auth
@@ -2088,6 +2091,7 @@ paths:
       description: Initiates device authorization for GitHub OAuth2.
       produces:
       - application/json
+      - application/problem+json
       responses:
         "200":
           description: OK
@@ -2096,8 +2100,7 @@ paths:
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: GitHub Device Authentication
       tags:
       - auth
@@ -2119,6 +2122,7 @@ paths:
         type: string
       produces:
       - application/json
+      - application/problem+json
       responses:
         "200":
           description: OK
@@ -2127,13 +2131,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: GitHub Device Code Exchange
       tags:
       - auth
@@ -2143,6 +2145,7 @@ paths:
       description: Get Authentication Info.
       produces:
       - application/json
+      - application/problem+json
       responses:
         "200":
           description: OK
@@ -2151,8 +2154,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: Info
       tags:
       - auth
@@ -2172,6 +2174,7 @@ paths:
           $ref: '#/definitions/RefreshTokenRequest'
       produces:
       - application/json
+      - application/problem+json
       responses:
         "200":
           description: OK
@@ -2180,13 +2183,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: Refresh access token
       tags:
       - auth
@@ -4861,6 +4862,7 @@ paths:
         type: string
       produces:
       - application/json
+      - application/problem+json
       responses:
         "200":
           description: OK
@@ -4890,6 +4892,7 @@ paths:
           $ref: '#/definitions/User'
       produces:
       - application/json
+      - application/problem+json
       responses:
         "201":
           description: Created
@@ -4949,6 +4952,7 @@ paths:
         type: boolean
       produces:
       - application/json
+      - application/problem+json
       responses:
         "200":
           description: OK
@@ -4977,6 +4981,7 @@ paths:
         permissions.
       produces:
       - application/json
+      - application/problem+json
       responses:
         "200":
           description: OK
@@ -5013,14 +5018,14 @@ paths:
       description: Redirects to GitHub for OAuth2 authentication.
       produces:
       - application/json
+      - application/problem+json
       responses:
         "302":
           description: Found
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: GitHub OAuth2 Authentication
       tags:
       - auth
@@ -5043,6 +5048,7 @@ paths:
         type: string
       produces:
       - application/json
+      - application/problem+json
       responses:
         "200":
           description: OK
@@ -5050,11 +5056,18 @@ paths:
             $ref: '#/definitions/AuthnTokenResponse'
         "302":
           description: Found
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorModel'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: GitHub OAuth2 Callback
       tags:
       - auth

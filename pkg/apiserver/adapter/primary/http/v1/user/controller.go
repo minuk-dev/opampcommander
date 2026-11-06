@@ -75,7 +75,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Tags user
 // @Description Retrieve a list of users.
 // @Accept json
-// @Produce json
+// @Produce json,application/problem+json
 // @Success 200 {object} v1.ListResponse[v1.User]
 // @Param limit query int false "Maximum number of users to return"
 // @Param continue query string false "Token to continue listing users"
@@ -134,7 +134,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Tags user
 // @Description Retrieve a user by its UID.
 // @Accept  json
-// @Produce  json
+// @Produce json,application/problem+json
 // @Param  id path string true "UID of the user"
 // @Param  includeDeleted query bool false "Include soft-deleted user"
 // @Success  200 {object} User
@@ -176,7 +176,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Tags user
 // @Description Create a new user.
 // @Accept json
-// @Produce json
+// @Produce json,application/problem+json
 // @Param user body v1.User true "User to create"
 // @Success 201 {object} v1.User
 // @Failure 400 {object} ErrorModel
@@ -239,7 +239,7 @@ func (c *Controller) Delete(ctx *gin.Context) {
 // @Tags user
 // @Description Retrieve the current authenticated user's profile with roles and permissions.
 // @Accept json
-// @Produce json
+// @Produce json,application/problem+json
 // @Success 200 {object} v1.UserProfileResponse
 // @Failure 401 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
@@ -247,9 +247,7 @@ func (c *Controller) Delete(ctx *gin.Context) {
 func (c *Controller) Me(ctx *gin.Context) {
 	secUser, err := security.GetUser(ctx)
 	if err != nil || secUser == nil || !secUser.Authenticated || secUser.Email == nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "unauthorized",
-		})
+		ginutil.ProblemResponse(ctx, http.StatusUnauthorized, "unauthorized")
 
 		return
 	}

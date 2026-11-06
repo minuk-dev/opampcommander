@@ -7,8 +7,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/minuk-dev/opampcommander/api"
 )
 
 // ReadMergePatch requires the merge-patch media type before reading a patch body.
@@ -16,10 +14,8 @@ func ReadMergePatch(ctx *gin.Context) ([]byte, bool) {
 	mediaType, _, err := mime.ParseMediaType(ctx.GetHeader("Content-Type"))
 	if err != nil || mediaType != "application/merge-patch+json" {
 		ctx.Header("Accept-Patch", "application/merge-patch+json")
-		ctx.AbortWithStatusJSON(http.StatusUnsupportedMediaType, &api.ErrorModel{
-			Type: "about:blank", Title: "Unsupported Media Type", Status: http.StatusUnsupportedMediaType,
-			Detail: "Use Content-Type: application/merge-patch+json", Instance: ctx.Request.URL.String(), Errors: nil,
-		})
+		ctx.Abort()
+		ProblemResponse(ctx, http.StatusUnsupportedMediaType, "Use Content-Type: application/merge-patch+json")
 
 		return nil, false
 	}
