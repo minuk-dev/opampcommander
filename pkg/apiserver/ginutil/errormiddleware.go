@@ -45,8 +45,6 @@ type ErrorInfo struct {
 
 // ErrorResponse creates a standardized RFC 9457 error response.
 func ErrorResponse(ctx *gin.Context, errorInfo *ErrorInfo) {
-	baseURL := GetErrorTypeURI(ctx)
-
 	status, title, detail := getErrorDetails(errorInfo.Type)
 
 	if errorInfo.Message == "" {
@@ -54,7 +52,7 @@ func ErrorResponse(ctx *gin.Context, errorInfo *ErrorInfo) {
 	}
 
 	errorModel := &api.ErrorModel{
-		Type:     baseURL,
+		Type:     api.ProblemTypeAboutBlank,
 		Title:    title,
 		Status:   status,
 		Detail:   detail,
@@ -68,16 +66,14 @@ func ErrorResponse(ctx *gin.Context, errorInfo *ErrorInfo) {
 		},
 	}
 
-	ctx.JSON(status, errorModel)
+	writeProblem(ctx, status, errorModel)
 }
 
 // HandleDomainError handles domain-specific errors and returns appropriate HTTP responses.
 func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
-	baseURL := GetErrorTypeURI(ctx)
-
 	if errors.Is(err, model.ErrResourceNotExist) {
-		ctx.JSON(http.StatusNotFound, &api.ErrorModel{
-			Type:     baseURL,
+		writeProblem(ctx, http.StatusNotFound, &api.ErrorModel{
+			Type:     api.ProblemTypeAboutBlank,
 			Title:    titleNotFound,
 			Status:   http.StatusNotFound,
 			Detail:   "The requested resource does not exist.",
@@ -107,8 +103,8 @@ func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 	}
 
 	if errors.Is(err, model.ErrInvalidArgument) {
-		ctx.JSON(http.StatusBadRequest, &api.ErrorModel{
-			Type:     baseURL,
+		writeProblem(ctx, http.StatusBadRequest, &api.ErrorModel{
+			Type:     api.ProblemTypeAboutBlank,
 			Title:    "Bad Request",
 			Status:   http.StatusBadRequest,
 			Detail:   err.Error(),
@@ -164,11 +160,9 @@ func InvalidRequestBodyError(ctx *gin.Context, err error) {
 
 // InternalServerError creates an error response for internal server errors.
 func InternalServerError(ctx *gin.Context, err error, detail string) {
-	baseURL := GetErrorTypeURI(ctx)
-
-	ctx.JSON(http.StatusInternalServerError, &api.ErrorModel{
-		Type:     baseURL,
-		Title:    "Internal Server Error",
+	writeProblem(ctx, http.StatusInternalServerError, &api.ErrorModel{
+		Type:     api.ProblemTypeAboutBlank,
+		Title:    http.StatusText(http.StatusInternalServerError),
 		Status:   http.StatusInternalServerError,
 		Detail:   detail,
 		Instance: ctx.Request.URL.String(),
@@ -184,10 +178,8 @@ func InternalServerError(ctx *gin.Context, err error, detail string) {
 
 // ConflictError creates a standardized 409 Conflict error response.
 func ConflictError(ctx *gin.Context, err error, detail string) {
-	baseURL := GetErrorTypeURI(ctx)
-
-	ctx.JSON(http.StatusConflict, &api.ErrorModel{
-		Type:     baseURL,
+	writeProblem(ctx, http.StatusConflict, &api.ErrorModel{
+		Type:     api.ProblemTypeAboutBlank,
 		Title:    "Conflict",
 		Status:   http.StatusConflict,
 		Detail:   detail,
@@ -204,10 +196,8 @@ func ConflictError(ctx *gin.Context, err error, detail string) {
 
 // ResourceNotFoundError creates a standardized 404 error response.
 func ResourceNotFoundError(ctx *gin.Context, resourceType, identifier string) {
-	baseURL := GetErrorTypeURI(ctx)
-
-	ctx.JSON(http.StatusNotFound, &api.ErrorModel{
-		Type:     baseURL,
+	writeProblem(ctx, http.StatusNotFound, &api.ErrorModel{
+		Type:     api.ProblemTypeAboutBlank,
 		Title:    titleNotFound,
 		Status:   http.StatusNotFound,
 		Detail:   fmt.Sprintf("The requested %s does not exist.", resourceType),
@@ -245,18 +235,35 @@ func determineLocationFromURL(ctx *gin.Context, identifier string) string {
 func getErrorDetails(errorType ErrorType) (int, string, string) {
 	switch errorType {
 	case ErrorTypeInvalidQuery:
-		return http.StatusBadRequest, "Invalid Query Parameter", "One or more query parameters are invalid."
+		return http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "One or more query parameters are invalid."
 	case ErrorTypeInvalidPath:
-		return http.StatusBadRequest, "Invalid Path Parameter", "One or more path parameters are invalid."
+		return http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "One or more path parameters are invalid."
 	case ErrorTypeInvalidRequestBody:
-		return http.StatusBadRequest, "Invalid Request Body",
+		return http.StatusBadRequest, http.StatusText(http.StatusBadRequest),
 			"The request body is not valid JSON or does not conform to the expected schema."
 	case ErrorTypeResourceNotFound:
 		return http.StatusNotFound, "Not Found", "The requested resource does not exist."
 	case ErrorTypeInternalServer:
-		return http.StatusInternalServerError, "Internal Server Error",
+		return http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError),
 			"An unexpected error occurred while processing the request."
 	default:
-		return http.StatusInternalServerError, "Unknown Error", "An unknown error occurred."
+		return http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "An unknown error occurred."
 	}
+}
+
+// ProblemResponse writes an RFC 9457 problem using the HTTP status semantics.
+func ProblemResponse(ctx *gin.Context, status int, detail string) {
+	writeProblem(ctx, status, &api.ErrorModel{
+		Type:     api.ProblemTypeAboutBlank,
+		Title:    http.StatusText(status),
+		Status:   status,
+		Detail:   detail,
+		Instance: ctx.Request.URL.EscapedPath(),
+		Errors:   nil,
+	})
+}
+
+func writeProblem(ctx *gin.Context, status int, problem *api.ErrorModel) {
+	ctx.Header("Content-Type", api.ProblemJSONMediaType)
+	ctx.JSON(status, problem)
 }

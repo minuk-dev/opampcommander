@@ -200,7 +200,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -217,8 +218,13 @@
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -231,7 +237,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -248,8 +255,7 @@
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -262,7 +268,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -288,15 +295,13 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -309,7 +314,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -326,8 +332,7 @@
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -340,7 +345,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -372,15 +378,13 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -390,7 +394,8 @@
             "get": {
                 "description": "Get Authentication Info.",
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -407,8 +412,7 @@
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -421,7 +425,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth"
@@ -448,15 +453,13 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -4311,7 +4314,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "user"
@@ -4388,7 +4392,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "user"
@@ -4434,7 +4439,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "user"
@@ -4469,7 +4475,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "user"
@@ -4584,7 +4591,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -4598,8 +4606,7 @@
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -4612,7 +4619,8 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -4645,11 +4653,22 @@
                     "302": {
                         "description": "Found"
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }

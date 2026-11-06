@@ -302,7 +302,7 @@ GET /readyz
 ## Error responses
 
 Errors follow the [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457)
-format:
+format with `Content-Type: application/problem+json`:
 
 ```json
 {
@@ -312,6 +312,19 @@ format:
   "detail": "resource does not exist"
 }
 ```
+
+This includes authentication, refresh, and authorization HTTP errors. These
+endpoints are application APIs, not OAuth 2.0 authorization-server endpoints.
+The previous `error` / `details` JSON fields have been replaced by `title` /
+`detail`; clients should read `detail` for the explanation. `type` is
+`about:blank`, and `title` is the HTTP status phrase. Validation responses may
+also include an `errors` extension with field-level information.
+
+OAuth callback redirects use [RFC 6749 authorization error parameters](https://www.rfc-editor.org/rfc/rfc6749#section-4.1.2.1):
+`error` contains a code (`access_denied`, `invalid_request`, or `server_error`)
+and `error_description` contains a public explanation. If there is no validated
+redirect destination, the callback returns an RFC 9457 HTTP error instead.
+Invalid or expired callback state returns HTTP 400 and never redirects.
 
 **Common status codes:**
 

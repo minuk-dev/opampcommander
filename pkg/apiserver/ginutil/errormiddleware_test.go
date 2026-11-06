@@ -1,6 +1,7 @@
 package ginutil_test
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
@@ -32,7 +34,7 @@ func TestInvalidQueryParamError(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Check response headers
-	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+	assert.Equal(t, "application/problem+json", w.Header().Get("Content-Type"))
 }
 
 func TestInvalidPathParamError(t *testing.T) {
@@ -274,21 +276,21 @@ func TestGetErrorDetails(t *testing.T) {
 			name:           "invalid query error",
 			errorType:      ginutil.ErrorTypeInvalidQuery,
 			expectedStatus: http.StatusBadRequest,
-			expectedTitle:  "Invalid Query Parameter",
+			expectedTitle:  "Bad Request",
 			expectedDetail: "One or more query parameters are invalid.",
 		},
 		{
 			name:           "invalid path error",
 			errorType:      ginutil.ErrorTypeInvalidPath,
 			expectedStatus: http.StatusBadRequest,
-			expectedTitle:  "Invalid Path Parameter",
+			expectedTitle:  "Bad Request",
 			expectedDetail: "One or more path parameters are invalid.",
 		},
 		{
 			name:           "invalid request body error",
 			errorType:      ginutil.ErrorTypeInvalidRequestBody,
 			expectedStatus: http.StatusBadRequest,
-			expectedTitle:  "Invalid Request Body",
+			expectedTitle:  "Bad Request",
 			expectedDetail: "The request body is not valid JSON or does not conform to the expected schema.",
 		},
 		{
@@ -354,6 +356,67 @@ func TestErrorResponse_UnknownErrorType(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
 	body := w.Body.String()
-	assert.Contains(t, body, "Unknown Error")
+	assert.Contains(t, body, "Internal Server Error")
 	assert.Contains(t, body, "An unknown error occurred")
+}
+
+func TestProblemResponses(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		status int
+		write  func(*gin.Context)
+	}{
+		{"authentication", http.StatusUnauthorized, func(ctx *gin.Context) {
+			ginutil.ProblemResponse(ctx, http.StatusUnauthorized, "unauthorized")
+		}},
+		{"authorization", http.StatusForbidden, func(ctx *gin.Context) {
+			ginutil.ProblemResponse(ctx, http.StatusForbidden, "forbidden")
+		}},
+		{"validation", http.StatusBadRequest, func(ctx *gin.Context) {
+			ginutil.InvalidQueryParamError(ctx, "limit", "x", "invalid limit")
+		}},
+		{"domain not found", http.StatusNotFound, func(ctx *gin.Context) {
+			ginutil.HandleDomainError(ctx, model.ErrResourceNotExist, "not found")
+		}},
+		{"domain invalid argument", http.StatusBadRequest, func(ctx *gin.Context) {
+			ginutil.HandleDomainError(ctx, model.ErrInvalidArgument, "invalid")
+		}},
+		{"internal", http.StatusInternalServerError, func(ctx *gin.Context) {
+			ginutil.InternalServerError(ctx, errSomethingWentWrong, "failed")
+		}},
+		{"conflict", http.StatusConflict, func(ctx *gin.Context) {
+			ginutil.ConflictError(ctx, model.ErrConflict, "conflict")
+		}},
+		{"not found", http.StatusNotFound, func(ctx *gin.Context) {
+			ginutil.ResourceNotFoundError(ctx, "agent", "1")
+		}},
+		{"merge patch media type", http.StatusUnsupportedMediaType, func(ctx *gin.Context) {
+			_, _ = ginutil.ReadMergePatch(ctx)
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil)
+			tt.write(ctx)
+			require.Equal(t, tt.status, recorder.Code)
+			assert.Equal(t, "application/problem+json", recorder.Header().Get("Content-Type"))
+
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
+			assert.Equal(t, "about:blank", body["type"])
+			assert.Equal(t, http.StatusText(tt.status), body["title"])
+			assert.InDelta(t, tt.status, body["status"], 0)
+			assert.NotEmpty(t, body["detail"])
+			assert.Equal(t, "/test", body["instance"])
+			assert.NotContains(t, body, "error")
+			assert.NotContains(t, body, "details")
+		})
+	}
 }

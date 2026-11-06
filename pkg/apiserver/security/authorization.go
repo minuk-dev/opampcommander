@@ -10,11 +10,11 @@ import (
 	"github.com/google/uuid"
 
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
-// Shape of the JSON error payloads the authorization middleware writes.
+// Public descriptions for authentication and authorization failures.
 const (
-	errorKey            = "error"
 	forbiddenMessage    = "forbidden"
 	unauthorizedMessage = "unauthorized"
 )
@@ -46,9 +46,8 @@ func NewAuthorizationMiddleware(
 
 		user, err := GetUser(ctx)
 		if err != nil || !user.Authenticated || user.Email == nil {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				errorKey: unauthorizedMessage,
-			})
+			ctx.Abort()
+			ginutil.ProblemResponse(ctx, http.StatusUnauthorized, unauthorizedMessage)
 
 			return
 		}
@@ -125,7 +124,8 @@ func resolveNamespacedTarget(ctx *gin.Context, fullPath string) (string, string,
 
 	if resource == "" || action == "" {
 		if hasNamespaceResourceSegment(fullPath) {
-			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{errorKey: forbiddenMessage})
+			ctx.Abort()
+			ginutil.ProblemResponse(ctx, http.StatusForbidden, forbiddenMessage)
 		} else {
 			ctx.Next()
 		}
@@ -149,9 +149,8 @@ func enforcePermission(
 			slog.String("email", email),
 			slog.Any("error", err),
 		)
-		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-			errorKey: forbiddenMessage,
-		})
+		ctx.Abort()
+		ginutil.ProblemResponse(ctx, http.StatusForbidden, forbiddenMessage)
 
 		return
 	}
@@ -166,9 +165,8 @@ func enforcePermission(
 			slog.String("action", action),
 			slog.Any("error", err),
 		)
-		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-			errorKey: forbiddenMessage,
-		})
+		ctx.Abort()
+		ginutil.ProblemResponse(ctx, http.StatusForbidden, forbiddenMessage)
 
 		return
 	}
@@ -180,10 +178,8 @@ func enforcePermission(
 			slog.String("resource", resource),
 			slog.String("action", action),
 		)
-		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-			errorKey:  forbiddenMessage,
-			"message": "insufficient permissions",
-		})
+		ctx.Abort()
+		ginutil.ProblemResponse(ctx, http.StatusForbidden, "insufficient permissions")
 
 		return
 	}

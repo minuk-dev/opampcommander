@@ -208,7 +208,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -225,8 +226,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -239,7 +245,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -256,8 +263,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -270,7 +276,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -296,15 +303,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -317,7 +322,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -334,8 +340,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -348,7 +353,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -380,15 +386,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -398,7 +402,8 @@ const docTemplate = `{
             "get": {
                 "description": "Get Authentication Info.",
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -415,8 +420,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -429,7 +433,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth"
@@ -456,15 +461,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -4319,7 +4322,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "user"
@@ -4396,7 +4400,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "user"
@@ -4442,7 +4447,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "user"
@@ -4477,7 +4483,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "user"
@@ -4592,7 +4599,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -4606,8 +4614,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -4620,7 +4627,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "application/problem+json"
                 ],
                 "tags": [
                     "auth",
@@ -4653,11 +4661,22 @@ const docTemplate = `{
                     "302": {
                         "description": "Found"
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }

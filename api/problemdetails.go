@@ -1,6 +1,13 @@
 // Package api contains API models and definitions.
 package api
 
+const (
+	// ProblemTypeAboutBlank identifies a problem with the semantics of its HTTP status.
+	ProblemTypeAboutBlank = "about:blank"
+	// ProblemJSONMediaType is the JSON media type for RFC 9457 problem details.
+	ProblemJSONMediaType = "application/problem+json"
+)
+
 // ErrorModel represents a standardized error response model.
 // RFC 9457 Problem Details for HTTP APIs.
 type ErrorModel struct {

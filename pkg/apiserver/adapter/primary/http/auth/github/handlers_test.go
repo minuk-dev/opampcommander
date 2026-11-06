@@ -188,6 +188,15 @@ func doGET(t *testing.T, router *gin.Engine, target string) *httptest.ResponseRe
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 
+	if recorder.Code >= http.StatusBadRequest {
+		assert.Equal(t, "application/problem+json", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, "about:blank", gjson.Get(recorder.Body.String(), "type").String())
+		assert.Equal(t, http.StatusText(recorder.Code), gjson.Get(recorder.Body.String(), "title").String())
+		assert.Equal(t, int64(recorder.Code), gjson.Get(recorder.Body.String(), "status").Int())
+		assert.False(t, gjson.Get(recorder.Body.String(), "error").Exists())
+		assert.False(t, gjson.Get(recorder.Body.String(), "details").Exists())
+	}
+
 	return recorder
 }
 
@@ -253,7 +262,7 @@ func TestController_AuthCodeURL(t *testing.T) {
 		recorder := doGET(t, newRouter(controller), "/api/v1/auth/github/authcode")
 
 		require.Equal(t, http.StatusBadRequest, recorder.Code)
-		assert.Equal(t, "redirect_uri is required", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "redirect_uri is required", gjson.Get(recorder.Body.String(), "detail").String())
 	})
 
 	t.Run("returns 400 when redirect_uri is not allowed", func(t *testing.T) {
@@ -265,7 +274,7 @@ func TestController_AuthCodeURL(t *testing.T) {
 			"/api/v1/auth/github/authcode?redirect_uri="+url.QueryEscape("https://evil.example.com/cb"))
 
 		require.Equal(t, http.StatusBadRequest, recorder.Code)
-		assert.Equal(t, "invalid redirect_uri", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "invalid redirect_uri", gjson.Get(recorder.Body.String(), "detail").String())
 	})
 
 	t.Run("returns 400 when redirect_uri cannot be parsed", func(t *testing.T) {
@@ -278,7 +287,7 @@ func TestController_AuthCodeURL(t *testing.T) {
 			"/api/v1/auth/github/authcode?redirect_uri="+url.QueryEscape("http://%zz"))
 
 		require.Equal(t, http.StatusBadRequest, recorder.Code)
-		assert.Equal(t, "invalid redirect_uri", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "invalid redirect_uri", gjson.Get(recorder.Body.String(), "detail").String())
 	})
 
 	t.Run("returns the auth URL for a loopback redirect", func(t *testing.T) {
@@ -309,15 +318,15 @@ func TestController_AuthCodeURL(t *testing.T) {
 func TestController_Callback(t *testing.T) {
 	t.Parallel()
 
-	t.Run("returns 500 on an invalid state", func(t *testing.T) {
+	t.Run("returns 400 on an invalid state", func(t *testing.T) {
 		t.Parallel()
 
 		controller, spy := newController(t, successClient(), nil)
 
 		recorder := doGET(t, newRouter(controller), "/auth/github/callback?state=not-a-jwt&code=abc")
 
-		require.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, "failed to generate state", gjson.Get(recorder.Body.String(), "error").String())
+		require.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.Equal(t, "invalid or expired state", gjson.Get(recorder.Body.String(), "detail").String())
 		assert.Empty(t, spy.calls)
 	})
 
@@ -362,7 +371,7 @@ func TestController_Callback(t *testing.T) {
 			"/auth/github/callback?state="+craftState(t, "")+"&code=abc")
 
 		require.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, "failed to exchange code for token", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "failed to exchange code for token", gjson.Get(recorder.Body.String(), "detail").String())
 		assert.Empty(t, spy.calls)
 	})
 
@@ -377,7 +386,11 @@ func TestController_Callback(t *testing.T) {
 		require.Equal(t, http.StatusTemporaryRedirect, recorder.Code)
 		location := recorder.Header().Get("Location")
 		assert.True(t, strings.HasPrefix(location, "http://127.0.0.1:9999/callback"))
-		assert.Contains(t, location, "error_description=")
+		target, err := url.Parse(location)
+		require.NoError(t, err)
+		assert.Equal(t, "server_error", target.Query().Get("error"))
+		assert.Equal(t, "failed to exchange code for token", target.Query().Get("error_description"))
+		assert.NotContains(t, location, "boom")
 	})
 
 	t.Run("returns 500 when the success loopback URI is malformed", func(t *testing.T) {
@@ -389,7 +402,7 @@ func TestController_Callback(t *testing.T) {
 			"/auth/github/callback?state="+craftState(t, malformedURI)+"&code=abc")
 
 		require.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, "invalid cliRedirect URI", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "invalid cliRedirect URI", gjson.Get(recorder.Body.String(), "detail").String())
 	})
 
 	t.Run("returns 500 when the error loopback URI is malformed", func(t *testing.T) {
@@ -401,7 +414,7 @@ func TestController_Callback(t *testing.T) {
 			"/auth/github/callback?state="+craftState(t, malformedURI)+"&code=abc")
 
 		require.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, "failed to exchange code for token", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "failed to exchange code for token", gjson.Get(recorder.Body.String(), "detail").String())
 	})
 }
 
@@ -428,7 +441,7 @@ func TestController_GetDeviceAuth(t *testing.T) {
 		recorder := doGET(t, newRouter(controller), "/api/v1/auth/github/device")
 
 		require.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, "failed to initiate device authorization", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "failed to initiate device authorization", gjson.Get(recorder.Body.String(), "detail").String())
 	})
 }
 
@@ -444,7 +457,7 @@ func TestController_ExchangeDeviceAuth(t *testing.T) {
 			"/api/v1/auth/github/device/exchange?device_code=dc&expiry=not-a-time")
 
 		require.Equal(t, http.StatusBadRequest, recorder.Code)
-		assert.Equal(t, "invalid expiry format", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "invalid expiry format", gjson.Get(recorder.Body.String(), "detail").String())
 		assert.Empty(t, spy.calls)
 	})
 
@@ -484,6 +497,42 @@ func TestController_ExchangeDeviceAuth(t *testing.T) {
 		recorder := doGET(t, newRouter(controller), "/api/v1/auth/github/device/exchange?device_code=dc")
 
 		require.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, "failed to exchange device code for token", gjson.Get(recorder.Body.String(), "error").String())
+		assert.Equal(t, "failed to exchange device code for token", gjson.Get(recorder.Body.String(), "detail").String())
 	})
+}
+
+func TestController_CallbackOAuthErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name, query, code, description string
+		status                         int
+	}{
+		{"denied", "error=access_denied&error_description=untrusted",
+			"access_denied", "authorization was denied", http.StatusForbidden},
+		{"unknown provider error", "error=unknown", "server_error", "authorization failed", http.StatusInternalServerError},
+		{"missing code", "", "invalid_request", "authorization code is required", http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			for _, redirect := range []string{"", loopbackURI} {
+				controller, spy := newController(t, errorClient(), nil)
+				recorder := doGET(t, newRouter(controller), "/auth/github/callback?state="+craftState(t, redirect)+"&"+tt.query)
+				assert.Empty(t, spy.calls)
+
+				if redirect == "" {
+					require.Equal(t, tt.status, recorder.Code)
+					assert.Equal(t, tt.description, gjson.Get(recorder.Body.String(), "detail").String())
+				} else {
+					require.Equal(t, http.StatusTemporaryRedirect, recorder.Code)
+					target, err := url.Parse(recorder.Header().Get("Location"))
+					require.NoError(t, err)
+					assert.Equal(t, tt.code, target.Query().Get("error"))
+					assert.Equal(t, tt.description, target.Query().Get("error_description"))
+				}
+			}
+		})
+	}
 }

@@ -3,7 +3,6 @@ package basic
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -13,13 +12,8 @@ import (
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
-)
-
-// Keys of the JSON error payloads this controller writes.
-const (
-	errorKey   = "error"
-	detailsKey = "details"
 )
 
 // Controller is a struct that implements the basic authentication controller for the opampcommander API client.
@@ -73,16 +67,15 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Tags auth, basic
 // @Description Authenticate using basic auth credentials.
 // @Accept json
-// @Produce json
+// @Produce json,application/problem+json
 // @Success 200 {object} AuthnTokenResponse
-// @Failure 401 {object} map[string]any
+// @Failure 401 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
 // @Router /api/v1/auth/basic [get].
 func (c *Controller) BasicAuth(ctx *gin.Context) {
 	username, password, ok := ctx.Request.BasicAuth()
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			errorKey: "missing basic auth credentials",
-		})
+		ginutil.ProblemResponse(ctx, http.StatusUnauthorized, "missing basic auth credentials")
 
 		return
 	}
@@ -90,17 +83,13 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 	result, err := c.service.BasicAuth(ctx.Request.Context(), username, password)
 	if err != nil {
 		if errors.Is(err, security.ErrInvalidUsernameOrPassword) {
-			ctx.JSON(http.StatusUnauthorized, gin.H{
-				errorKey: "invalid username or password",
-			})
+			ginutil.ProblemResponse(ctx, http.StatusUnauthorized, "invalid username or password")
 
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			errorKey:   "failed to authenticate",
-			detailsKey: fmt.Sprintf("error: %v", err),
-		})
+		c.logger.Error("failed to authenticate", slog.Any("error", err))
+		ginutil.ProblemResponse(ctx, http.StatusInternalServerError, "failed to authenticate")
 
 		return
 	}
@@ -125,31 +114,25 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 // @Tags auth
 // @Description Exchange a refresh token for a new access token (and rotated refresh token).
 // @Accept json
-// @Produce json
+// @Produce json,application/problem+json
 // @Param request body RefreshTokenRequest true "Refresh token"
 // @Success 200 {object} AuthnTokenResponse
-// @Failure 400 {object} map[string]any
-// @Failure 401 {object} map[string]any
+// @Failure 400 {object} ErrorModel
+// @Failure 401 {object} ErrorModel
 // @Router /api/v1/auth/refresh [post].
 func (c *Controller) Refresh(ctx *gin.Context) {
 	var req v1auth.RefreshTokenRequest
 
 	err := ctx.ShouldBindJSON(&req)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			errorKey:   "invalid request body",
-			detailsKey: fmt.Sprintf("error: %v", err),
-		})
+		ginutil.ProblemResponse(ctx, http.StatusBadRequest, "invalid request body")
 
 		return
 	}
 
 	result, err := c.service.Refresh(req.RefreshToken)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			errorKey:   "invalid or expired refresh token",
-			detailsKey: fmt.Sprintf("error: %v", err),
-		})
+		ginutil.ProblemResponse(ctx, http.StatusUnauthorized, "invalid or expired refresh token")
 
 		return
 	}
@@ -166,9 +149,9 @@ func (c *Controller) Refresh(ctx *gin.Context) {
 // @Summary Info
 // @Tags auth, basic
 // @Description Get Authentication Info.
-// @Produce json
+// @Produce json,application/problem+json
 // @Success 200 {object} InfoResponse
-// @Failure 401 {object} map[string]any
+// @Failure 401 {object} ErrorModel
 // @Router /api/v1/auth/info [get].
 func (c *Controller) Info(ctx *gin.Context) {
 	user, err := security.GetUser(ctx)
@@ -177,9 +160,7 @@ func (c *Controller) Info(ctx *gin.Context) {
 			slog.String("ip", ctx.ClientIP()),
 			slog.String("error", err.Error()),
 		)
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			errorKey: "unauthorized",
-		})
+		ginutil.ProblemResponse(ctx, http.StatusUnauthorized, "unauthorized")
 
 		return
 	}
