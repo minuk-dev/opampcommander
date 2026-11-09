@@ -11,7 +11,7 @@ appVersion: "0.1.41"
 kubeVersion: ">=1.23.0-0"
 dependencies:
   - name: grafana
-    version: "14.0.1"
+    version: "14.4.0"
     repository: https://grafana-community.github.io/helm-charts
     condition: grafana.enabled
 home: https://minuk-dev.github.io/opampcommander
