@@ -1,0 +1,12 @@
+apiVersion: opampcommander.io/v1alpha1
+kind: AgentGroup
+metadata:
+  name: collectors
+spec:
+  selector:
+    identifyingAttributes:
+      service.name: otelcol
+  priority: 0
+  remoteConfigs:
+    - name: otlp-debug
+      filename: collector.yaml

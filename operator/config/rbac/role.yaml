@@ -1,0 +1,24 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - agentgroups
+  - remoteconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - agentgroups/status
+  - remoteconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
