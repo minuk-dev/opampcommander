@@ -38,6 +38,8 @@ make build-installer IMG=ghcr.io/minuk-dev/opampcommander-operator:dev
 
 The root Go module's tests do not traverse this nested module. `.github/workflows/operator-ci.yaml` runs its checks independently and detects stale generated manifests.
 
+`make test-e2e` uses a disposable Kind cluster named `opampcommander-operator-test-e2e` (override with `KIND_CLUSTER`). It creates an isolated kubeconfig without changing your current context; kubectl kuberc is disabled. Direct E2E runs must also set `KIND_CLUSTER` and export that cluster's configuration successfully before tests can start. The E2E suite deletes its test resources and, on success, the Make target deletes the selected Kind cluster, including a reused cluster.
+
 ## Try in a disposable cluster
 
 Check your kubeconfig context first. These commands install cluster-scoped CRDs and run the manager against that cluster:

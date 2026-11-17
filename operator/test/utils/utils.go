@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"k8s.io/client-go/tools/clientcmd"
+
 	. "github.com/onsi/ginkgo/v2" // nolint:revive,staticcheck
 )
 
@@ -21,6 +23,36 @@ const (
 
 func warnError(err error) {
 	_, _ = fmt.Fprintf(GinkgoWriter, "warning: %v\n", err)
+}
+
+// WriteKindKubeconfig obtains and validates the explicit test cluster before any E2E mutations.
+func WriteKindKubeconfig(filename string) error {
+	cluster := os.Getenv("KIND_CLUSTER")
+	if cluster == "" {
+		return fmt.Errorf("KIND_CLUSTER must name a disposable Kind cluster")
+	}
+	kind := os.Getenv("KIND")
+	if kind == "" {
+		kind = defaultKindBinary
+	}
+	data, err := exec.Command(kind, "get", "kubeconfig", "--name", cluster).Output()
+	if err != nil {
+		return fmt.Errorf("get test cluster kubeconfig: %w", err)
+	}
+	config, err := clientcmd.Load(data)
+	if err != nil {
+		return fmt.Errorf("parse test cluster kubeconfig: %w", err)
+	}
+	expected := "kind-" + cluster
+	context := config.Contexts[expected]
+	if config.CurrentContext != expected || context == nil || context.Cluster != expected ||
+		config.Clusters[expected] == nil {
+		return fmt.Errorf("test kubeconfig must select context and cluster %q", expected)
+	}
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		return fmt.Errorf("write test cluster kubeconfig: %w", err)
+	}
+	return nil
 }
 
 // Run executes the provided command within this context

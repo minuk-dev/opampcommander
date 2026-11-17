@@ -63,10 +63,10 @@ spec:
                     to an OpAMP filename.
                   properties:
                     filename:
-                      description: filename is the config-map key delivered over OpAMP,
-                        not a local filesystem path.
+                      description: |-
+                        filename is the config-map key delivered over OpAMP, not a local filesystem path.
+                        The empty string is a valid OpAMP key.
                       maxLength: 255
-                      minLength: 1
                       type: string
                     name:
                       description: name is the RemoteConfig resource name.

@@ -40,8 +40,8 @@ type RemoteConfigReference struct {
 	// +kubebuilder:validation:MaxLength=253
 	Name string `json:"name"`
 	// filename is the config-map key delivered over OpAMP, not a local filesystem path.
+	// The empty string is a valid OpAMP key.
 	// +required
-	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=255
 	Filename string `json:"filename"`
 }

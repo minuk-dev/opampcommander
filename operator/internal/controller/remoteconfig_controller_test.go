@@ -21,7 +21,7 @@ var _ = Describe("RemoteConfig Controller", func() {
 	Context("When reconciling a resource", func() {
 		const (
 			resourceName      = "test-resource"
-			resourceNamespace = "default"
+			resourceNamespace = metav1.NamespaceDefault
 		)
 
 		ctx := context.Background()
@@ -98,7 +98,7 @@ var _ = Describe("RemoteConfig Controller", func() {
 var _ = Describe("RemoteConfig schema", func() {
 	It("rejects an invalid spec at the API boundary", func() {
 		resource := &opampcommanderv1alpha1.RemoteConfig{
-			ObjectMeta: metav1.ObjectMeta{Name: "invalid-remoteconfig", Namespace: "default"},
+			ObjectMeta: metav1.ObjectMeta{Name: "invalid-remoteconfig", Namespace: metav1.NamespaceDefault},
 			Spec:       opampcommanderv1alpha1.RemoteConfigSpec{Value: ""},
 		}
 		Expect(errors.IsInvalid(k8sClient.Create(ctx, resource))).To(BeTrue())

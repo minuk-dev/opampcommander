@@ -21,7 +21,7 @@ var _ = Describe("AgentGroup Controller", func() {
 	Context("When reconciling a resource", func() {
 		const (
 			resourceName      = "test-resource"
-			resourceNamespace = "default"
+			resourceNamespace = metav1.NamespaceDefault
 		)
 
 		ctx := context.Background()
@@ -96,9 +96,24 @@ var _ = Describe("AgentGroup Controller", func() {
 })
 
 var _ = Describe("AgentGroup schema", func() {
+	It("preserves an empty OpAMP key and rejects duplicate empty keys", func() {
+		resource := &opampcommanderv1alpha1.AgentGroup{
+			ObjectMeta: metav1.ObjectMeta{Name: "empty-filename", Namespace: metav1.NamespaceDefault},
+			Spec: opampcommanderv1alpha1.AgentGroupSpec{
+				RemoteConfigs: []opampcommanderv1alpha1.RemoteConfigReference{{Name: "config", Filename: ""}},
+			},
+		}
+		Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+		DeferCleanup(func() { Expect(k8sClient.Delete(ctx, resource)).To(Succeed()) })
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: resource.Name, Namespace: resource.Namespace}, resource)).To(Succeed())
+		Expect(resource.Spec.RemoteConfigs).To(Equal([]opampcommanderv1alpha1.RemoteConfigReference{{Name: "config", Filename: ""}}))
+		resource.Spec.RemoteConfigs = append(resource.Spec.RemoteConfigs, opampcommanderv1alpha1.RemoteConfigReference{Name: "other", Filename: ""})
+		Expect(errors.IsInvalid(k8sClient.Update(ctx, resource))).To(BeTrue())
+	})
+
 	It("rejects an invalid spec at the API boundary", func() {
 		resource := &opampcommanderv1alpha1.AgentGroup{
-			ObjectMeta: metav1.ObjectMeta{Name: "invalid-agentgroup", Namespace: "default"},
+			ObjectMeta: metav1.ObjectMeta{Name: "invalid-agentgroup", Namespace: metav1.NamespaceDefault},
 			Spec:       opampcommanderv1alpha1.AgentGroupSpec{RemoteConfigs: []opampcommanderv1alpha1.RemoteConfigReference{{Filename: "collector.yaml"}}},
 		}
 		Expect(errors.IsInvalid(k8sClient.Create(ctx, resource))).To(BeTrue())
