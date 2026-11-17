@@ -1,0 +1,28 @@
+name: operator-ci
+on:
+  push:
+    branches: [main]
+    paths: ['operator/**', '.github/workflows/operator-ci.yaml']
+  pull_request:
+    paths: ['operator/**', '.github/workflows/operator-ci.yaml']
+permissions:
+  contents: read
+jobs:
+  operator:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: operator
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: operator/go.mod
+          cache-dependency-path: operator/go.sum
+      - run: make manifests generate
+      - name: Check generated files
+        run: git diff --exit-code -- api config/crd config/rbac
+      - run: make lint
+      - run: make test
+      - run: make build
+      - run: make build-installer IMG=ghcr.io/minuk-dev/opampcommander-operator:test

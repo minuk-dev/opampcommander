@@ -1,0 +1,18 @@
+apiVersion: opampcommander.io/v1alpha1
+kind: RemoteConfig
+metadata:
+  name: otlp-debug
+spec:
+  contentType: application/yaml
+  value: |
+    receivers:
+      otlp:
+        protocols:
+          grpc: {}
+    exporters:
+      debug: {}
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [debug]

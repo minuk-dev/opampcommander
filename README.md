@@ -191,6 +191,12 @@ Package installation is unsupported: `OffersPackages` is withheld and no
 `packages_available` offers are sent. Package status reports are still accepted. The full per-field matrix is in the
 [OpAMP conformance](docs/content/en/docs/opamp-conformance.md) doc.
 
+## Kubernetes Operator bootstrap
+
+The new CRD control plane starts in [operator/](operator/README.md), an independent
+Kubebuilder project. Its initial AgentGroup and RemoteConfig controllers report
+`Ready=Unknown`; Agent delivery and migration are not implemented yet.
+
 ## Architecture
 
 The Go code follows **Hexagonal Architecture** wired with **Uber FX** dependency
