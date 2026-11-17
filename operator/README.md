@@ -3,6 +3,9 @@
 Kubebuilder bootstrap for the Kubernetes control plane described in [#896](https://github.com/minuk-dev/opampcommander/issues/896).
 This is a separate Go module; the existing Commander API server is not changed.
 
+The [ownership and migration ADR](../docs/content/en/docs/crd-control-plane.md)
+defines the target resource, tenancy, consistency and compatibility contracts.
+
 ## Current scope
 
 - Namespaced `AgentGroup` and `RemoteConfig` under `opampcommander.io/v1alpha1`.
