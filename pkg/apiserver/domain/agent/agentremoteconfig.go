@@ -11,7 +11,7 @@ import (
 // SkipSchemaValidationAnnotation is a metadata-attribute key that, when set to a truthy
 // value (e.g. "true") on an AgentRemoteConfig, tells the server to skip schema handling
 // for that config: SchemaRefs are not auto-resolved on create, and schema validation
-// (once implemented, #563) is bypassed on create/update. It lets an operator store a
+// is bypassed on create/update. It lets an operator store a
 // config that intentionally does not match any known RemoteConfigSchema.
 const SkipSchemaValidationAnnotation = "opampcommander.io/skip-schema-validation"
 
@@ -56,9 +56,8 @@ type AgentRemoteConfigSpec struct {
 	// the same namespace) that this config targets, pinning the collector builds it
 	// is validated against. A config may be simultaneously compatible with several
 	// schemas (e.g. multiple collector versions or distributions), so this is a
-	// list. It is referenceable-only: the references are stored and resolvable but
-	// not enforced here. Empty means no schema is pinned, which keeps the current
-	// lenient behavior (backward compatible).
+	// list. The application validates writes against all references unless the skip
+	// annotation is set. Empty retains opaque-config compatibility.
 	SchemaRefs []string
 }
 

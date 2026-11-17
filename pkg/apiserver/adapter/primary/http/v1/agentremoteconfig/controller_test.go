@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -136,7 +137,7 @@ func TestController_RoutesInfo(t *testing.T) {
 	controller := agentremoteconfig.NewController(newMockUsecase(t), slog.Default())
 
 	routes := controller.RoutesInfo()
-	require.Len(t, routes, 6)
+	require.Len(t, routes, 7)
 
 	got := make(map[string]struct{}, len(routes))
 	for _, route := range routes {
@@ -413,4 +414,44 @@ func (m *mockUsecase) PatchAgentRemoteConfig(
 	res, _ := args.Get(0).(*v1.AgentRemoteConfig)
 
 	return res, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+func (m *mockUsecase) ValidateAgentRemoteConfig(ctx context.Context, config *v1.AgentRemoteConfig) error {
+	return m.Called(ctx, config).Error(0) //nolint:wrapcheck // mock error
+}
+
+func TestValidate(t *testing.T) {
+	t.Parallel()
+
+	for _, invalid := range []bool{false, true} {
+		t.Run(strconv.FormatBool(invalid), func(t *testing.T) {
+			t.Parallel()
+			uc := newMockUsecase(t)
+
+			var validationErr error
+			if invalid {
+				validationErr = model.ErrInvalidArgument
+			}
+
+			uc.On("ValidateAgentRemoteConfig", mock.Anything, mock.MatchedBy(func(c *v1.AgentRemoteConfig) bool {
+				return c.Metadata.Namespace == "default"
+			})).Return(validationErr).Once()
+
+			router := gin.New()
+
+			ctrl := agentremoteconfig.NewController(uc, slog.Default())
+			for _, route := range ctrl.RoutesInfo() {
+				router.Handle(route.Method, route.Path, route.HandlerFunc)
+			}
+
+			response := doReq(t, router, http.MethodPost, base+"/validate",
+				`{"metadata":{"namespace":"other"},"spec":{"value":"test"}}`)
+			if invalid {
+				require.Equal(t, http.StatusBadRequest, response.Code)
+				require.Contains(t, response.Header().Get("Content-Type"), "application/problem+json")
+			} else {
+				require.Equal(t, http.StatusNoContent, response.Code)
+			}
+		})
+	}
 }

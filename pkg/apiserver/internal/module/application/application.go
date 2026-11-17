@@ -92,6 +92,7 @@ func New() fx.Option {
 			applicationService.New,
 			fx.Annotate(Identity[*applicationService.Service], fx.As(new(usecase.ApplicationManageUsecase))),
 
+			agentremoteconfigApplicationService.NewValidation,
 			agentremoteconfigApplicationService.NewAgentRemoteConfigService,
 			fx.Annotate(
 				Identity[*agentremoteconfigApplicationService.Service],

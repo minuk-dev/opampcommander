@@ -13,6 +13,7 @@ import (
 	configCmd "github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/context"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create"
+	configCreate "github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/agentremoteconfig"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/generate"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
@@ -48,6 +49,10 @@ func NewCommand(options CommandOption) *cobra.Command {
 		Short:             "opampctl",
 	}
 	configutil.CreateGlobalConfigFlags(cmd.PersistentFlags())
+	//exhaustruct:ignore
+	validate := &cobra.Command{Use: "validate", Short: "Validate resources without saving them"}
+	validate.AddCommand(configCreate.NewValidateCommand(configCreate.CommandOptions{GlobalConfig: options.globalConfig}))
+	cmd.AddCommand(validate)
 	cmd.AddCommand(get.NewCommand(get.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(set.NewCommand(options.globalConfig))
 	cmd.AddCommand(patch.NewCommand(options.globalConfig))

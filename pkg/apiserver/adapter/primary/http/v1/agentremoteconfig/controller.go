@@ -40,6 +40,9 @@ func NewController(
 // RoutesInfo returns the routes information for the agent remote config controller.
 func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
+		{Method: http.MethodPost, Path: "/api/v1/namespaces/:namespace/agentremoteconfigs/validate",
+			Handler: "http.v1.agentremoteconfig.Validate", HandlerFunc: c.Validate},
+
 		{
 			Method:      http.MethodGet,
 			Path:        "/api/v1/namespaces/:namespace/agentremoteconfigs",
@@ -379,4 +382,36 @@ func (c *Controller) Patch(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, result)
+}
+
+// Validate checks a candidate without saving it.
+//
+// @Summary Validate Agent Remote Config
+// @Tags agentremoteconfig
+// @Accept json
+// @Param namespace path string true "Namespace"
+// @Param config body v1.AgentRemoteConfig true "Candidate config"
+// @Success 204
+// @Failure 400 {object} api.ErrorModel
+// @Router /api/v1/namespaces/{namespace}/agentremoteconfigs/validate [post].
+func (c *Controller) Validate(ctx *gin.Context) {
+	var req v1.AgentRemoteConfig
+
+	err := ginutil.BindJSON(ctx, &req)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "body", "", err, false)
+
+		return
+	}
+
+	req.Metadata.Namespace = ctx.Param("namespace")
+
+	err = c.agentRemoteConfigUsecase.ValidateAgentRemoteConfig(ctx.Request.Context(), &req)
+	if err != nil {
+		ginutil.HandleDomainError(ctx, err, "Failed to validate remote config.")
+
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
 }

@@ -30,7 +30,8 @@ type AgentRemoteConfigSpec struct {
 	ContentType string `json:"contentType"`
 	// SchemaRefs optionally references one or more RemoteConfigSchemas (by name, in
 	// the same namespace) this config targets. A config may be compatible with
-	// several schemas at once, so this is a list. Referenceable-only.
+	// several schemas at once; writes must pass every referenced schema unless
+	// the skip-schema-validation attribute is set.
 	SchemaRefs []string `json:"schemaRefs,omitempty"`
 }
 

@@ -1,4 +1,3 @@
-//nolint:dupl // Similar structure to other resource services is intentional
 package client
 
 import (
@@ -215,4 +214,21 @@ func (s *AgentRemoteConfigService) PatchAgentRemoteConfig(
 	ctx context.Context, namespace, name string, patch []byte,
 ) (*v1.AgentRemoteConfig, error) {
 	return patchResource[v1.AgentRemoteConfig](ctx, s.service, UpdateAgentRemoteConfigURL, namespace, name, patch)
+}
+
+// ValidateAgentRemoteConfig checks a candidate on the server without saving it.
+func (s *AgentRemoteConfigService) ValidateAgentRemoteConfig(ctx context.Context,
+	namespace string, candidate *v1.AgentRemoteConfig) error {
+	res, err := s.service.Resty.R().SetContext(ctx).SetPathParam("namespace", namespace).SetBody(candidate).
+		Post(CreateAgentRemoteConfigURL + "/validate")
+	if err != nil {
+		return fmt.Errorf("validate agent remote config: %w", err)
+	}
+
+	if res.IsError() {
+		return fmt.Errorf("validate agent remote config: %w", &ResponseError{StatusCode: res.StatusCode(),
+			ErrorMessage: res.String()})
+	}
+
+	return nil
 }

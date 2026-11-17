@@ -202,7 +202,7 @@ func newSvc(
 
 	base := testutil.NewBase(t)
 
-	return arcsvc.NewAgentRemoteConfigService(arc, group, det, base.Logger)
+	return arcsvc.NewAgentRemoteConfigService(arc, group, det, base.Logger, arcsvc.NewValidation(nil))
 }
 
 func newARC() *agentmodel.AgentRemoteConfig {
