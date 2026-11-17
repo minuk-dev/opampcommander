@@ -344,6 +344,8 @@ it. A catalog without field schemas only describes component availability.
 # collector.yaml is a raw collector config, not an AgentRemoteConfig manifest.
 opampctl create agentremoteconfig --name my-config -n default -f collector.yaml \
   --schema-ref SCHEMA
+# Check the same server validators without saving or distributing a config.
+opampctl validate agentremoteconfig -n default -f collector.yaml --schema-ref SCHEMA
 # Repeat --schema-ref to target more than one catalog.
 opampctl set schemaref my-config -n default --schema-ref SCHEMA --schema-ref SECOND_SCHEMA
 # Remove all references without re-sending the collector config.
@@ -368,7 +370,8 @@ opampctl create agentremoteconfig --name unpinned-config -n default -f collector
 
 This sets the metadata attribute
 `opampcommander.io/skip-schema-validation: "true"`, which disables automatic schema
-matching. It does not remove explicit references. The annotation is the schema
+matching and schema checks on writes and dry runs. It does not remove explicit references
+or bypass the server size/policy checks. The annotation is the schema
 validation opt-out marker; a schema reference alone is not proof that an agent has
 accepted or successfully applied the config.
 

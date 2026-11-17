@@ -227,9 +227,35 @@ DELETE /api/v1/namespaces/{namespace}/agentpackages/{name}
 ```http
 GET    /api/v1/namespaces/{namespace}/agentremoteconfigs
 POST   /api/v1/namespaces/{namespace}/agentremoteconfigs
+POST   /api/v1/namespaces/{namespace}/agentremoteconfigs/validate
 GET    /api/v1/namespaces/{namespace}/agentremoteconfigs/{name}
 DELETE /api/v1/namespaces/{namespace}/agentremoteconfigs/{name}
 ```
+
+Remote-config create, update and merge PATCH share validation with `POST .../validate`.
+The validate endpoint accepts an `AgentRemoteConfig` JSON body, uses the URL namespace,
+and returns **204** without storing, stamping or distributing the candidate. It requires
+`CREATE` permission on `agentremoteconfig`, just like creation. Invalid candidates return
+**400 application/problem+json**; schema storage failures remain server errors.
+
+Every candidate has a 1 MiB limit on decoded `spec.value`. When `spec.schemaRefs` is
+nonempty, the config must be a single YAML/JSON mapping with known catalog components,
+valid component fields and pipeline references/signals, and pass **every** named schema
+in the namespace. Empty references preserve opaque configs for non-collector agents;
+creation-time best-effort auto-matching still occurs after validation. Auto-selected
+references are enforced on subsequent writes. To validate a new collector config before
+creation, explicitly supply its intended schema references.
+
+`opampcommander.io/skip-schema-validation: "true"` bypasses schema checks but never
+policy checks. Catalogs without field descriptions cannot validate those settings;
+validation does not expand environment/config-provider values or run the collector.
+Agent runtime validation remains necessary.
+
+Server integrations can compose `agentremoteconfig.Validation.Validators` with custom
+`Validator` implementations. `SizePolicy`, `SchemaValidator`, and `ComponentPolicy`
+(required/forbidden component types by class) are provided. Custom validators can use
+the candidate namespace for organization policy selection; policies run independently
+of the schema bypass. The stock server installs the size and schema validators.
 
 ## Certificates
 

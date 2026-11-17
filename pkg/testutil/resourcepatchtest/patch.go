@@ -88,7 +88,7 @@ func CheckResourcePatches(t *testing.T, groups agentport.AgentGroupPersistencePo
 
 		effects := &patchEffects{events: make(chan string, 20)}
 		svc := configsvc.NewAgentRemoteConfigService(agentservice.NewAgentRemoteConfigService(configs, nil, nil,
-			nil, logger), effects, effects, logger)
+			nil, logger), effects, effects, logger, configsvc.NewValidation(nil))
 
 		checkPatches(t, "attributes", func(data []byte) (any, error) {
 			return svc.PatchAgentRemoteConfig(ctx, "default", "patch-config", data)

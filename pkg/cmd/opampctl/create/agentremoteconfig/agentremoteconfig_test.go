@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -65,4 +66,40 @@ func TestRunRejectsEmptySchemaRef(t *testing.T) {
 
 	opts := CommandOptions{schemaRefs: []string{" "}}
 	require.ErrorIs(t, opts.Run(&cobra.Command{}, nil), ErrEmptySchemaRef)
+}
+
+func TestValidateRun(t *testing.T) {
+	t.Parallel()
+
+	for _, status := range []int{http.StatusNoContent, http.StatusBadRequest} {
+		t.Run(strconv.Itoa(status), func(t *testing.T) {
+			t.Parallel()
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, http.MethodPost, r.Method)
+				assert.Equal(t, "/api/v1/namespaces/default/agentremoteconfigs/validate", r.URL.Path)
+				w.WriteHeader(status)
+			}))
+			defer server.Close()
+
+			options := CommandOptions{client: client.New(server.URL), namespace: "default",
+				value: "service: {}", contentType: "application/yaml", validateOnly: true}
+			cmd := &cobra.Command{}
+
+			var output bytes.Buffer
+			cmd.SetOut(&output)
+
+			err := options.Run(cmd, nil)
+			if status == http.StatusBadRequest {
+				require.Error(t, err)
+				require.Empty(t, output.String())
+			} else {
+				require.NoError(t, err)
+				require.Contains(t, output.String(), "valid")
+			}
+		})
+	}
+
+	cmd := NewValidateCommand(CommandOptions{})
+	require.NotContains(t, cmd.Flags().Lookup("name").Annotations, cobra.BashCompOneRequiredFlag)
 }

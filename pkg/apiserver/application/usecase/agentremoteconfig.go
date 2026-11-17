@@ -1,4 +1,3 @@
-//nolint:dupl // Resource use cases intentionally share the CRUD contract.
 package usecase
 
 import (
@@ -12,6 +11,8 @@ import (
 // desired OpAMP config documents the server pushes to agents. It backs the
 // /api/v1/agentremoteconfigs controller.
 type AgentRemoteConfigManageUsecase interface {
+	// ValidateAgentRemoteConfig checks a candidate without persisting it.
+	ValidateAgentRemoteConfig(ctx context.Context, config *v1.AgentRemoteConfig) error
 	// GetAgentRemoteConfig returns the named remote config in namespace, or
 	// model.ErrResourceNotExist if absent.
 	GetAgentRemoteConfig(ctx context.Context, namespace string,

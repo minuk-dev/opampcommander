@@ -14,6 +14,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -26,6 +27,7 @@ var _ usecase.AgentRemoteConfigManageUsecase = (*Service)(nil)
 // and fans the post-write side effects (group propagation, endpoint detection) out
 // to the relevant domain usecases without blocking the request.
 type Service struct {
+	validation               *Validation
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase
 	agentGroupUsecase        agentport.AgentGroupUsecase
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase
@@ -40,10 +42,12 @@ func NewAgentRemoteConfigService(
 	agentGroupUsecase agentport.AgentGroupUsecase,
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase,
 	logger *slog.Logger,
+	validation *Validation,
 ) *Service {
 	realClock := clock.NewRealClock()
 
 	return &Service{
+		validation:               validation,
 		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
 		agentGroupUsecase:        agentGroupUsecase,
 		endpointDetectionUsecase: endpointDetectionUsecase,
@@ -106,6 +110,11 @@ func (s *Service) CreateAgentRemoteConfig(
 	ctx context.Context,
 	apiModel *v1.AgentRemoteConfig,
 ) (*v1.AgentRemoteConfig, error) {
+	validationErr := s.ValidateAgentRemoteConfig(ctx, apiModel)
+	if validationErr != nil {
+		return nil, validationErr
+	}
+
 	domainModel := s.mapper.MapAPIToAgentRemoteConfig(apiModel)
 
 	saved, err := s.agentRemoteConfigUsecase.CreateAgentRemoteConfig(ctx, domainModel, s.actor(ctx))
@@ -126,6 +135,16 @@ func (s *Service) UpdateAgentRemoteConfig(
 	name string,
 	apiModel *v1.AgentRemoteConfig,
 ) (*v1.AgentRemoteConfig, error) {
+	err := model.CheckResourceIdentity(namespace, name, apiModel.Metadata.Namespace, apiModel.Metadata.Name)
+	if err != nil {
+		return nil, fmt.Errorf("resource precondition: %w", err)
+	}
+
+	validationErr := s.ValidateAgentRemoteConfig(ctx, apiModel)
+	if validationErr != nil {
+		return nil, validationErr
+	}
+
 	domainModel := s.mapper.MapAPIToAgentRemoteConfig(apiModel)
 
 	updated, changed, err := s.agentRemoteConfigUsecase.UpdateAgentRemoteConfig(
@@ -179,6 +198,11 @@ func (s *Service) PatchAgentRemoteConfig(
 	}
 
 	return result, nil
+}
+
+// ValidateAgentRemoteConfig checks a candidate without writes or side effects.
+func (s *Service) ValidateAgentRemoteConfig(ctx context.Context, candidate *v1.AgentRemoteConfig) error {
+	return s.validation.Validate(ctx, s.mapper.MapAPIToAgentRemoteConfig(candidate))
 }
 
 // actor resolves the acting user from the request context, falling back to an

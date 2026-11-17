@@ -1886,6 +1886,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/namespaces/{namespace}/agentremoteconfigs/validate": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agentremoteconfig"
+                ],
+                "summary": "Validate Agent Remote Config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Candidate config",
+                        "name": "config",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AgentRemoteConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/namespaces/{namespace}/agentremoteconfigs/{name}": {
             "patch": {
                 "description": "JSON Merge Patch with optional metadata.resourceVersion. Omitted revisions allow same-field overwrite.",
@@ -7379,7 +7419,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "schemaRefs": {
-                    "description": "SchemaRefs optionally references one or more RemoteConfigSchemas (by name, in\nthe same namespace) this config targets. A config may be compatible with\nseveral schemas at once, so this is a list. Referenceable-only.",
+                    "description": "SchemaRefs optionally references one or more RemoteConfigSchemas (by name, in\nthe same namespace) this config targets. A config may be compatible with\nseveral schemas at once; writes must pass every referenced schema unless\nthe skip-schema-validation attribute is set.",
                     "type": "array",
                     "items": {
                         "type": "string"

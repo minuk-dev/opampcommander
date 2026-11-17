@@ -1,4 +1,3 @@
-//nolint:dupl // Resource use cases intentionally share the CRUD contract.
 package usecase
 
 import (

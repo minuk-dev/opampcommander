@@ -34,6 +34,7 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// Flags
+	validateOnly         bool
 	name                 string
 	namespace            string
 	attributes           map[string]string
@@ -90,6 +91,16 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	return cmd
 }
 
+// NewValidateCommand creates a dry-run command with the same input flags as create.
+func NewValidateCommand(options CommandOptions) *cobra.Command {
+	options.validateOnly = true
+	cmd := NewCommand(options)
+	cmd.Short = "validate agentremoteconfig without saving it"
+	delete(cmd.Flags().Lookup("name").Annotations, cobra.BashCompOneRequiredFlag)
+
+	return cmd
+}
+
 // Prepare prepares the create agentremoteconfig command.
 func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 	client, err := clientutil.NewClient(opt.GlobalConfig)
@@ -103,6 +114,8 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 }
 
 // Run executes the create agentremoteconfig command.
+//
+//nolint:funlen // Shared create/validate request construction and output.
 func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	for _, ref := range opt.schemaRefs {
 		if strings.TrimSpace(ref) == "" {
@@ -144,6 +157,17 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		}
 
 		createRequest.Metadata.Attributes["opampcommander.io/skip-schema-validation"] = "true"
+	}
+
+	if opt.validateOnly {
+		err := agentRemoteConfigService.ValidateAgentRemoteConfig(cmd.Context(), opt.namespace, createRequest)
+		if err != nil {
+			return fmt.Errorf("validation failed: %w", err)
+		}
+
+		cmd.Println("Agent remote config is valid.")
+
+		return nil
 	}
 
 	agentRemoteConfig, err := agentRemoteConfigService.CreateAgentRemoteConfig(
