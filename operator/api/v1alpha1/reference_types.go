@@ -1,21 +1,17 @@
 package v1alpha1
 
-// ResourceName is a same-namespace Kubernetes resource name.
-// +kubebuilder:validation:MinLength=1
-// +kubebuilder:validation:MaxLength=253
-// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
-type ResourceName string
-
 // LocalReference cannot select another namespace or installation.
 type LocalReference struct {
 	// +required
-	Name ResourceName `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 // SecretKeyReference selects private content without embedding it in a CR.
 type SecretKeyReference struct {
 	// +required
-	Name ResourceName `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253

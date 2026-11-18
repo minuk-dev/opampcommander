@@ -92,11 +92,7 @@ spec:
                           pattern: ^[-._a-zA-Z0-9]+$
                           type: string
                         name:
-                          description: ResourceName is a same-namespace Kubernetes
-                            resource name.
-                          maxLength: 253
                           minLength: 1
-                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
                       required:
                       - key
@@ -125,11 +121,7 @@ spec:
                     pattern: ^[-._a-zA-Z0-9]+$
                     type: string
                   name:
-                    description: ResourceName is a same-namespace Kubernetes resource
-                      name.
-                    maxLength: 253
                     minLength: 1
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                 required:
                 - key

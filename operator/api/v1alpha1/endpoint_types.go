@@ -38,7 +38,8 @@ type TelemetrySignal string
 // EndpointTenant keeps credential headers in native Secrets.
 type EndpointTenant struct {
 	// +required
-	Name ResourceName `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 	// +optional
 	// +listType=map
 	// +listMapKey=name

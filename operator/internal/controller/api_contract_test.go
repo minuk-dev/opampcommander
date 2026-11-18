@@ -62,7 +62,7 @@ var _ = Describe("Configuration API contract", func() {
 		Expect(apierrors.IsInvalid(k8sClient.Create(ctx, object))).To(BeTrue())
 	},
 		Entry("missing selector", "AgentGroup", map[string]any{}),
-		Entry("invalid reference name", "AgentGroup", map[string]any{"selector": map[string]any{}, "remoteConfigs": []any{map[string]any{"name": "other/ns", "filename": ""}}}),
+		Entry("empty reference name", "AgentGroup", map[string]any{"selector": map[string]any{}, "remoteConfigs": []any{map[string]any{"name": "", "filename": ""}}}),
 		Entry("missing filename", "AgentGroup", map[string]any{"selector": map[string]any{}, "remoteConfigs": []any{map[string]any{"name": "config"}}}),
 		Entry("ambiguous config source", "RemoteConfig", map[string]any{"value": "service: {}", "valueFrom": map[string]any{"name": "config", "key": "yaml"}}),
 		Entry("missing config source", "RemoteConfig", map[string]any{}),

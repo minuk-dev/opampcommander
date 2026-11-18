@@ -45,7 +45,8 @@ type AgentSelector struct {
 type RemoteConfigReference struct {
 	// name is the RemoteConfig resource name.
 	// +required
-	Name ResourceName `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 	// filename is the config-map key delivered over OpAMP, not a local filesystem path.
 	// The empty string is a valid OpAMP key.
 	// +required
