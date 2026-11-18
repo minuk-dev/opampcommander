@@ -13,6 +13,7 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/xsync"
 )
 
 var _ agentport.AgentStore = (*AgentStore)(nil)
@@ -39,11 +40,12 @@ func DefaultAgentCacheConfig() AgentCacheConfig {
 type AgentStore struct {
 	persistence agentport.AgentPersistencePort
 	cache       *ttlcache.Cache[uuid.UUID, *agentmodel.Agent]
+	locks       xsync.KeyedMutex[uuid.UUID]
 }
 
 // NewAgentStore wraps persistence with an optional cache.
 func NewAgentStore(persistence agentport.AgentPersistencePort, config AgentCacheConfig) *AgentStore {
-	store := &AgentStore{persistence: persistence, cache: nil}
+	store := &AgentStore{persistence: persistence, cache: nil, locks: xsync.KeyedMutex[uuid.UUID]{}}
 	if !config.Enabled {
 		return store
 	}
@@ -69,6 +71,10 @@ func NewAgentStore(persistence agentport.AgentPersistencePort, config AgentCache
 
 // Get returns an isolated copy, reading through the cache when enabled.
 func (s *AgentStore) Get(ctx context.Context, uid uuid.UUID) (*agentmodel.Agent, error) {
+	// A delayed read must not refill the cache after a newer write or invalidation.
+	s.locks.Lock(uid)
+	defer s.locks.Unlock(uid)
+
 	if s.cache != nil {
 		if item := s.cache.Get(uid); item != nil {
 			return item.Value().Clone(), nil
@@ -100,10 +106,13 @@ func (s *AgentStore) GetFresh(ctx context.Context, uid uuid.UUID) (*agentmodel.A
 // Put refreshes the cache only after persistence accepts the write. A
 // conflict drops the losing version so the next read can observe the winner.
 func (s *AgentStore) Put(ctx context.Context, agent *agentmodel.Agent) error {
+	s.locks.Lock(agent.Metadata.InstanceUID)
+	defer s.locks.Unlock(agent.Metadata.InstanceUID)
+
 	err := s.persistence.PutAgent(ctx, agent)
 	if err != nil {
 		if errors.Is(err, model.ErrConflict) {
-			s.InvalidateCache(agent.Metadata.InstanceUID)
+			s.invalidateCache(agent.Metadata.InstanceUID)
 		}
 
 		return fmt.Errorf("persist agent: %w", err)
@@ -118,12 +127,15 @@ func (s *AgentStore) Put(ctx context.Context, agent *agentmodel.Agent) error {
 
 // Delete invalidates cached data after a successful durable deletion.
 func (s *AgentStore) Delete(ctx context.Context, uid uuid.UUID) error {
+	s.locks.Lock(uid)
+	defer s.locks.Unlock(uid)
+
 	err := s.persistence.DeleteAgent(ctx, uid)
 	if err != nil {
 		return fmt.Errorf("delete agent: %w", err)
 	}
 
-	s.InvalidateCache(uid)
+	s.invalidateCache(uid)
 
 	return nil
 }
@@ -173,9 +185,10 @@ func (s *AgentStore) SearchAgents(ctx context.Context, namespace, query string,
 
 // InvalidateCache forces the next read to persistence.
 func (s *AgentStore) InvalidateCache(uid uuid.UUID) {
-	if s.cache != nil {
-		s.cache.Delete(uid)
-	}
+	s.locks.Lock(uid)
+	defer s.locks.Unlock(uid)
+
+	s.invalidateCache(uid)
 }
 
 // Shutdown releases the local cache.
@@ -183,5 +196,11 @@ func (s *AgentStore) Shutdown() {
 	if s.cache != nil {
 		s.cache.DeleteAll()
 		s.cache.Stop()
+	}
+}
+
+func (s *AgentStore) invalidateCache(uid uuid.UUID) {
+	if s.cache != nil {
+		s.cache.Delete(uid)
 	}
 }

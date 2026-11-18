@@ -1,6 +1,8 @@
 package cached_test
 
 import (
+	"context"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -12,9 +14,48 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/cached"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
+
+type delayedAgentPersistence struct {
+	agentport.AgentPersistencePort
+
+	afterRead  func()
+	afterWrite func()
+}
+
+func (p *delayedAgentPersistence) GetAgent(ctx context.Context, uid uuid.UUID) (*agentmodel.Agent, error) {
+	agent, err := p.AgentPersistencePort.GetAgent(ctx, uid)
+	if p.afterRead != nil {
+		p.afterRead()
+	}
+
+	return agent, err //nolint:wrapcheck // Preserve the persistence result in this scheduling fixture.
+}
+
+func (p *delayedAgentPersistence) PutAgent(ctx context.Context, agent *agentmodel.Agent) error {
+	err := p.AgentPersistencePort.PutAgent(ctx, agent)
+	if p.afterWrite != nil {
+		p.afterWrite()
+	}
+
+	return err //nolint:wrapcheck // Preserve the persistence result in this scheduling fixture.
+}
+
+func TestAgentStore_DelayedPublication(t *testing.T) {
+	t.Parallel()
+
+	for _, first := range []string{"read", "write"} {
+		for _, next := range []string{"write", "delete", "invalidate"} {
+			t.Run(first+" before "+next, func(t *testing.T) {
+				t.Parallel()
+				testDelayedPublication(t, first, next)
+			})
+		}
+	}
+}
 
 func TestAgentStore_CacheIsolationAndFreshRead(t *testing.T) {
 	t.Parallel()
@@ -139,4 +180,101 @@ func TestAgentStore_TTLExpires(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "peer", got.Metadata.Namespace)
 	})
+}
+
+func testDelayedPublication(t *testing.T, first, next string) {
+	t.Helper()
+
+	ctx := t.Context()
+	repository := inmemory.NewAgentRepository()
+	agent := agentmodel.NewAgent(uuid.New())
+	require.NoError(t, repository.PutAgent(ctx, agent))
+
+	entered, resume := make(chan struct{}), make(chan struct{})
+
+	var paused atomic.Bool
+
+	pause := func() {
+		if paused.CompareAndSwap(false, true) {
+			close(entered)
+			<-resume
+		}
+	}
+
+	persistence := &delayedAgentPersistence{AgentPersistencePort: repository}
+	if first == "read" {
+		persistence.afterRead = pause
+	} else {
+		persistence.afterWrite = pause
+	}
+
+	store := cached.NewAgentStore(persistence, cached.DefaultAgentCacheConfig())
+	defer store.Shutdown()
+
+	firstDone := make(chan error, 1)
+
+	go func() {
+		if first == "read" {
+			_, err := store.Get(ctx, agent.Metadata.InstanceUID)
+			firstDone <- err
+		} else {
+			agent.Metadata.Namespace = "first"
+			firstDone <- store.Put(ctx, agent)
+		}
+	}()
+
+	<-entered
+
+	otherDone := make(chan error, 1)
+	go func() { otherDone <- store.Put(ctx, agentmodel.NewAgent(uuid.New())) }()
+
+	independent := assert.Eventually(t, func() bool { return len(otherDone) != 0 },
+		time.Second, time.Millisecond, "another Agent must not wait for this one's persistence")
+
+	nextDone := make(chan error, 1)
+
+	go func() {
+		if next == "delete" {
+			nextDone <- store.Delete(ctx, agent.Metadata.InstanceUID)
+
+			return
+		}
+
+		latest, err := repository.GetAgent(ctx, agent.Metadata.InstanceUID)
+		if err != nil {
+			nextDone <- err
+
+			return
+		}
+
+		latest.Metadata.Namespace = "latest"
+		if next == "write" {
+			nextDone <- store.Put(ctx, latest)
+
+			return
+		}
+		// A peer commits before its cache-invalidation notification arrives.
+		err = repository.PutAgent(ctx, latest)
+		store.InvalidateCache(latest.Metadata.InstanceUID)
+
+		nextDone <- err
+	}()
+
+	blocked := assert.Never(t, func() bool { return len(nextDone) != 0 },
+		100*time.Millisecond, time.Millisecond, "same-Agent operation must wait for pending publication")
+
+	close(resume)
+	require.NoError(t, <-firstDone)
+	require.NoError(t, <-nextDone)
+	require.NoError(t, <-otherDone)
+	require.True(t, independent)
+	require.True(t, blocked)
+
+	got, err := store.Get(ctx, agent.Metadata.InstanceUID)
+	if next == "delete" {
+		require.ErrorIs(t, err, model.ErrAgentRevoked)
+	} else {
+		require.NoError(t, err)
+		assert.Equal(t, "latest", got.Metadata.Namespace)
+	}
 }
