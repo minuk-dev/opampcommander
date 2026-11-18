@@ -1,12 +1,13 @@
 # Control-plane E2E
 
-Run from the repository root:
+Run this suite **only in CI**, through the control-plane E2E job in
+`.github/workflows/test.yaml`. The job runs this command from the repository root:
 
 ```sh
 make test-e2e-controlplane
 ```
 
-Requires Docker, Kind v0.33.0, kubectl and the repository's Go toolchain. The
+The CI runner provides Docker, Kind v0.33.0, kubectl and the repository's Go toolchain. The
 runner creates a uniquely named Kubernetes 1.37.0 Kind cluster with its own
 kubeconfig. It never reuses an existing cluster or changes the user's context.
 It builds the current apiserver and Operator, runs the existing Operator
