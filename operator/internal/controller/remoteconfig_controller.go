@@ -2,13 +2,17 @@ package controller
 
 import (
 	"context"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	opampcommanderv1alpha1 "github.com/minuk-dev/opampcommander/operator/api/v1alpha1"
 )
@@ -16,7 +20,8 @@ import (
 // RemoteConfigReconciler reconciles a RemoteConfig object
 type RemoteConfigReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme       *runtime.Scheme
+	Installation *Installation
 }
 
 // +kubebuilder:rbac:groups=opampcommander.io,resources=remoteconfigs,verbs=get;list;watch
@@ -32,21 +37,32 @@ func (r *RemoteConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if !resource.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
+	owned, err := r.Installation.ownsNamespace(ctx, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !owned {
+		return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
+	}
 	before := resource.DeepCopy()
 	changed := meta.SetStatusCondition(&resource.Status.Conditions, metav1.Condition{
 		Type: "Ready", Status: metav1.ConditionUnknown, ObservedGeneration: resource.Generation,
 		Reason: "NotImplemented", Message: "Agent configuration delivery is not implemented in this bootstrap controller",
 	})
-	if !changed {
-		return ctrl.Result{}, nil
+	if changed {
+		if err := r.Status().Patch(ctx, resource, client.MergeFrom(before)); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	return ctrl.Result{}, r.Status().Patch(ctx, resource, client.MergeFrom(before))
+	return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RemoteConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&opampcommanderv1alpha1.RemoteConfig{}, builder.WithPredicates(configurationChanged)).
+		Watches(&corev1.Namespace{}, handler.EnqueueRequestsFromMapFunc(enqueueNamespace(r.Client,
+			func() client.ObjectList { return &opampcommanderv1alpha1.RemoteConfigList{} })), builder.WithPredicates(predicate.LabelChangedPredicate{})).
 		Named("remoteconfig").
 		Complete(r)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -11,6 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	controlleroptions "sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	opampcommanderv1alpha1 "github.com/minuk-dev/opampcommander/operator/api/v1alpha1"
 )
@@ -18,13 +21,16 @@ import (
 // AgentGroupReconciler reconciles a AgentGroup object
 type AgentGroupReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme       *runtime.Scheme
+	Installation *Installation
 }
 
 // +kubebuilder:rbac:groups=opampcommander.io,resources=agentgroups,verbs=get;list;watch
 // +kubebuilder:rbac:groups=opampcommander.io,resources=agentgroups/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=opampcommander.io,resources=remoteconfigs;agentpackages;remoteconfigschemas;endpoints,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get
 
 // Reconcile records that this scaffold cannot yet apply Agent configuration.
 // It deliberately never reports Ready=True before runtime integration exists.
@@ -35,6 +41,13 @@ func (r *AgentGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	if !resource.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
+	}
+	owned, err := r.Installation.ownsNamespace(ctx, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !owned {
+		return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 	}
 	before := resource.DeepCopy()
 	found, readErr := r.referencesFound(ctx, resource, make(map[dependency]bool))
@@ -73,6 +86,8 @@ func (r *AgentGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func (r *AgentGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&opampcommanderv1alpha1.AgentGroup{}, builder.WithPredicates(configurationChanged)).
+		Watches(&corev1.Namespace{}, handler.EnqueueRequestsFromMapFunc(enqueueNamespace(r.Client,
+			func() client.ObjectList { return &opampcommanderv1alpha1.AgentGroupList{} })), builder.WithPredicates(predicate.LabelChangedPredicate{})).
 		Named("agentgroup").
 		WithOptions(controlleroptions.Options{MaxConcurrentReconciles: 2})
 	if err := r.watchDependencies(mgr, controller); err != nil {

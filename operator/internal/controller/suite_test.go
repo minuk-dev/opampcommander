@@ -10,6 +10,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -38,6 +40,8 @@ func TestControllers(t *testing.T) {
 
 	RunSpecs(t, "Controller Suite")
 }
+
+var testInstallation *Installation
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
@@ -69,6 +73,17 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+	anchor := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "opamp-installation", Namespace: "default"}}
+	Expect(k8sClient.Create(ctx, anchor)).To(Succeed())
+	testInstallation, err = LoadInstallation(ctx, k8sClient, client.ObjectKeyFromObject(anchor))
+	Expect(err).NotTo(HaveOccurred())
+	namespace := &corev1.Namespace{}
+	Expect(k8sClient.Get(ctx, client.ObjectKey{Name: "default"}, namespace)).To(Succeed())
+	if namespace.Labels == nil {
+		namespace.Labels = make(map[string]string)
+	}
+	namespace.Labels[InstallationLabel] = string(testInstallation.UID)
+	Expect(k8sClient.Update(ctx, namespace)).To(Succeed())
 })
 
 var _ = AfterSuite(func() {

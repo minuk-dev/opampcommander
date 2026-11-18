@@ -18,6 +18,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -51,7 +52,12 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var installationNamespace, installationConfigMap string
 	var tlsOpts []func(*tls.Config)
+	flag.StringVar(&installationNamespace, "installation-namespace", os.Getenv("POD_NAMESPACE"),
+		"Namespace containing the installation ConfigMap.")
+	flag.StringVar(&installationConfigMap, "installation-configmap", "opamp-installation",
+		"Name of the installation identity ConfigMap.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -148,13 +154,14 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Cache:                  cache.Options{ReaderFailOnMissingInformer: true},
-		Metrics:                metricsServerOptions,
-		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "37ad389b.io",
+		Scheme:                  scheme,
+		Cache:                   cache.Options{ReaderFailOnMissingInformer: true},
+		Metrics:                 metricsServerOptions,
+		WebhookServer:           webhookServer,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "37ad389b.io",
+		LeaderElectionNamespace: installationNamespace,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -172,16 +179,29 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx := ctrl.SetupSignalHandler()
+	loadCtx, cancelLoad := context.WithTimeout(ctx, 30*time.Second)
+	installation, err := controller.LoadInstallation(loadCtx, mgr.GetAPIReader(), client.ObjectKey{
+		Namespace: installationNamespace, Name: installationConfigMap,
+	})
+	cancelLoad()
+	if err != nil {
+		setupLog.Error(err, "Failed to load installation identity")
+		os.Exit(1)
+	}
+
 	if err := (&controller.AgentGroupReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		Installation: installation,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "agentgroup")
 		os.Exit(1)
 	}
 	if err := (&controller.RemoteConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		Installation: installation,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "remoteconfig")
 		os.Exit(1)
@@ -203,9 +223,17 @@ func main() {
 		setupLog.Error(err, "Failed to set up ready check")
 		os.Exit(1)
 	}
+	if err := mgr.AddReadyzCheck("installation", func(req *http.Request) error {
+		ctx, cancel := context.WithTimeout(req.Context(), time.Second)
+		defer cancel()
+		return installation.Check(ctx)
+	}); err != nil {
+		setupLog.Error(err, "Failed to set up installation readiness check")
+		os.Exit(1)
+	}
 
 	setupLog.Info("Starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "Failed to run manager")
 		os.Exit(1)
 	}

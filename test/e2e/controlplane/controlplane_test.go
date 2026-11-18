@@ -141,42 +141,87 @@ func TestControlPlane(t *testing.T) {
 	})
 
 	t.Run("native configuration and dependency recovery", func(t *testing.T) {
-		kubectl(t, "apply", "-k", "../../../operator/config/samples")
-		waitCondition(t, "ReferencesFound", "True")
-		waitCondition(t, "Ready", "Unknown")
-		before := groupResourceVersion(t)
-		kubectl(t, "apply", "-k", "../../../operator/config/samples")
-		require.Equal(t, before, groupResourceVersion(t), "no-op apply must not rewrite status")
-		kubectl(t, "delete", "remoteconfig", "otlp-debug")
-		waitCondition(t, "ReferencesFound", "False")
-		kubectl(t, "apply", "-f", "../../../operator/config/samples/opampcommander_v1alpha1_remoteconfig.yaml")
-		waitCondition(t, "ReferencesFound", "True")
-
-		kubectl(t, "scale", "deployment/"+operatorDeployment, "-n", operatorNamespace, "--replicas=0")
-		kubectl(t, "wait", "pod", "-n", operatorNamespace, "-l", "control-plane=controller-manager",
-			"--for=delete", "--timeout=90s")
-		kubectl(t, "delete", "remoteconfig", "otlp-debug")
-		kubectl(t, "scale", "deployment/"+operatorDeployment, "-n", operatorNamespace, "--replicas=2")
-		kubectl(t, "rollout", "status", "deployment/"+operatorDeployment, "-n", operatorNamespace, "--timeout=120s")
-		waitCondition(t, "ReferencesFound", "False")
-		kubectl(t, "apply", "-f", "../../../operator/config/samples/opampcommander_v1alpha1_remoteconfig.yaml")
-		waitCondition(t, "ReferencesFound", "True")
-
-		leader := string(kubectl(t, "get", "lease", "37ad389b.io", "-n", operatorNamespace,
-			"-o", "jsonpath={.spec.holderIdentity}"))
-		require.NotEmpty(t, leader)
-		pod, _, _ := strings.Cut(leader, "_")
-		kubectl(t, "delete", "pod", pod, "-n", operatorNamespace)
-		require.Eventually(t, func() bool {
-			current := string(kubectl(t, "get", "lease", "37ad389b.io", "-n", operatorNamespace,
-				"-o", "jsonpath={.spec.holderIdentity}"))
-
-			return current != "" && current != leader
-		}, timeout, poll, "another Operator must acquire the Lease")
-		kubectl(t, "delete", "remoteconfig", "otlp-debug")
-		waitCondition(t, "ReferencesFound", "False")
-		require.NoError(t, apiClient.Ping(), "gateway remains available during Operator failover")
+		testNativeConfiguration(t, apiClient)
 	})
+}
+
+func testNativeConfiguration(t *testing.T, apiClient *client.Client) {
+	t.Helper()
+
+	kubectl(t, "apply", "-k", "../../../operator/config/samples")
+	anchorName := string(kubectl(t, "get", "configmap", "-n", operatorNamespace,
+		"-l", "app.kubernetes.io/component=installation", "-o", "jsonpath={.items[0].metadata.name}"))
+	anchorUID := string(kubectl(t, "get", "configmap", anchorName, "-n", operatorNamespace,
+		"-o", "jsonpath={.metadata.uid}"))
+	require.NotEmpty(t, anchorUID)
+
+	for _, assignment := range []string{"", "another-installation"} {
+		if assignment != "" {
+			kubectl(t, "label", "namespace", "default", "opampcommander.io/installation-uid="+assignment, "--overwrite")
+		}
+
+		require.Never(t, func() bool {
+			group := kubectl(t, "get", "agentgroup", "collectors", "-o", "jsonpath={.status.conditions}")
+			config := kubectl(t, "get", "remoteconfig", "otlp-debug", "-o", "jsonpath={.status.conditions}")
+
+			return len(group) != 0 || len(config) != 0
+		}, 5*time.Second, poll, "unassigned and foreign namespaces must remain untouched")
+	}
+
+	kubectl(t, "label", "namespace", "default", "opampcommander.io/installation-uid="+anchorUID, "--overwrite")
+	waitCondition(t, "ReferencesFound", "True")
+	waitCondition(t, "Ready", "Unknown")
+	require.Eventually(t, func() bool {
+		return string(kubectl(t, "get", "remoteconfig", "otlp-debug", "-o",
+			"jsonpath={.status.conditions[?(@.type=='Ready')].status}")) == "Unknown"
+	}, timeout, poll, "namespace assignment must enqueue pre-existing RemoteConfigs")
+	before := groupResourceVersion(t)
+	kubectl(t, "apply", "-k", "../../../operator/config/samples")
+	require.Equal(t, before, groupResourceVersion(t), "no-op apply must not rewrite status")
+	kubectl(t, "delete", "remoteconfig", "otlp-debug")
+	waitCondition(t, "ReferencesFound", "False")
+	kubectl(t, "apply", "-f", "../../../operator/config/samples/opampcommander_v1alpha1_remoteconfig.yaml")
+	waitCondition(t, "ReferencesFound", "True")
+
+	kubectl(t, "scale", "deployment/"+operatorDeployment, "-n", operatorNamespace, "--replicas=0")
+	kubectl(t, "wait", "pod", "-n", operatorNamespace, "-l", "control-plane=controller-manager",
+		"--for=delete", "--timeout=90s")
+	kubectl(t, "delete", "remoteconfig", "otlp-debug")
+	kubectl(t, "scale", "deployment/"+operatorDeployment, "-n", operatorNamespace, "--replicas=2")
+	kubectl(t, "rollout", "status", "deployment/"+operatorDeployment, "-n", operatorNamespace, "--timeout=120s")
+	waitCondition(t, "ReferencesFound", "False")
+	kubectl(t, "apply", "-f", "../../../operator/config/samples/opampcommander_v1alpha1_remoteconfig.yaml")
+	waitCondition(t, "ReferencesFound", "True")
+
+	leader := string(kubectl(t, "get", "lease", "37ad389b.io", "-n", operatorNamespace,
+		"-o", "jsonpath={.spec.holderIdentity}"))
+	require.NotEmpty(t, leader)
+	pod, _, _ := strings.Cut(leader, "_")
+	kubectl(t, "delete", "pod", pod, "-n", operatorNamespace)
+	require.Eventually(t, func() bool {
+		current := string(kubectl(t, "get", "lease", "37ad389b.io", "-n", operatorNamespace,
+			"-o", "jsonpath={.spec.holderIdentity}"))
+
+		return current != "" && current != leader
+	}, timeout, poll, "another Operator must acquire the Lease")
+	kubectl(t, "delete", "remoteconfig", "otlp-debug")
+	waitCondition(t, "ReferencesFound", "False")
+	require.NoError(t, apiClient.Ping(), "gateway remains available during Operator failover")
+	kubectl(t, "rollout", "status", "deployment/"+operatorDeployment, "-n", operatorNamespace, "--timeout=120s")
+
+	// A same-name replacement must not silently change a running controller's installation.
+	kubectl(t, "delete", "configmap", anchorName, "-n", operatorNamespace)
+	kubectl(t, "create", "configmap", anchorName, "-n", operatorNamespace)
+	replacementUID := string(kubectl(t, "get", "configmap", anchorName, "-n", operatorNamespace,
+		"-o", "jsonpath={.metadata.uid}"))
+	require.NotEqual(t, anchorUID, replacementUID)
+	kubectl(t, "wait", "pod", "-n", operatorNamespace, "-l", "control-plane=controller-manager",
+		"--for=condition=Ready=false", "--timeout=90s")
+	kubectl(t, "patch", "agentgroup", "collectors", "--type=merge", "-p", `{"spec":{"priority":42}}`)
+	before = groupResourceVersion(t)
+	require.Never(t, func() bool { return groupResourceVersion(t) != before }, 5*time.Second, poll,
+		"an obsolete installation must not write CR status")
+	require.NoError(t, apiClient.Ping(), "gateway remains available when Operator identity is invalid")
 }
 
 func mongoWriteFailure(t *testing.T, enabled bool) {

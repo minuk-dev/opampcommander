@@ -74,7 +74,8 @@ Runtime audit goes to a separately configured durable audit sink; Kubernetes
 audit covers configuration mutations. Audit is neither a CR status array nor
 a Redis-only ledger. No existing durable audit collection is assumed here.
 
-Native ConfigMap `opamp-installation` in the installation namespace is the
+Native ConfigMap `opamp-installation` (with the installation's Kustomize name prefix)
+in the installation namespace is the
 installation identity anchor. Its ObjectMeta UID is the stable installation UID;
 updates do not change identity. Installer creates it once; runtime startup fails
 if it is missing or differs from persisted runtime identity. Deleting/recreating

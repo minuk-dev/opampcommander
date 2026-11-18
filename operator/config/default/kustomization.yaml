@@ -27,10 +27,14 @@ resources:
 #- ../prometheus
 # [METRICS] Expose the controller manager metrics service.
 - metrics_service.yaml
+
 # [NETWORK POLICY] Control ingress to metrics and webhook ports.
 # Allow metrics traffic from pods in namespaces labeled 'metrics: enabled'.
 # Allow webhook traffic from all sources.
 #- ../network-policy
+
+configurations:
+- installation_reference.yaml
 
 # Uncomment the patches line if you enable Metrics
 patches:

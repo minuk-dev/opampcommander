@@ -1260,6 +1260,13 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
   - secrets
   verbs:
   - get
@@ -1504,6 +1511,15 @@ subjects:
   namespace: opampcommander-operator-system
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: installation
+    app.kubernetes.io/name: opampcommander-operator
+  name: opampcommander-operator-opamp-installation
+  namespace: opampcommander-operator-system
+---
+apiVersion: v1
 kind: Service
 metadata:
   labels:
@@ -1550,8 +1566,16 @@ spec:
         - --metrics-bind-address=:8443
         - --leader-elect
         - --health-probe-bind-address=:8081
+        - --installation-configmap=$(INSTALLATION_CONFIGMAP)
         command:
         - /manager
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTALLATION_CONFIGMAP
+          value: opampcommander-operator-opamp-installation
         image: ghcr.io/minuk-dev/opampcommander-operator:dev
         livenessProbe:
           httpGet:
