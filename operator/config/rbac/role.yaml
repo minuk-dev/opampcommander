@@ -5,10 +5,21 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - opampcommander.io
   resources:
   - agentgroups
+  - agentpackages
+  - endpoints
   - remoteconfigs
+  - remoteconfigschemas
   verbs:
   - get
   - list

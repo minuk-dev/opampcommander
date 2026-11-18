@@ -11,7 +11,8 @@ defines the target resource, tenancy, consistency and compatibility contracts.
 - Namespaced `AgentGroup`, `RemoteConfig`, `AgentPackage`, `RemoteConfigSchema`, and `Endpoint` under `opampcommander.io/v1alpha1`; see the [API contract](API.md).
 - Generated structural CRDs, deepcopy methods, scoped RBAC rules, Kustomize deployment and samples.
 - A manager with health/readiness endpoints, optional leader election and two controllers.
-- Controllers only set `Ready=Unknown`, reason `NotImplemented`, at the observed generation. They do not resolve references, select Agents, validate collector configuration, access MongoDB/Redis, or deliver configuration.
+- AgentGroup watches its configuration dependencies through namespace-scoped reference indexes. It reports `ReferencesFound` after checking object existence; Secret contents are not cached or resolved.
+- Controllers keep `Ready=Unknown`, reason `NotImplemented`, at the observed generation. They do not select Agents, validate collector configuration, access MongoDB/Redis, or deliver configuration.
 
 These alpha types define configuration shape, not completed runtime behavior. `RemoteConfig.spec.value` is for non-secret documents only; Secret reference resolution and admission validation follow in #903/#904. New resource kinds have no controller yet. Do not use this scaffold to manage production Agents.
 
@@ -43,6 +44,33 @@ make build-installer IMG=ghcr.io/minuk-dev/opampcommander-operator:dev
 ```
 
 The root Go module's tests do not traverse this nested module. `.github/workflows/operator-ci.yaml` runs its checks independently and detects stale generated manifests.
+
+The repository-root `make test-e2e-controlplane` runs the existing manager E2E
+suite and the combined apiserver/Operator environment in a fresh Kind cluster;
+see the [regression coverage](../test/e2e/controlplane/README.md).
+
+## Configuration watches
+
+AgentGroups index direct RemoteConfig, AgentPackage and connection Secret
+references. RemoteConfigs index schema, endpoint and Secret references; packages
+and endpoints index their Secret references. A dependency event follows these
+indexes back to affected groups in the same namespace. Secret watches and reads
+use metadata only. A missing or deleting dependency sets `ReferencesFound=False`;
+read errors set Unknown and retry with controller-runtime backoff. This condition
+does not establish that Secret keys exist or configuration contents are valid.
+
+Status-only updates do not enqueue configuration work. Each reconcile rereads
+the current graph, uses an optimistic status patch, and schedules a five-minute
+repair for missed notifications. The standard deduplicating queue stores group
+keys with two workers; memory scales with the number of referenced objects and
+groups, not Agent membership. Informers handle watch reconnect/relist, and initial
+cache contents enqueue existing groups after restart. Readiness waits for all
+configured caches to synchronize; it is not a continuous API freshness guarantee.
+
+The installed deployment enables native Lease leader election. Gateway replicas
+continue serving Agent sessions independently. This implements the Operator
+input side of #899; the authenticated runtime boundary and retirement of legacy
+Mongo configuration readers/bootstrap writers remain unfinished.
 
 `make test-e2e` uses a disposable Kind cluster named `opampcommander-operator-test-e2e` (override with `KIND_CLUSTER`). It creates an isolated kubeconfig without changing your current context; kubectl kuberc is disabled. Direct E2E runs must also set `KIND_CLUSTER` and export that cluster's configuration successfully before tests can start. The E2E suite deletes its test resources and, on success, the Make target deletes the selected Kind cluster, including a reused cluster.
 
