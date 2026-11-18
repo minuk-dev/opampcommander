@@ -5,14 +5,30 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// RemoteConfigSpec holds a non-secret configuration document.
-// Secret references and semantic collector validation are follow-up work.
+// RemoteConfigSpec selects either public verbatim text or a Secret-backed document.
+// +kubebuilder:validation:XValidation:rule="has(self.value) != has(self.valueFrom)",message="exactly one of value or valueFrom is required"
+// +kubebuilder:validation:XValidation:rule="!has(self.value) || size(bytes(self.value)) <= 262144",message="inline configuration must not exceed 256 KiB"
 type RemoteConfigSpec struct {
 	// value is preserved verbatim; the bootstrap controller does not parse or distribute it.
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=1048576
-	Value string `json:"value"`
+	// +kubebuilder:validation:MaxLength=262144
+	Value string `json:"value,omitempty"`
+	// valueFrom is resolved and validated before delivery; missing Secrets block reconciliation.
+	// +optional
+	ValueFrom *SecretKeyReference `json:"valueFrom,omitempty"`
+	// schemaRefs must all validate this configuration.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=16
+	SchemaRefs []LocalReference `json:"schemaRefs,omitempty"`
+	// endpointRefs records dependencies; it does not imply string interpolation.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=64
+	EndpointRefs []LocalReference `json:"endpointRefs,omitempty"`
 	// contentType describes the document. No content validation is implied.
 	// +optional
 	// +kubebuilder:default="application/yaml"

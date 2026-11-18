@@ -27,4 +27,28 @@ resources:
   kind: RemoteConfig
   path: github.com/minuk-dev/opampcommander/operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: io
+  group: opampcommander
+  kind: AgentPackage
+  path: github.com/minuk-dev/opampcommander/operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: io
+  group: opampcommander
+  kind: RemoteConfigSchema
+  path: github.com/minuk-dev/opampcommander/operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: io
+  group: opampcommander
+  kind: Endpoint
+  path: github.com/minuk-dev/opampcommander/operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

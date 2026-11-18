@@ -2,4 +2,7 @@
 resources:
 - opampcommander_v1alpha1_agentgroup.yaml
 - opampcommander_v1alpha1_remoteconfig.yaml
+- opampcommander_v1alpha1_agentpackage.yaml
+- opampcommander_v1alpha1_remoteconfigschema.yaml
+- opampcommander_v1alpha1_endpoint.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

@@ -43,8 +43,42 @@ spec:
           spec:
             description: spec defines the desired state of AgentGroup
             properties:
+              connectionSettingsSecretRef:
+                description: connectionSettingsSecretRef selects the complete connection-settings
+                  bundle, never a partial merge.
+                properties:
+                  key:
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[-._a-zA-Z0-9]+$
+                    type: string
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - key
+                - name
+                type: object
+              packageRefs:
+                description: packageRefs declares requested artifacts; delivery remains
+                  unsupported until implemented.
+                items:
+                  description: LocalReference cannot select another namespace or installation.
+                  properties:
+                    name:
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 64
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               priority:
-                description: priority resolves overlapping groups; higher values win.
+                description: priority resolves overlapping groups; higher values win,
+                  then lexicographically smallest group name.
                 format: int32
                 type: integer
               remoteConfigs:
@@ -62,7 +96,6 @@ spec:
                       type: string
                     name:
                       description: name is the RemoteConfig resource name.
-                      maxLength: 253
                       minLength: 1
                       type: string
                   required:

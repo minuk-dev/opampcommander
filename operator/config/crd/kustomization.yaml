@@ -4,6 +4,9 @@
 resources:
 - bases/opampcommander.io_agentgroups.yaml
 - bases/opampcommander.io_remoteconfigs.yaml
+- bases/opampcommander.io_agentpackages.yaml
+- bases/opampcommander.io_remoteconfigschemas.yaml
+- bases/opampcommander.io_endpoints.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

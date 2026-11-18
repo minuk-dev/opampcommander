@@ -51,8 +51,42 @@ spec:
           spec:
             description: spec defines the desired state of AgentGroup
             properties:
+              connectionSettingsSecretRef:
+                description: connectionSettingsSecretRef selects the complete connection-settings
+                  bundle, never a partial merge.
+                properties:
+                  key:
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[-._a-zA-Z0-9]+$
+                    type: string
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - key
+                - name
+                type: object
+              packageRefs:
+                description: packageRefs declares requested artifacts; delivery remains
+                  unsupported until implemented.
+                items:
+                  description: LocalReference cannot select another namespace or installation.
+                  properties:
+                    name:
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 64
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               priority:
-                description: priority resolves overlapping groups; higher values win.
+                description: priority resolves overlapping groups; higher values win,
+                  then lexicographically smallest group name.
                 format: int32
                 type: integer
               remoteConfigs:
@@ -70,7 +104,6 @@ spec:
                       type: string
                     name:
                       description: name is the RemoteConfig resource name.
-                      maxLength: 253
                       minLength: 1
                       type: string
                   required:
@@ -107,6 +140,438 @@ spec:
             properties:
               conditions:
                 description: conditions describe this resource at a particular observedGeneration.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 16
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.22.0
+  name: agentpackages.opampcommander.io
+spec:
+  group: opampcommander.io
+  names:
+    kind: AgentPackage
+    listKind: AgentPackageList
+    plural: agentpackages
+    singular: agentpackage
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AgentPackage is the Schema for the agentpackages API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of AgentPackage
+            properties:
+              artifact:
+                description: ArtifactReference pins external bytes. Consumers verify
+                  size and digest before use.
+                properties:
+                  digest:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  sizeBytes:
+                    description: sizeBytes is the exact expected download size, with
+                      a 512 MiB hard ceiling.
+                    format: int64
+                    maximum: 536870912
+                    minimum: 1
+                    type: integer
+                  url:
+                    description: url has no embedded credentials or fragment. Fetch
+                      policy is enforced by the resolver.
+                    maxLength: 2048
+                    pattern: ^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[^#]*)?$
+                    type: string
+                required:
+                - digest
+                - sizeBytes
+                - url
+                type: object
+                x-kubernetes-validations:
+                - message: artifact references are immutable; create a new resource
+                  rule: self == oldSelf
+              headers:
+                description: headers never contain inline credentials.
+                items:
+                  description: HeaderReference obtains one HTTP header from a local
+                    Secret key.
+                  properties:
+                    name:
+                      maxLength: 128
+                      minLength: 1
+                      pattern: ^[A-Za-z0-9][A-Za-z0-9_-]*$
+                      type: string
+                    valueFrom:
+                      description: SecretKeyReference selects private content without
+                        embedding it in a CR.
+                      properties:
+                        key:
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[-._a-zA-Z0-9]+$
+                          type: string
+                        name:
+                          minLength: 1
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                  required:
+                  - name
+                  - valueFrom
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              packageType:
+                maxLength: 128
+                minLength: 1
+                type: string
+              signatureSecretRef:
+                description: SecretKeyReference selects private content without embedding
+                  it in a CR.
+                properties:
+                  key:
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[-._a-zA-Z0-9]+$
+                    type: string
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - key
+                - name
+                type: object
+              version:
+                maxLength: 128
+                minLength: 1
+                type: string
+            required:
+            - artifact
+            - packageType
+            - version
+            type: object
+          status:
+            description: status defines the observed state of AgentPackage
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 16
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.22.0
+  name: endpoints.opampcommander.io
+spec:
+  group: opampcommander.io
+  names:
+    kind: Endpoint
+    listKind: EndpointList
+    plural: endpoints
+    singular: endpoint
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Endpoint is the Schema for the endpoints API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of Endpoint
+            properties:
+              metricsQuery:
+                description: EndpointMetricsQuery holds bounded PromQL templates,
+                  without credentials.
+                properties:
+                  logs:
+                    maxLength: 4096
+                    type: string
+                  metrics:
+                    maxLength: 4096
+                    type: string
+                  traces:
+                    maxLength: 4096
+                    type: string
+                type: object
+              protocol:
+                description: protocol is distribution-specific, for example otlphttp.
+                maxLength: 64
+                minLength: 1
+                type: string
+              signals:
+                items:
+                  description: TelemetrySignal identifies one supported telemetry
+                    signal.
+                  enum:
+                  - metrics
+                  - logs
+                  - traces
+                  - profiles
+                  type: string
+                maxItems: 4
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: set
+              tenants:
+                items:
+                  description: EndpointTenant keeps credential headers in native Secrets.
+                  properties:
+                    headers:
+                      items:
+                        description: HeaderReference obtains one HTTP header from
+                          a local Secret key.
+                        properties:
+                          name:
+                            maxLength: 128
+                            minLength: 1
+                            pattern: ^[A-Za-z0-9][A-Za-z0-9_-]*$
+                            type: string
+                          valueFrom:
+                            description: SecretKeyReference selects private content
+                              without embedding it in a CR.
+                            properties:
+                              key:
+                                maxLength: 253
+                                minLength: 1
+                                pattern: ^[-._a-zA-Z0-9]+$
+                                type: string
+                              name:
+                                minLength: 1
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                        required:
+                        - name
+                        - valueFrom
+                        type: object
+                      maxItems: 32
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
+                    name:
+                      minLength: 1
+                      type: string
+                    signals:
+                      items:
+                        description: TelemetrySignal identifies one supported telemetry
+                          signal.
+                        enum:
+                        - metrics
+                        - logs
+                        - traces
+                        - profiles
+                        type: string
+                      maxItems: 4
+                      type: array
+                      x-kubernetes-list-type: set
+                  required:
+                  - name
+                  type: object
+                maxItems: 64
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              url:
+                description: url excludes embedded credentials, query strings and
+                  fragments.
+                maxLength: 2048
+                pattern: ^(https?|grpc|grpcs)://[A-Za-z0-9.-]+(:[0-9]+)?(/[^?#]*)?$
+                type: string
+            required:
+            - protocol
+            - signals
+            - url
+            type: object
+          status:
+            description: status defines the observed state of Endpoint
+            properties:
+              conditions:
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -229,20 +694,233 @@ spec:
                 - text/yaml
                 - text/plain
                 type: string
+              endpointRefs:
+                description: endpointRefs records dependencies; it does not imply
+                  string interpolation.
+                items:
+                  description: LocalReference cannot select another namespace or installation.
+                  properties:
+                    name:
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 64
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              schemaRefs:
+                description: schemaRefs must all validate this configuration.
+                items:
+                  description: LocalReference cannot select another namespace or installation.
+                  properties:
+                    name:
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 16
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               value:
                 description: value is preserved verbatim; the bootstrap controller
                   does not parse or distribute it.
-                maxLength: 1048576
+                maxLength: 262144
                 minLength: 1
                 type: string
-            required:
-            - value
+              valueFrom:
+                description: valueFrom is resolved and validated before delivery;
+                  missing Secrets block reconciliation.
+                properties:
+                  key:
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[-._a-zA-Z0-9]+$
+                    type: string
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - key
+                - name
+                type: object
             type: object
+            x-kubernetes-validations:
+            - message: exactly one of value or valueFrom is required
+              rule: has(self.value) != has(self.valueFrom)
+            - message: inline configuration must not exceed 256 KiB
+              rule: '!has(self.value) || size(bytes(self.value)) <= 262144'
           status:
             description: status defines the observed state of RemoteConfig
             properties:
               conditions:
                 description: conditions describe this resource at a particular observedGeneration.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 16
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.22.0
+  name: remoteconfigschemas.opampcommander.io
+spec:
+  group: opampcommander.io
+  names:
+    kind: RemoteConfigSchema
+    listKind: RemoteConfigSchemaList
+    plural: remoteconfigschemas
+    singular: remoteconfigschema
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: RemoteConfigSchema is the Schema for the remoteconfigschemas
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of RemoteConfigSchema
+            properties:
+              binary:
+                maxLength: 128
+                minLength: 1
+                type: string
+              catalog:
+                description: catalog contains the canonical JSON component catalog,
+                  not a full CR.
+                properties:
+                  digest:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  sizeBytes:
+                    description: sizeBytes is the exact expected download size, with
+                      a 512 MiB hard ceiling.
+                    format: int64
+                    maximum: 536870912
+                    minimum: 1
+                    type: integer
+                  url:
+                    description: url has no embedded credentials or fragment. Fetch
+                      policy is enforced by the resolver.
+                    maxLength: 2048
+                    pattern: ^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[^#]*)?$
+                    type: string
+                required:
+                - digest
+                - sizeBytes
+                - url
+                type: object
+                x-kubernetes-validations:
+                - message: artifact references are immutable; create a new resource
+                  rule: self == oldSelf
+              version:
+                maxLength: 128
+                minLength: 1
+                type: string
+            required:
+            - binary
+            - catalog
+            - version
+            type: object
+            x-kubernetes-validations:
+            - message: catalogs must not exceed 16 MiB
+              rule: self.catalog.sizeBytes <= 16777216
+          status:
+            description: status defines the observed state of RemoteConfigSchema
+            properties:
+              conditions:
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -435,6 +1113,148 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: opampcommander-operator
+  name: opampcommander-operator-agentpackage-admin-role
+rules:
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - agentpackages
+  verbs:
+  - '*'
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - agentpackages/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: opampcommander-operator
+  name: opampcommander-operator-agentpackage-editor-role
+rules:
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - agentpackages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - agentpackages/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: opampcommander-operator
+  name: opampcommander-operator-agentpackage-viewer-role
+rules:
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - agentpackages
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - agentpackages/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: opampcommander-operator
+  name: opampcommander-operator-endpoint-admin-role
+rules:
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - endpoints
+  verbs:
+  - '*'
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - endpoints/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: opampcommander-operator
+  name: opampcommander-operator-endpoint-editor-role
+rules:
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - endpoints
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - endpoints/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: opampcommander-operator
+  name: opampcommander-operator-endpoint-viewer-role
+rules:
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - endpoints/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: opampcommander-operator-manager-role
 rules:
 - apiGroups:
@@ -552,6 +1372,77 @@ rules:
   - opampcommander.io
   resources:
   - remoteconfigs/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: opampcommander-operator
+  name: opampcommander-operator-remoteconfigschema-admin-role
+rules:
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - remoteconfigschemas
+  verbs:
+  - '*'
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - remoteconfigschemas/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: opampcommander-operator
+  name: opampcommander-operator-remoteconfigschema-editor-role
+rules:
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - remoteconfigschemas
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - remoteconfigschemas/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: opampcommander-operator
+  name: opampcommander-operator-remoteconfigschema-viewer-role
+rules:
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - remoteconfigschemas
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - opampcommander.io
+  resources:
+  - remoteconfigschemas/status
   verbs:
   - get
 ---

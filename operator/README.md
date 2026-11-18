@@ -8,12 +8,12 @@ defines the target resource, tenancy, consistency and compatibility contracts.
 
 ## Current scope
 
-- Namespaced `AgentGroup` and `RemoteConfig` under `opampcommander.io/v1alpha1`.
+- Namespaced `AgentGroup`, `RemoteConfig`, `AgentPackage`, `RemoteConfigSchema`, and `Endpoint` under `opampcommander.io/v1alpha1`; see the [API contract](API.md).
 - Generated structural CRDs, deepcopy methods, scoped RBAC rules, Kustomize deployment and samples.
 - A manager with health/readiness endpoints, optional leader election and two controllers.
 - Controllers only set `Ready=Unknown`, reason `NotImplemented`, at the observed generation. They do not resolve references, select Agents, validate collector configuration, access MongoDB/Redis, or deliver configuration.
 
-These alpha types are an initial subset, not a frozen migration contract. `RemoteConfig.spec.value` is for non-secret documents only; Secret references and admission validation follow in #903/#904. Do not use this scaffold to manage production Agents.
+These alpha types define configuration shape, not completed runtime behavior. `RemoteConfig.spec.value` is for non-secret documents only; Secret reference resolution and admission validation follow in #903/#904. New resource kinds have no controller yet. Do not use this scaffold to manage production Agents.
 
 ## Reproduce scaffolding
 
@@ -23,6 +23,9 @@ Generated using Kubebuilder **v4.16.0**, `go/v4`, Go module `github.com/minuk-de
 kubebuilder init --domain io --repo github.com/minuk-dev/opampcommander/operator --project-name opampcommander-operator --license none
 kubebuilder create api --group opampcommander --version v1alpha1 --kind AgentGroup --resource --controller
 kubebuilder create api --group opampcommander --version v1alpha1 --kind RemoteConfig --resource --controller
+kubebuilder create api --group opampcommander --version v1alpha1 --kind AgentPackage --resource --controller=false
+kubebuilder create api --group opampcommander --version v1alpha1 --kind RemoteConfigSchema --resource --controller=false
+kubebuilder create api --group opampcommander --version v1alpha1 --kind Endpoint --resource --controller=false
 ```
 
 The repository's MIT license applies. The scaffold pins controller-runtime v0.25.0 / Kubernetes libraries v0.37.0; envtest selects Kubernetes 1.37. This is a tested bootstrap baseline, not a declared older-cluster compatibility guarantee.
@@ -62,4 +65,4 @@ For an in-cluster manager, build/push your own image and run `make deploy IMG=..
 
 ## Next steps
 
-#897 owns the complete ownership/tenancy ADR, #898 the remaining API contract, #899 dependency watches/runtime integration, and #901 delivery/acknowledgment. This bootstrap only contributes to those issues; none is complete yet. Ordinary configuration CRUD belongs to native kubectl. The later `kubectl opamp` plugin (#906) handles Agent operations through Commander.
+The ownership/tenancy ADR (#897) and configuration API contract (#898) define the migration boundary. Dependency watches/runtime integration (#899), Agent storage (#900), delivery/acknowledgment (#901), and Secret resolution/admission (#903/#904) follow. Ordinary configuration CRUD belongs to native kubectl. The later `kubectl opamp` plugin (#906) handles Agent operations through Commander.

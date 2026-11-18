@@ -1,0 +1,12 @@
+apiVersion: opampcommander.io/v1alpha1
+kind: AgentPackage
+metadata:
+  name: collector-example
+spec:
+  packageType: otelcol-contrib
+  version: 0.157.0
+  # Replace this illustrative reference with the URL, digest and size of your artifact.
+  artifact:
+    url: https://artifacts.example.invalid/collector.tar.gz
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    sizeBytes: 1024

@@ -11,7 +11,7 @@ type AgentGroupSpec struct {
 	// An explicit empty selector matches all Agents in the namespace.
 	// +required
 	Selector AgentSelector `json:"selector"`
-	// priority resolves overlapping groups; higher values win.
+	// priority resolves overlapping groups; higher values win, then lexicographically smallest group name.
 	// +optional
 	Priority int32 `json:"priority,omitempty"`
 	// remoteConfigs references configurations in the same namespace, keyed by filename.
@@ -20,6 +20,15 @@ type AgentGroupSpec struct {
 	// +listMapKey=filename
 	// +kubebuilder:validation:MaxItems=64
 	RemoteConfigs []RemoteConfigReference `json:"remoteConfigs,omitempty"`
+	// packageRefs declares requested artifacts; delivery remains unsupported until implemented.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=64
+	PackageRefs []LocalReference `json:"packageRefs,omitempty"`
+	// connectionSettingsSecretRef selects the complete connection-settings bundle, never a partial merge.
+	// +optional
+	ConnectionSettingsSecretRef *SecretKeyReference `json:"connectionSettingsSecretRef,omitempty"`
 }
 
 // AgentSelector preserves Commander's exact-match attribute selection semantics.
@@ -37,7 +46,6 @@ type RemoteConfigReference struct {
 	// name is the RemoteConfig resource name.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
 	Name string `json:"name"`
 	// filename is the config-map key delivered over OpAMP, not a local filesystem path.
 	// The empty string is a valid OpAMP key.
