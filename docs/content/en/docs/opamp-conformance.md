@@ -93,7 +93,7 @@ See [Custom messages](#custom-messages).
 | `command` | 🟡 | `Restart` delivery exists, but the builder can include other desired-state fields and does not recheck withdrawn restart support. |
 | `capabilities` | ✅ | |
 | `flags` (`ReportFullState`) | ✅ | Requested only while the agent's reported info is incomplete (its description or capabilities are still missing); not once it is complete. |
-| `error_response` | ✅ | Sent when the server cannot process an `AgentToServer`: `Unavailable` if the agent state cannot be loaded, `BadRequest` if the reported fields cannot be absorbed. Error-only message (no desired-state fields). |
+| `error_response` | ✅ | Sent when the server cannot process an `AgentToServer`: `Unavailable` if the agent state cannot be loaded or a required write fails, `BadRequest` if the reported fields cannot be absorbed. Error-only message (no desired-state fields). |
 | `custom_capabilities` | 🟡 | Advertises the custom capabilities of the registered custom-message handlers; unset when none are registered (the default). See [Custom messages](#custom-messages). |
 | `custom_message` | 🟡 | Sent as a handler's reply to an inbound `custom_message`, gated on the agent having advertised the capability. Never server-originated (no out-of-band send API yet). See [Custom messages](#custom-messages). |
 
@@ -142,8 +142,9 @@ See [Custom messages](#custom-messages).
    out-of-band (server-originated) send API yet.
 5. ~~**`error_response` is never sent.**~~ *(Resolved in #531.)* When the server cannot process an
    incoming `AgentToServer` it now replies with an error-only `ServerToAgent`: `Unavailable`
-   when the agent's state cannot be loaded, `BadRequest` when the reported fields cannot be
-   absorbed. Processing short-circuits so no partially-applied state is persisted.
+   when the agent's state cannot be loaded or a required write fails, `BadRequest` when the reported fields cannot be
+   absorbed. Failed writes stop discovery, desired-state responses and custom-message handling.
+   Heartbeats within the persistence throttle window still use the normal response path.
 6. ~~**Non-string attribute values are dropped** in `toMap`.~~ *(Resolved in #504.)* Non-string
    `AnyValue`s are now preserved in their string form for identifying / non-identifying
    attributes and component metadata.

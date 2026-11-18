@@ -310,6 +310,7 @@ func (s *Service) authorizeClientCertificate(ctx context.Context, uid uuid.UUID,
 	return true
 }
 
+//nolint:funlen // Keep the report, persistence and response ordering visible in one place.
 func (s *Service) onMessage(
 	ctx context.Context,
 	conn types.Connection,
@@ -367,7 +368,14 @@ func (s *Service) onMessage(
 
 	s.syncConnectionNamespace(ctx, logger, connection, agent)
 
-	s.maybePersistAgent(ctx, logger, message, agent, receivedAt)
+	err = s.maybePersistAgent(ctx, logger, message, agent, receivedAt)
+	if err != nil {
+		logger.Error("failed to save agent", slog.String("error", err.Error()))
+
+		return s.createErrorServerToAgent(instanceUID,
+			protobufs.ServerErrorResponseType_ServerErrorResponseType_Unavailable,
+			"failed to persist agent state")
+	}
 
 	// Note: NotifyAgentUpdated is NOT called here to avoid infinite loop.
 	// OnMessage already sends a response via fetchServerToAgent.
@@ -779,19 +787,19 @@ func (s *Service) maybePersistAgent(
 	message *protobufs.AgentToServer,
 	agent *agentmodel.Agent,
 	receivedAt time.Time,
-) {
+) error {
 	if !s.recordLiveness(ctx, agent, message, receivedAt) {
-		return
+		return nil
 	}
 
 	err := s.agentUsecase.SaveAgent(ctx, agent)
 	if err != nil {
-		logger.Error("failed to save agent", slog.String("error", err.Error()))
-
-		return
+		return fmt.Errorf("save agent: %w", err)
 	}
 
 	s.observeEnvironment(ctx, logger, agent)
+
+	return nil
 }
 
 // observeEnvironment discovers and upserts the host/container the agent runs in
