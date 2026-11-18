@@ -1,0 +1,12 @@
+apiVersion: opampcommander.io/v1alpha1
+kind: RemoteConfigSchema
+metadata:
+  name: contrib-example
+spec:
+  binary: otelcol-contrib
+  version: 0.157.0
+  # Replace with a hosted canonical JSON component catalog before enabling resolution.
+  catalog:
+    url: https://artifacts.example.invalid/contrib-0.157.0.json
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    sizeBytes: 1024

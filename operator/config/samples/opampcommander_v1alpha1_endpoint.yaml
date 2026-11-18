@@ -1,0 +1,8 @@
+apiVersion: opampcommander.io/v1alpha1
+kind: Endpoint
+metadata:
+  name: telemetry-example
+spec:
+  url: https://telemetry.example.invalid/v1/traces
+  protocol: otlphttp
+  signals: [traces]

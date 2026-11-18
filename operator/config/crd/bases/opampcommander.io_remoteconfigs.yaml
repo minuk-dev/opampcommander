@@ -53,15 +53,79 @@ spec:
                 - text/yaml
                 - text/plain
                 type: string
+              endpointRefs:
+                description: endpointRefs records dependencies; it does not imply
+                  string interpolation.
+                items:
+                  description: LocalReference cannot select another namespace or installation.
+                  properties:
+                    name:
+                      description: ResourceName is a same-namespace Kubernetes resource
+                        name.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 64
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              schemaRefs:
+                description: schemaRefs must all validate this configuration.
+                items:
+                  description: LocalReference cannot select another namespace or installation.
+                  properties:
+                    name:
+                      description: ResourceName is a same-namespace Kubernetes resource
+                        name.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 16
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               value:
                 description: value is preserved verbatim; the bootstrap controller
                   does not parse or distribute it.
-                maxLength: 1048576
+                maxLength: 262144
                 minLength: 1
                 type: string
-            required:
-            - value
+              valueFrom:
+                description: valueFrom is resolved and validated before delivery;
+                  missing Secrets block reconciliation.
+                properties:
+                  key:
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[-._a-zA-Z0-9]+$
+                    type: string
+                  name:
+                    description: ResourceName is a same-namespace Kubernetes resource
+                      name.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - key
+                - name
+                type: object
             type: object
+            x-kubernetes-validations:
+            - message: exactly one of value or valueFrom is required
+              rule: has(self.value) != has(self.valueFrom)
+            - message: inline configuration must not exceed 256 KiB
+              rule: '!has(self.value) || size(bytes(self.value)) <= 262144'
           status:
             description: status defines the observed state of RemoteConfig
             properties:

@@ -22,6 +22,15 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the opampcommander-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- endpoint_admin_role.yaml
+- endpoint_editor_role.yaml
+- endpoint_viewer_role.yaml
+- remoteconfigschema_admin_role.yaml
+- remoteconfigschema_editor_role.yaml
+- remoteconfigschema_viewer_role.yaml
+- agentpackage_admin_role.yaml
+- agentpackage_editor_role.yaml
+- agentpackage_viewer_role.yaml
 - remoteconfig_admin_role.yaml
 - remoteconfig_editor_role.yaml
 - remoteconfig_viewer_role.yaml
