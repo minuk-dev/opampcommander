@@ -20,8 +20,10 @@ switch existing Commander storage authority or implement delivery.
 There is no Agent CRD. Namespace, Secret, RBAC and ServiceAccount remain native
 Kubernetes resources. Every reference is local to the CR namespace; names are
 non-empty strings. A reference has no namespace override or
-global fallback. Structural validation does not imply the target exists;
-admission and reconcile-time resolution are implemented in #903/#904/#899.
+global fallback. Structural validation does not imply the target exists.
+The AgentGroup controller reports `ReferencesFound` for dependency existence;
+Secret key resolution, content validation and delivery remain follow-up work
+in #903/#904/#901.
 
 ## Selection and composition
 

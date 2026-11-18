@@ -13,3 +13,4 @@ coverage.out
 # macOS
 .DS_Store
 .bin/
+/build/e2e-controlplane/

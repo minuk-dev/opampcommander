@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: opamp-e2e
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+  namespace: opamp-e2e
+spec:
+  selector:
+    matchLabels: {app: mongodb}
+  template:
+    metadata:
+      labels: {app: mongodb}
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:8.0
+          args: [--replSet, rs0, --bind_ip_all]
+          ports:
+            - containerPort: 27017
+          readinessProbe:
+            exec:
+              command:
+                - mongosh
+                - --quiet
+                - --eval
+                - 'try { if (!rs.status().ok) quit(1); } catch (e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"mongodb:27017"}]}); quit(1); } if (!db.hello().isWritablePrimary) quit(1);'
+            initialDelaySeconds: 5
+            periodSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: opamp-e2e
+spec:
+  publishNotReadyAddresses: true
+  selector: {app: mongodb}
+  ports:
+    - port: 27017
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: opamp-e2e
+spec:
+  selector:
+    matchLabels: {app: redis}
+  template:
+    metadata:
+      labels: {app: redis}
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          readinessProbe:
+            exec:
+              command: [redis-cli, ping]
+            periodSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: opamp-e2e
+spec:
+  selector: {app: redis}
+  ports:
+    - port: 6379
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apiserver
+  namespace: opamp-e2e
+data:
+  config.yaml: |
+    address: 0.0.0.0:8080
+    database:
+      type: mongodb
+      endpoints: ["mongodb://mongodb:27017/?replicaSet=rs0"]
+      databaseName: opamp_e2e
+      ddlAuto: true
+    bootstrap:
+      dir: /etc/opampcommander/initial
+      remoteConfigSchemaLoad: none
+    event:
+      enabled: false
+      type: inmemory
+    auth:
+      admin:
+        username: test-admin
+        password: test-password
+      jwt:
+        secret: kind-e2e-only-signing-key
+        issuer: kind-e2e
+        audience: [kind-e2e]
+    management:
+      address: 0.0.0.0:9090
+      log:
+        level: warn
+        format: json
+    liveness:
+      redis:
+        enabled: true
+        endpoints: ["redis:6379"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apiserver
+  namespace: opamp-e2e
+spec:
+  selector:
+    matchLabels: {app: apiserver}
+  template:
+    metadata:
+      labels: {app: apiserver}
+    spec:
+      containers:
+        - name: apiserver
+          image: APISERVER_IMAGE
+          imagePullPolicy: Never
+          args: [--config=/etc/opampcommander/config.yaml]
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 9090
+            periodSeconds: 3
+          volumeMounts:
+            - name: config
+              mountPath: /etc/opampcommander/config.yaml
+              subPath: config.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: apiserver
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apiserver
+  namespace: opamp-e2e
+spec:
+  selector: {app: apiserver}
+  ports:
+    - port: 8080

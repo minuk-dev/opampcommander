@@ -66,3 +66,29 @@ jobs:
           go-version-file: go.mod
       - name: Verify released Supervisor connection-settings policy
         run: make test-e2e-supervisor-policy
+
+  test-e2e-controlplane:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            operator/go.sum
+      - name: Install Kind and kubectl
+        run: |
+          go install sigs.k8s.io/kind@v0.33.0
+          curl -fsSLo kubectl https://dl.k8s.io/release/v1.37.0/bin/linux/amd64/kubectl
+          curl -fsSLo kubectl.sha256 https://dl.k8s.io/release/v1.37.0/bin/linux/amd64/kubectl.sha256
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          sudo install -m 0755 kubectl /usr/local/bin/kubectl
+      - name: Test apiserver and Operator in Kind
+        run: make test-e2e-controlplane
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: controlplane-e2e
+          path: build/e2e-controlplane

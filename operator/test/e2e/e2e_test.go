@@ -53,6 +53,10 @@ var _ = Describe("Manager", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
 
 		By("deploying the controller-manager")
+		managerConfig := filepath.Join("config", "manager", "kustomization.yaml")
+		original, err := os.ReadFile(managerConfig)
+		Expect(err).NotTo(HaveOccurred())
+		defer func() { Expect(os.WriteFile(managerConfig, original, 0644)).To(Succeed()) }()
 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", managerImage))
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the controller-manager")
