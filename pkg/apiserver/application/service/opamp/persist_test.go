@@ -3,6 +3,7 @@ package opamp
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"testing"
 	"time"
@@ -10,11 +11,55 @@ import (
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
+	connectionstore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port/usecasemock"
+	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
+
+func TestOnMessagePersistenceFailure(t *testing.T) {
+	t.Parallel()
+
+	for _, saveErr := range []error{io.ErrUnexpectedEOF, model.ErrConflict} {
+		t.Run(saveErr.Error(), func(t *testing.T) {
+			t.Parallel()
+
+			uid := uuid.New()
+			agent := agentmodel.NewAgent(uid)
+			agentUC := usecasemock.NewMockAgentUsecase(t)
+			store := connectionstore.NewConnectionStore()
+			connUC := agentservice.NewConnectionService(nil, store, nil, nil, slog.New(slog.DiscardHandler))
+			wire := lifecycleWire(t)
+			connection := agentmodel.NewConnection(wire, agentmodel.ConnectionTypeWebSocket)
+			require.NoError(t, connUC.SaveConnection(t.Context(), connection))
+			svc := newTestService(t, agentUC, connUC)
+			svc.connectionStore = store
+			svc.serverIdentityProvider = &lifecycleIdentityProvider{}
+
+			agentUC.EXPECT().GetOrCreateAgent(mock.Anything, uid).Return(agent, nil).Once()
+			agentUC.EXPECT().TouchAgentLiveness(mock.Anything, agent, mock.Anything).Return(false).Once()
+			agentUC.EXPECT().SaveAgent(mock.Anything, agent).Return(saveErr).Once()
+
+			// Unset discovery, response builder and custom handler dependencies must never be reached.
+			response := svc.OnMessage(t.Context(), wire, &protobufs.AgentToServer{
+				InstanceUid: uid[:], Health: &protobufs.ComponentHealth{Healthy: true},
+			})
+			require.Equal(t, &protobufs.ServerToAgent{
+				InstanceUid: uid[:],
+				ErrorResponse: &protobufs.ServerErrorResponse{
+					Type:         protobufs.ServerErrorResponseType_ServerErrorResponseType_Unavailable,
+					ErrorMessage: "failed to persist agent state",
+				},
+			}, response)
+		})
+	}
+}
 
 func TestIsHeartbeatOnly(t *testing.T) {
 	t.Parallel()

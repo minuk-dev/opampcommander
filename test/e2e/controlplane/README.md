@@ -1,12 +1,13 @@
 # Control-plane E2E
 
-Run from the repository root:
+Run this suite **only in CI**, through the control-plane E2E job in
+`.github/workflows/test.yaml`. The job runs this command from the repository root:
 
 ```sh
 make test-e2e-controlplane
 ```
 
-Requires Docker, Kind v0.33.0, kubectl and the repository's Go toolchain. The
+The CI runner provides Docker, Kind v0.33.0, kubectl and the repository's Go toolchain. The
 runner creates a uniquely named Kubernetes 1.37.0 Kind cluster with its own
 kubeconfig. It never reuses an existing cluster or changes the user's context.
 It builds the current apiserver and Operator, runs the existing Operator
@@ -26,6 +27,7 @@ the existing runtime suites; it does not replace them with a smaller smoke test.
 | --- | --- | --- |
 | Agent registration, description, health, heartbeats | `apiserver/e2e_test.go`, `conformance_e2e_test.go` | Reference Agents over HTTP and WebSocket report health/sequence through the deployed apiserver. |
 | Remote/effective config and restart | `conformance_e2e_test.go`, `agentgroup_remoteconfig_e2e_test.go` | Existing REST selection and config/report/restart round trips through the deployed apiserver. |
+| Agent persistence failures and Redis data loss | OpAMP persistence unit tests, Redis runtime E2E | Mongo update failures return `Unavailable` over HTTP/WebSocket without publishing the failed report; reports resume after recovery. Redis `FLUSHDB` rebuilds liveness while preserving committed reports and configuration. |
 | CR configuration and dependency changes | Operator envtest API/dependency suites | All five samples, no-op apply, missing/restored RemoteConfig and truthful ReferencesFound/Ready conditions. |
 | Operator deployment and authenticated metrics | `operator/test/e2e` | The existing manager suite runs on this same disposable Kind cluster. |
 | Restart and ownership | Operator dependency envtest | Changes made while the Operator is stopped converge after startup; two replicas use a Lease and recover after the leader Pod is deleted. Gateway ping remains available. |
@@ -43,3 +45,7 @@ Keep the existing selector/priority, namespace isolation, deletion, reconnect an
 failure cases until equivalent tests pass on the new path. #902–#907 add auth,
 Secret rotation, validation, finalizers and migration/rollback cases to this
 shared deployed environment; do not weaken current expectations to enable them.
+
+Mongo failpoints are enabled only in this disposable test deployment. The write
+failure scenario rejects update commands while leaving reads available; it does
+not simulate a network partition or verify cross-gateway session fencing.

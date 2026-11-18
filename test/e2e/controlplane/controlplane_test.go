@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/stretchr/testify/require"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
@@ -79,6 +80,62 @@ func TestControlPlane(t *testing.T) {
 				_, err = apiClient.AgentService.RestartAgent(t.Context(), "default", agent.UID)
 				require.NoError(t, err)
 				require.Eventually(t, func() bool { return agent.Restarts() == 1 }, timeout, poll)
+
+				t.Run("Mongo write failure and recovery", func(t *testing.T) {
+					defer mongoWriteFailure(t, false)
+
+					mongoWriteFailure(t, true)
+
+					errorCount := len(agent.ServerErrors())
+					require.NoError(t, agent.ReportHealth(false, "write must fail"))
+					require.Eventually(t, func() bool {
+						for _, response := range agent.ServerErrors()[errorCount:] {
+							if response.GetType() == protobufs.ServerErrorResponseType_ServerErrorResponseType_Unavailable &&
+								response.GetErrorMessage() == "failed to persist agent state" {
+								return true
+							}
+						}
+
+						return false
+					}, timeout, poll, "failed writes must return Unavailable")
+					stored, err := apiClient.AgentService.GetAgent(t.Context(), "default", agent.UID)
+					require.NoError(t, err)
+					require.True(t, stored.Status.ComponentHealth.Healthy, "failed report must not enter the read cache")
+
+					mongoWriteFailure(t, false)
+					require.NoError(t, agent.ReportHealth(false, "storage recovered"))
+					testutil.EventuallyAgent(t, apiClient, "default", agent.UID, func(a *v1.Agent) bool {
+						return !a.Status.ComponentHealth.Healthy && a.Status.ComponentHealth.Status == "storage recovered"
+					}, timeout, poll, "new reports must persist after Mongo recovers")
+				})
+
+				t.Run("Redis data loss and recovery", func(t *testing.T) {
+					livenessKey := "opampcommander:agentliveness:" + agent.UID.String()
+
+					require.Equal(t, "OK", strings.TrimSpace(string(kubectl(t, "exec", "-n", "opamp-e2e",
+						"deployment/redis", "--", "redis-cli", "FLUSHDB"))))
+					require.Eventually(t, func() bool {
+						return strings.TrimSpace(string(kubectl(t, "exec", "-n", "opamp-e2e",
+							"deployment/redis", "--", "redis-cli", "EXISTS", livenessKey))) == "1"
+					}, timeout, poll, "live Agent must rebuild its Redis record")
+					// List reads Mongo directly, so the local read cache cannot hide durable data loss.
+					persisted, err := apiClient.AgentService.ListAgents(t.Context(), "default")
+					require.NoError(t, err)
+
+					var found bool
+
+					for _, item := range persisted.Items {
+						if item.Metadata.InstanceUID == agent.UID {
+							found = true
+
+							require.Equal(t, "storage recovered", item.Status.ComponentHealth.Status)
+							require.Equal(t, body, item.Status.EffectiveConfig.ConfigMap.ConfigMap[key].Body)
+						}
+					}
+
+					require.True(t, found, "Redis loss must preserve the Mongo Agent record")
+					require.Equal(t, body, agent.EffectiveConfig()[key])
+				})
 			})
 		}
 	})
@@ -120,6 +177,19 @@ func TestControlPlane(t *testing.T) {
 		waitCondition(t, "ReferencesFound", "False")
 		require.NoError(t, apiClient.Ping(), "gateway remains available during Operator failover")
 	})
+}
+
+func mongoWriteFailure(t *testing.T, enabled bool) {
+	t.Helper()
+
+	mode := "off"
+	if enabled {
+		mode = "alwaysOn"
+	}
+
+	command := fmt.Sprintf(`const result = db.adminCommand({configureFailPoint: "failCommand", mode: %q,
+		data: {failCommands: ["update"], errorCode: 121}}); if (!result.ok) throw new Error(JSON.stringify(result));`, mode)
+	kubectl(t, "exec", "-n", "opamp-e2e", "deployment/mongodb", "--", "mongosh", "--quiet", "--eval", command)
 }
 
 func kubectl(t *testing.T, args ...string) []byte {
