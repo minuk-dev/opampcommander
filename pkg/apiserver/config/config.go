@@ -4,6 +4,7 @@ package config
 import (
 	"encoding/json"
 
+	runtimeapi "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/runtime"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
@@ -15,6 +16,7 @@ import (
 // identity type from the domain) together with the infrastructure settings used
 // only by the composition root (database, event, cache).
 type ServerSettings struct {
+	RuntimeAPI         runtimeapi.Config
 	Address            string
 	Shutdown           ShutdownSettings
 	TLS                TLSSettings

@@ -134,6 +134,9 @@ linters:
             # Utils
             - github.com/samber/lo
             - github.com/samber/mo
+            - k8s.io/api
+            - k8s.io/apimachinery
+            - k8s.io/client-go
             - k8s.io/utils/clock
             - github.com/go-resty/resty/v2
             - gopkg.in/yaml.v3
@@ -242,6 +245,9 @@ linters:
             - github.com/moby/moby/api/types/network
             - github.com/google/go-github/v93/github
             - github.com/golang-jwt/jwt/v5
+            - k8s.io/api
+            - k8s.io/apimachinery
+            - k8s.io/client-go
             - k8s.io/utils/clock
             - github.com/samber/lo
             - github.com/samber/mo

@@ -32,6 +32,12 @@ tls:
 auth:
   jwt:
     secret: s3cr3t
+runtimeAPI:
+  enabled: true
+  audience: runtime
+  installationNamespace: operator-system
+  installationName: opamp-installation
+  installationUID: installation-uid
 opamp:
   maxMessageSize: 1024
   enableCompression: true
@@ -52,6 +58,7 @@ event:
 	t.Setenv("EVENT_KAFKA_RETRYATTEMPTS", "5")
 	t.Setenv("TLS_MINVERSION", "1.3")
 	t.Setenv("MANAGEMENT_TLS_CERTFILE", "env-management.crt")
+	t.Setenv("RUNTIMEAPI_AUDIENCE", "runtime-from-env")
 
 	run := func(t *testing.T, extraArgs ...string) (string, map[string]any) {
 		t.Helper()
@@ -74,6 +81,10 @@ event:
 
 	t.Run("merges flags, config file and env", func(t *testing.T) {
 		out, parsed := run(t)
+		assert.Equal(t, map[string]any{
+			"enabled": true, "audience": "runtime-from-env", "installationNamespace": "operator-system",
+			"installationName": "opamp-installation", "installationUID": "installation-uid",
+		}, parsed["runtimeAPI"])
 
 		assert.Contains(t, out, "# config file: "+configFile)
 		assert.Contains(t, out, "#   - MANAGEMENT_LOG_FORMAT")

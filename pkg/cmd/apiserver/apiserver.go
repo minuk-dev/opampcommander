@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
+	runtimeapi "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/runtime"
 	appconfig "github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
@@ -26,9 +27,10 @@ type CommandOption struct {
 	configFilename string
 
 	// flags
-	Address  string                `mapstructure:"address"`
-	TLS      appconfig.TLSSettings `mapstructure:"tls"`
-	OpAMPTLS struct {
+	RuntimeAPI runtimeapi.Config     `mapstructure:"runtimeAPI"`
+	Address    string                `mapstructure:"address"`
+	TLS        appconfig.TLSSettings `mapstructure:"tls"`
+	OpAMPTLS   struct {
 		CertFile string `mapstructure:"certFile"`
 		KeyFile  string `mapstructure:"keyFile"  secret:"true"`
 		CAFile   string `mapstructure:"caFile"`
@@ -275,6 +277,11 @@ func NewCommand(opt CommandOption) *cobra.Command {
 		1.0,
 		"sampling ratio for traceidratio and parentbased_traceidratio samplers",
 	)
+	cmd.PersistentFlags().Bool("runtimeAPI.enabled", false, "enable Kubernetes-authenticated runtime API")
+	cmd.PersistentFlags().String("runtimeAPI.audience", "", "required runtime bearer token audience")
+	cmd.PersistentFlags().String("runtimeAPI.installationNamespace", "", "installation ConfigMap namespace")
+	cmd.PersistentFlags().String("runtimeAPI.installationName", "", "installation ConfigMap name")
+	cmd.PersistentFlags().String("runtimeAPI.installationUID", "", "expected installation ConfigMap UID")
 	cmd.PersistentFlags().Bool("auth.enabled", false, "enable authentication")
 	cmd.PersistentFlags().String("auth.admin.username", "admin", "admin username")
 	cmd.PersistentFlags().String("auth.admin.password", "admin", "admin password")
@@ -453,10 +460,11 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	}
 
 	opt.app = apiserver.New(appconfig.ServerSettings{
-		Address:  opt.Address,
-		Shutdown: opt.Shutdown,
-		OpAMP:    opt.OpAMP,
-		TLS:      opt.TLS,
+		RuntimeAPI: opt.RuntimeAPI,
+		Address:    opt.Address,
+		Shutdown:   opt.Shutdown,
+		OpAMP:      opt.OpAMP,
+		TLS:        opt.TLS,
 		OpAMPTLS: appconfig.OpAMPTLSSettings{
 			CertFile: opt.OpAMPTLS.CertFile,
 			KeyFile:  opt.OpAMPTLS.KeyFile,
