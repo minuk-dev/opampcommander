@@ -59,8 +59,9 @@ var _ = Describe("RemoteConfig Controller", func() {
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &RemoteConfigReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
+				Client:       k8sClient,
+				Scheme:       k8sClient.Scheme(),
+				Installation: testInstallation,
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{

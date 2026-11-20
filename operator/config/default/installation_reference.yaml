@@ -1,0 +1,9 @@
+# Carry the ConfigMap name passed to the manager through base and overlay prefixes.
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - group: apps
+    version: v1
+    kind: Deployment
+    path: spec/template/spec/containers/env/value

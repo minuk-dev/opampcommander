@@ -31,6 +31,7 @@ the existing runtime suites; it does not replace them with a smaller smoke test.
 | CR configuration and dependency changes | Operator envtest API/dependency suites | All five samples, no-op apply, missing/restored RemoteConfig and truthful ReferencesFound/Ready conditions. |
 | Operator deployment and authenticated metrics | `operator/test/e2e` | The existing manager suite runs on this same disposable Kind cluster. |
 | Restart and ownership | Operator dependency envtest | Changes made while the Operator is stopped converge after startup; two replicas use a Lease and recover after the leader Pod is deleted. Gateway ping remains available. |
+| Installation and namespace ownership | Operator identity unit tests and namespace-watch envtest | Unassigned/foreign namespaces remain untouched. Assignment enqueues existing CRs. Recreating the installation ConfigMap makes both replicas unready and prevents further status writes; gateway ping remains available. |
 | Selectors, namespace boundaries, CRUD/deletion, inventory, users/RBAC, certificates, mTLS, Redis outage, Kafka | Remaining `test/e2e/apiserver/*_test.go` cases | Retained in `test-e2e`; these fault-injection cases are not yet ported to Kind. |
 | Released Supervisor connection-settings policy | `test-supervisor-policy` | Retained as its own workflow job. |
 
