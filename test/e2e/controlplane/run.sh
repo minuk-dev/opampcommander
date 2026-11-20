@@ -85,6 +85,8 @@ kubectl rollout status -n opamp-e2e deployment/redis --timeout=180s
 kubectl rollout status -n opamp-e2e deployment/apiserver --timeout=180s
 kubectl rollout status -n opampcommander-operator-system deployment/opampcommander-operator-controller-manager --timeout=180s
 
+cluster="$cluster" bash test/e2e/controlplane/plugin.sh "$work"
+
 kubectl port-forward -n opamp-e2e service/apiserver :8080 --address=127.0.0.1 > "$artifacts/port-forward.log" 2>&1 &
 forward_pid=$!
 port=""

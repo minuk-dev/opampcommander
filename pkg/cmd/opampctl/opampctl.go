@@ -17,6 +17,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/generate"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/kubeplugin"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/patch"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/reconcile"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/restart"
@@ -53,6 +54,10 @@ func NewCommand(options CommandOption) *cobra.Command {
 	validate := &cobra.Command{Use: "validate", Short: "Validate resources without saving them"}
 	validate.AddCommand(configCreate.NewValidateCommand(configCreate.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(validate)
+
+	kube := kubeplugin.NewCommand()
+	kube.Use = "kube"
+	cmd.AddCommand(kube)
 	cmd.AddCommand(get.NewCommand(get.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(set.NewCommand(options.globalConfig))
 	cmd.AddCommand(patch.NewCommand(options.globalConfig))
