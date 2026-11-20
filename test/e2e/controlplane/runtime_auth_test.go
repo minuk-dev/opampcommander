@@ -86,10 +86,8 @@ func assignRuntimeNamespace(t *testing.T, installationUID string) {
 
 func grantRuntimeReader(t *testing.T) {
 	t.Helper()
-	kubectl(t, "create", "role", "runtime-reader", "-n", "runtime-tenant",
-		"--verb=get", "--resource=namespaces.runtime.opampcommander.io", "--resource-name=runtime-tenant")
-	kubectl(t, "create", "rolebinding", "runtime-reader", "-n", "runtime-tenant",
-		"--role=runtime-reader", "--serviceaccount=opamp-e2e:runtime-reader")
+	// The virtual permission has no discovery resource for kubectl create role.
+	kubectl(t, "apply", "-f", "runtime-reader.yaml")
 }
 
 func runtimeToken(t *testing.T, audience string) string {
