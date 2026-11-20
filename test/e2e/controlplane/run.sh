@@ -74,7 +74,11 @@ operator/bin/kustomize build operator/config/default > "$work/operator.yaml"
 sed "s|ghcr.io/minuk-dev/opampcommander-operator:dev|opamp-e2e-operator:$cluster|g" \
   "$work/operator.yaml" > "$work/operator-test.yaml"
 kubectl apply -f "$work/operator-test.yaml"
-sed "s|APISERVER_IMAGE|opamp-e2e-apiserver:$cluster|g" test/e2e/controlplane/manifests.yaml > "$work/runtime.yaml"
+installation_uid="$(kubectl get configmap -n opampcommander-operator-system \
+  opampcommander-operator-opamp-installation -o jsonpath='{.metadata.uid}')"
+test -n "$installation_uid"
+sed -e "s|APISERVER_IMAGE|opamp-e2e-apiserver:$cluster|g" -e "s|INSTALLATION_UID|$installation_uid|g" \
+  test/e2e/controlplane/manifests.yaml > "$work/runtime.yaml"
 kubectl apply -f "$work/runtime.yaml"
 kubectl rollout status -n opamp-e2e deployment/mongodb --timeout=180s
 kubectl rollout status -n opamp-e2e deployment/redis --timeout=180s

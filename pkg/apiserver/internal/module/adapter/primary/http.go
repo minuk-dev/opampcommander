@@ -15,9 +15,12 @@ import (
 	sloggin "github.com/samber/slog-gin"
 	httpswagger "github.com/swaggo/http-swagger/v2"
 	"go.uber.org/fx"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/auth/basic"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/auth/github"
+	runtimeapi "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/runtime"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentpackage"
@@ -71,6 +74,7 @@ func NewHTTP() fx.Option {
 		fx.Provide(
 			// HTTP Server & Engine
 			NewHTTPServer,
+			newRuntimeController,
 			fx.Annotate(NewEngine, fx.ParamTags(`group:"controllers"`)),
 
 			// Controllers — added to the "controllers" group consumed by NewEngine.
@@ -110,6 +114,29 @@ func NewHTTP() fx.Option {
 			},
 		),
 	)
+}
+
+func newRuntimeController(settings *config.ServerSettings) (*runtimeapi.Controller, error) {
+	if !settings.RuntimeAPI.Enabled {
+		return nil, nil //nolint:nilnil // Disabled native API intentionally has no controller.
+	}
+
+	clientConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("runtime Kubernetes credentials: %w", err)
+	}
+
+	client, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("runtime Kubernetes client: %w", err)
+	}
+
+	controller, err := runtimeapi.NewController(settings.RuntimeAPI, client)
+	if err != nil {
+		return nil, fmt.Errorf("runtime API: %w", err)
+	}
+
+	return controller, nil
 }
 
 func newOpAMPController(
@@ -213,11 +240,14 @@ func NewEngine(
 	userUsecase userport.UserUsecase,
 	settings *config.ServerSettings,
 	observabilityService *observability.Service,
+	runtimeController *runtimeapi.Controller,
 	logger *slog.Logger,
 ) *gin.Engine {
 	engine := gin.New()
 	engine.Use(sloggin.New(logger))
 	engine.Use(gin.Recovery())
+	engine.Use(observabilityService.Middleware())
+	runtimeController.Register(engine)
 	engine.Use(security.NewAuthJWTMiddleware(securityService))
 	engine.Use(security.NewAuthorizationMiddleware(
 		rbacUsecase,
@@ -225,7 +255,6 @@ func NewEngine(
 		settings.Security.AdminSettings.Email,
 		logger,
 	))
-	engine.Use(observabilityService.Middleware())
 	// swagger
 	engine.GET("/swagger/*any", gin.WrapH(httpswagger.Handler()))
 	engine.GET("/docs", func(ctx *gin.Context) {

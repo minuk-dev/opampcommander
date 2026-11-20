@@ -110,6 +110,11 @@ Commander URL. TokenReview audience/expiry and SubjectAccessReview resource,
 verb and namespace are checked; forwarded user headers are not trusted.
 CR read access never implies access to resolved Secret-bearing Agent snapshots.
 
+The opt-in [runtime namespace discovery API](../runtime-authentication/) implements
+TokenReview/SAR and installation ownership checks. Agent enrollment and scoped
+Agent operations remain separate follow-up steps; legacy records are not exposed
+through native discovery.
+
 ## Desired-state contract
 
 Selectors use exact string matches on identifying and non-identifying Agent

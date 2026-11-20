@@ -12,6 +12,14 @@
 # DATABASE_ENDPOINTS_FILE contains one complete MongoDB URI (commas preserved).
 # See docs/content/en/docs/configuration/_index.md for file semantics.
 address: localhost:8080
+# Opt-in Kubernetes runtime namespace discovery (in-cluster credentials required).
+# See docs/content/en/docs/runtime-authentication.md for caller and gateway RBAC.
+runtimeAPI:
+  enabled: false
+  audience: ""
+  installationNamespace: ""
+  installationName: ""
+  installationUID: "" # pin the existing anchor ConfigMap UID across upgrades
 opamp:
   maxMessageSize: 0 # bytes after decompression; 0 = 64 MiB, negative = unlimited
   enableCompression: false

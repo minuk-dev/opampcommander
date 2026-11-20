@@ -87,6 +87,12 @@ metadata:
 data:
   config.yaml: |
     address: 0.0.0.0:8080
+    runtimeAPI:
+      enabled: true
+      audience: opampcommander-runtime
+      installationNamespace: opampcommander-operator-system
+      installationName: opampcommander-operator-opamp-installation
+      installationUID: INSTALLATION_UID
     database:
       type: mongodb
       endpoints: ["mongodb://mongodb:27017/?replicaSet=rs0"]
@@ -128,6 +134,7 @@ spec:
     metadata:
       labels: {app: apiserver}
     spec:
+      serviceAccountName: apiserver
       containers:
         - name: apiserver
           image: APISERVER_IMAGE
@@ -156,3 +163,63 @@ spec:
   selector: {app: apiserver}
   ports:
     - port: 8080
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: apiserver
+  namespace: opamp-e2e
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: opamp-runtime-reviewer
+rules:
+  - apiGroups: [authentication.k8s.io]
+    resources: [tokenreviews]
+    verbs: [create]
+  - apiGroups: [authorization.k8s.io]
+    resources: [subjectaccessreviews]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: opamp-runtime-reviewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: opamp-runtime-reviewer
+subjects:
+  - kind: ServiceAccount
+    name: apiserver
+    namespace: opamp-e2e
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: runtime-installation-reader
+  namespace: opampcommander-operator-system
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [opampcommander-operator-opamp-installation]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: runtime-installation-reader
+  namespace: opampcommander-operator-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: runtime-installation-reader
+subjects:
+  - kind: ServiceAccount
+    name: apiserver
+    namespace: opamp-e2e
