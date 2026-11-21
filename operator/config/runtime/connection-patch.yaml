@@ -1,0 +1,27 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          env:
+            - name: COMMANDER_RUNTIME_URL
+              value: https://runtime-tls.opamp-e2e.svc:8080
+            - name: COMMANDER_RUNTIME_CA_FILE
+              value: /var/run/opamp-runtime/ca.crt
+          volumeMounts:
+            - name: runtime-credentials
+              mountPath: /var/run/opamp-runtime
+              readOnly: true
+      volumes:
+        - name: runtime-credentials
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: opampcommander-runtime
+                  expirationSeconds: 3600
+              - configMap:
+                  name: runtime-ca
+                  items:
+                    - key: ca.crt
+                      path: ca.crt

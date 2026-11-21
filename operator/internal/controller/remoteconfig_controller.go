@@ -37,11 +37,11 @@ func (r *RemoteConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if !resource.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
-	owned, err := r.Installation.ownsNamespace(ctx, req.Namespace)
+	owned, err := r.Installation.ownedNamespace(ctx, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if !owned {
+	if owned == nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 	}
 	before := resource.DeepCopy()
