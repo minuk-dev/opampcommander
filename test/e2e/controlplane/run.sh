@@ -100,3 +100,18 @@ done
 test -n "$port"
 OPAMP_E2E_PORT="$port" OPAMP_E2E_CLUSTER="$cluster" \
   go test -tags=kind_e2e ./test/e2e/controlplane -count=1 -v -timeout=10m 2>&1 | tee "$artifacts/controlplane-tests.log"
+
+# The Go suite recreated the anchor. A gateway configured for that new anchor
+# must fail startup against the database used by the original installation.
+replacement_uid="$(kubectl get configmap -n opampcommander-operator-system \
+  opampcommander-operator-opamp-installation -o jsonpath='{.metadata.uid}')"
+test -n "$replacement_uid"
+test "$replacement_uid" != "$installation_uid"
+kubectl get deployment apiserver -n opamp-e2e -o json | jq --arg uid "$replacement_uid" '
+  {apiVersion:"v1",kind:"Pod",metadata:{name:"replacement-gateway",namespace:"opamp-e2e"},spec:.spec.template.spec}
+  | .spec.restartPolicy = "Never"
+  | .spec.containers[0].args += ["--runtimeAPI.installationUID=" + $uid]
+' | kubectl create -f -
+kubectl wait -n opamp-e2e pod/replacement-gateway --for=jsonpath='{.status.phase}'=Failed --timeout=90s
+kubectl logs -n opamp-e2e replacement-gateway > "$artifacts/replacement-gateway.log"
+grep -Fq 'MongoDB installation binding does not match configured installation UID' "$artifacts/replacement-gateway.log"
