@@ -44,6 +44,8 @@ func TestControlPlane(t *testing.T) {
 		client.WithBasicAuth(testutil.DefaultAdminUsername, testutil.DefaultAdminPassword))
 	require.NoError(t, apiClient.Ping())
 
+	t.Run("native runtime authorization", func(t *testing.T) { testRuntimeAuthorization(t, port) })
+
 	t.Run("runtime wire contracts", func(t *testing.T) {
 		for _, transport := range []testutil.ReferenceAgentTransport{
 			testutil.ReferenceAgentTransportWebSocket, testutil.ReferenceAgentTransportHTTP,
@@ -142,6 +144,7 @@ func TestControlPlane(t *testing.T) {
 
 	t.Run("native configuration and dependency recovery", func(t *testing.T) {
 		testNativeConfiguration(t, apiClient)
+		assertRuntimeInstallationFenced(t, port)
 	})
 }
 
