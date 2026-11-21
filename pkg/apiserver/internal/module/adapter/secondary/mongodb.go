@@ -135,6 +135,15 @@ func NewMongoDatabase(
 
 	lifecycle.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			if settings.RuntimeAPI.Enabled {
+				err := mongodb.VerifyInstallation(
+					ctx, database, settings.RuntimeAPI.InstallationUID, settings.DatabaseSettings.DDLAuto,
+				)
+				if err != nil {
+					return fmt.Errorf("verify runtime installation: %w", err)
+				}
+			}
+
 			if settings.DatabaseSettings.DDLAuto {
 				err := mongodb.EnsureSchema(ctx, database, settings.DatabaseSettings.Sharding.Enabled)
 				if err != nil {

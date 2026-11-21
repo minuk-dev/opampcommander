@@ -35,8 +35,23 @@ The corresponding CLI flags are `--runtimeAPI.*`; environment variables use
 uppercase keys, e.g. `RUNTIMEAPI_INSTALLATIONUID`. The default is disabled and
 does not require Kubernetes credentials. An enabled gateway fails startup if its
 anchor is absent, terminating, or has a different UID. Preserve this configured
-UID across restarts and upgrades. This configuration pin does not yet replace
-the durable Mongo installation binding required for Agent migration.
+UID across restarts and upgrades.
+
+When the native endpoint uses MongoDB, the gateway verifies the installation
+before running schema migrations or serving traffic. On first startup with
+`database.ddlAuto=true`, it records the configured UID in the unsharded
+`runtime_metadata` collection using a majority write. With automatic DDL
+disabled, provision this document in the gateway database once, using the live
+anchor UID and a majority write concern:
+
+```javascript
+db.runtime_metadata.insertOne({ _id: "installation", uid: "<anchor UID>" }, { writeConcern: { w: "majority" } })
+```
+
+Back up this document with the Agent data. If a restored cluster has a different
+anchor UID, startup stops even when the new UID matches the gateway configuration.
+Recovery requires an explicit migration of installation identity. Recording the
+installation does not enroll existing Agents or assign them to namespaces.
 
 Grant the gateway ServiceAccount these native permissions:
 
