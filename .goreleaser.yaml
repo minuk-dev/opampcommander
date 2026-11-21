@@ -37,7 +37,8 @@ builds:
       - "-X github.com/minuk-dev/opampcommander/pkg/version.gitCommit={{.Commit}}"
       - "-X github.com/minuk-dev/opampcommander/pkg/version.gitTreeState={{.GitTreeState}}"
       - "-X github.com/minuk-dev/opampcommander/pkg/version.buildDate={{.Date}}"
-  - id: opampctl
+  - &opampctl_build
+    id: opampctl
     binary: opampctl
     env:
       - CGO_ENABLED=0
@@ -53,6 +54,11 @@ builds:
       - "-X github.com/minuk-dev/opampcommander/pkg/version.gitCommit={{.Commit}}"
       - "-X github.com/minuk-dev/opampcommander/pkg/version.gitTreeState={{.GitTreeState}}"
       - "-X github.com/minuk-dev/opampcommander/pkg/version.buildDate={{.Date}}"
+
+  - <<: *opampctl_build
+    id: kubectl-opamp
+    binary: kubectl-opamp
+    main: ./cmd/kubectl-opamp
 
 dockers:
   - image_templates:
@@ -116,7 +122,8 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-  - id: opampctl
+  - &opampctl_archive
+    id: opampctl
     formats:
       - tar.gz
     ids:
@@ -128,6 +135,10 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+  - <<: *opampctl_archive
+    id: kubectl-opamp
+    ids: [kubectl-opamp]
 
 changelog:
   use: github

@@ -226,3 +226,25 @@ See [LICENSE](LICENSE). Security policy: [SECURITY.md](SECURITY.md).
 ## Credits
 
 - Logo artwork: Generated with OpenAI image generation. Used by the project owner.
+
+### Validate Commander CRs with kubectl
+
+Install the plugin with `go install ./cmd/kubectl-opamp` and put the Go binary
+directory on PATH. Use `kubectl plugin list` to check discovery. For example:
+
+```sh
+kubectl opamp validate --context staging -n collectors -f agentgroup.yaml
+kubectl opamp validate -f - < remoteconfig.yaml
+```
+
+The command submits a strict server-side apply dry run to the selected Kubernetes
+API. It supports the five Commander v1alpha1 configuration kinds and checks each
+document in a YAML stream independently. A rejected document produces a nonzero
+exit status. The result reflects the CRDs and admission policies currently
+installed in that cluster. It does not predict reconciliation or Agent delivery.
+
+Use `--kubeconfig`, `--context` and `--namespace` after `opamp`. The manifest
+namespace takes precedence over the context default, and must match an explicit
+`-n`. Native Kubernetes patch/create permissions apply. Use the same command
+through `opampctl kube validate` during migration. Existing management commands
+remain available under `opampctl`.
