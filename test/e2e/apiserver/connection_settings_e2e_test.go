@@ -9,11 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
@@ -71,7 +69,16 @@ func TestE2E_ConnectionSettingsWithoutAcknowledgment(t *testing.T) {
 				if transport == "http" {
 					response = postAgentToServer(t, server.Port, message)
 				} else {
-					response = exchangeConnectionSettingsWebSocket(t, server.Port, message)
+					if seq > 1 {
+						// Closing the client socket only queues cleanup on the server.
+						require.Eventually(t, func() bool {
+							connections, listErr := apiClient.ConnectionService.ListConnections(t.Context(), "default")
+							return listErr == nil && len(connections.Items) == 0
+						}, 10*time.Second, 100*time.Millisecond, "previous WebSocket must be released before reconnect")
+					}
+					conn := dialIdentitySession(t, server.Port)
+					response = exchangeIdentityMessage(t, conn, message)
+					require.NoError(t, conn.Close())
 				}
 
 				assert.Nil(t, response.GetErrorResponse())
@@ -175,39 +182,6 @@ func TestE2E_ConnectionSettingsAfterClientRestart(t *testing.T) {
 				time.Second, 100*time.Millisecond, "repeated new offers must remain idempotent")
 		})
 	}
-}
-
-// Each exchange opens a replacement socket for the same agent identity.
-func exchangeConnectionSettingsWebSocket(
-	t *testing.T, port int, message *protobufs.AgentToServer,
-) *protobufs.ServerToAgent {
-	t.Helper()
-
-	conn, response, err := websocket.DefaultDialer.DialContext(t.Context(),
-		fmt.Sprintf("ws://localhost:%d/api/v1/opamp", port), nil)
-	if response != nil {
-		defer func() { _ = response.Body.Close() }()
-	}
-
-	require.NoError(t, err)
-
-	defer func() { _ = conn.Close() }()
-
-	require.NoError(t, conn.SetReadDeadline(time.Now().Add(10*time.Second)))
-
-	payload, err := proto.Marshal(message)
-	require.NoError(t, err)
-	require.NoError(t, conn.WriteMessage(websocket.BinaryMessage, append([]byte{0}, payload...)))
-	kind, payload, err := conn.ReadMessage()
-	require.NoError(t, err)
-	require.Equal(t, websocket.BinaryMessage, kind)
-	require.NotEmpty(t, payload)
-	require.Zero(t, payload[0], "OpAMP WebSocket header")
-
-	var reply protobufs.ServerToAgent
-	require.NoError(t, proto.Unmarshal(payload[1:], &reply))
-
-	return &reply
 }
 
 func patchConnectionSettings(t *testing.T, apiClient *client.Client, group *v1.AgentGroup) {
