@@ -19,7 +19,7 @@ cleanup() {
     kind export logs --name "$cluster" "$artifacts/kind" || true
     kubectl get pods -A -o wide > "$artifacts/pods.txt" 2>&1 || true
     kubectl get events -A --sort-by=.lastTimestamp > "$artifacts/events.txt" 2>&1 || true
-    for deployment in apiserver mongodb redis; do
+    for deployment in apiserver runtime-tls mongodb redis; do
       kubectl logs -n opamp-e2e "deployment/$deployment" --all-containers --tail=2000 \
         > "$artifacts/$deployment.log" 2>&1 || true
     done
@@ -85,6 +85,7 @@ kubectl rollout status -n opamp-e2e deployment/redis --timeout=180s
 kubectl rollout status -n opamp-e2e deployment/apiserver --timeout=180s
 kubectl rollout status -n opampcommander-operator-system deployment/opampcommander-operator-controller-manager --timeout=180s
 
+bash test/e2e/controlplane/operator-runtime.sh "$work"
 cluster="$cluster" bash test/e2e/controlplane/plugin.sh "$work"
 
 kubectl port-forward -n opamp-e2e service/apiserver :8080 --address=127.0.0.1 > "$artifacts/port-forward.log" 2>&1 &
