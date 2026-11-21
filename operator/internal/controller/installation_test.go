@@ -131,7 +131,7 @@ func TestInstallationNamespaceBoundary(t *testing.T) {
 			if (len(group.Status.Conditions) > 0) != tc.want || (len(config.Status.Conditions) > 0) != tc.want {
 				t.Fatalf("unexpected status writes: group=%v config=%v", group.Status.Conditions, config.Status.Conditions)
 			}
-			if owned, err := installation.ownsNamespace(t.Context(), "absent"); err != nil || owned {
+			if owned, err := installation.ownedNamespace(t.Context(), "absent"); err != nil || owned != nil {
 				t.Fatalf("missing namespace accepted: owned=%v err=%v", owned, err)
 			}
 		})

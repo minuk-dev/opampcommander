@@ -128,3 +128,27 @@ kubectl label namespace YOUR_NAMESPACE "opampcommander.io/installation-uid=$inst
 ## Next steps
 
 The ownership/tenancy ADR (#897) and configuration API contract (#898) define the migration boundary. Dependency watches/runtime integration (#899), Agent storage (#900), delivery/acknowledgment (#901), and Secret resolution/admission (#903/#904) follow. Ordinary configuration CRUD belongs to native kubectl. The later `kubectl opamp` plugin (#906) handles Agent operations through Commander.
+
+### Connect AgentGroup reconciliation to Commander
+
+Configure the Operator with the HTTPS origin of the Commander Service via
+`--runtime-url` or `COMMANDER_RUNTIME_URL`. With this option enabled, the
+Operator calls `GET /api/runtime/v1/namespaces/{name}` when it reconciles an
+AgentGroup in an assigned namespace. It compares the returned installation UID
+and namespace UID with the live Kubernetes identities.
+
+Adapt [the Deployment patch](config/runtime/connection-patch.yaml) to your
+Commander Service and its certificate. Create the referenced CA ConfigMap in
+the Operator namespace and mount the projected ServiceAccount token with the
+same audience configured on the gateway. The client uses system trust roots
+when no CA file is specified. For each assigned namespace, bind the Operator
+ServiceAccount to a Role granting `get` on the virtual
+`namespaces.runtime.opampcommander.io` resource with that namespace's name.
+See [the permission example](../docs/content/en/docs/runtime-authentication.md).
+
+A successful lookup sets the AgentGroup condition `RuntimeScopeVerified=True`.
+On failure it becomes `Unknown` and reconciliation retries. This condition
+records the last check for the observed generation. It attests to runtime scope
+only. Delivery and Agent acknowledgments are tracked separately; `Ready`
+remains unknown until policy delivery is implemented. With the option disabled,
+the controller omits the scope condition.

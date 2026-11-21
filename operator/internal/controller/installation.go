@@ -53,15 +53,18 @@ func (i *Installation) Check(ctx context.Context) error {
 	return nil
 }
 
-func (i *Installation) ownsNamespace(ctx context.Context, name string) (bool, error) {
+func (i *Installation) ownedNamespace(ctx context.Context, name string) (*corev1.Namespace, error) {
 	if err := i.Check(ctx); err != nil {
-		return false, err
+		return nil, err
 	}
 	namespace := &corev1.Namespace{}
 	if err := i.reader.Get(ctx, client.ObjectKey{Name: name}, namespace); err != nil {
-		return false, client.IgnoreNotFound(err)
+		return nil, client.IgnoreNotFound(err)
 	}
-	return namespace.DeletionTimestamp.IsZero() && namespace.Labels[InstallationLabel] == string(i.UID), nil
+	if !namespace.DeletionTimestamp.IsZero() || namespace.Labels[InstallationLabel] != string(i.UID) {
+		return nil, nil
+	}
+	return namespace, nil
 }
 
 // Assignment changes must enqueue existing CRs even when their specs did not change.

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -23,6 +24,7 @@ type AgentGroupReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	Installation *Installation
+	Runtime      *RuntimeClient
 }
 
 // +kubebuilder:rbac:groups=opampcommander.io,resources=agentgroups,verbs=get;list;watch
@@ -42,11 +44,11 @@ func (r *AgentGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if !resource.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
-	owned, err := r.Installation.ownsNamespace(ctx, req.Namespace)
+	owned, err := r.Installation.ownedNamespace(ctx, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if !owned {
+	if owned == nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 	}
 	before := resource.DeepCopy()
@@ -70,13 +72,14 @@ func (r *AgentGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		Type: "Ready", Status: metav1.ConditionUnknown, ObservedGeneration: resource.Generation,
 		Reason: "NotImplemented", Message: "Agent configuration delivery is not implemented in this bootstrap controller",
 	})
-	if changed || referencesChanged {
+	scopeChanged, scopeErr := r.checkRuntimeScope(ctx, resource, owned)
+	if changed || referencesChanged || scopeChanged {
 		if err := r.Status().Patch(ctx, resource, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
-	if readErr != nil {
-		return ctrl.Result{}, readErr
+	if err := errors.Join(readErr, scopeErr); err != nil {
+		return ctrl.Result{}, err
 	}
 	// Repair missed dependency notifications with bounded workers and one timer per group.
 	return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
@@ -94,4 +97,23 @@ func (r *AgentGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 	return controller.Complete(r)
+}
+
+func (r *AgentGroupReconciler) checkRuntimeScope(ctx context.Context, group *opampcommanderv1alpha1.AgentGroup, namespace *corev1.Namespace) (bool, error) {
+	const conditionType = "RuntimeScopeVerified"
+	if r.Runtime == nil {
+		return meta.RemoveStatusCondition(&group.Status.Conditions, conditionType), nil
+	}
+	err := r.Runtime.verify(ctx, namespace.Name, r.Installation.UID, namespace.UID)
+	condition := metav1.Condition{
+		Type: conditionType, ObservedGeneration: group.Generation,
+		Status: metav1.ConditionTrue, Reason: "Verified",
+		Message: "Commander confirmed the installation and namespace identities",
+	}
+	if err != nil {
+		condition.Status = metav1.ConditionUnknown
+		condition.Reason = "VerificationFailed"
+		condition.Message = "Could not verify the runtime namespace identity"
+	}
+	return meta.SetStatusCondition(&group.Status.Conditions, condition), err
 }
