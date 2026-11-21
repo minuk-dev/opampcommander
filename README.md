@@ -240,7 +240,9 @@ kubectl opamp validate -f - < remoteconfig.yaml
 The command submits a strict server-side apply dry run to the selected Kubernetes
 API. It supports the five Commander v1alpha1 configuration kinds and checks each
 document in a YAML stream independently. A rejected document produces a nonzero
-exit status. The result reflects the CRDs and admission policies currently
+exit status. For server rejections the CLI prints the resource identity and HTTP
+status. It suppresses admission warnings and free-form messages that may quote
+private configuration. The result reflects the CRDs and admission policies currently
 installed in that cluster. It does not predict reconciliation or Agent delivery.
 
 Use `--kubeconfig`, `--context` and `--namespace` after `opamp`. The manifest
