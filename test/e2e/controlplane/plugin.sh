@@ -20,6 +20,16 @@ if sed 's/priority: 0/unknownField: 8/' "$sample" | kubectl opamp validate -n pl
   echo 'unexpected success for an unknown field' >&2
   exit 1
 fi
+# Admission can include rejected values in its diagnostics.
+if sed 's/priority: 0/priority: private-config-marker/' "$sample" | kubectl opamp validate -n plugin-validation -f - > "$plugin_bin/rejected.log" 2>&1; then
+  echo 'unexpected success for a non-integer priority' >&2
+  exit 1
+fi
+grep -Eq 'HTTP 4[0-9]{2}' "$plugin_bin/rejected.log"
+if grep -q private-config-marker "$plugin_bin/rejected.log"; then
+  echo 'validation disclosed a rejected value' >&2
+  exit 1
+fi
 # Keep the existing credentials and impersonate a subject with no RoleBinding.
 kubectl config view --raw --minify --flatten -o json | jq '
   .users[0].user.as = "system:serviceaccount:plugin-validation:unbound"
