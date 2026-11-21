@@ -5,7 +5,8 @@ set -euo pipefail
 plugin_bin="$1"
 export PATH="$plugin_bin:$PATH"
 go build -o "$plugin_bin/kubectl-opamp" ./cmd/kubectl-opamp
-kubectl plugin list | grep -F "$plugin_bin/kubectl-opamp"
+kubectl_bin="$(command -v kubectl)"
+PATH="$plugin_bin" "$kubectl_bin" plugin list | grep -F "$plugin_bin/kubectl-opamp"
 sample=operator/config/samples/opampcommander_v1alpha1_agentgroup.yaml
 kubectl create namespace plugin-validation
 kubectl config set-context plugin-validation --cluster="kind-$cluster" --user="kind-$cluster" --namespace=plugin-validation
