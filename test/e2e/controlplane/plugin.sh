@@ -25,7 +25,8 @@ if sed 's/priority: 0/priority: private-config-marker/' "$sample" | kubectl opam
   echo 'unexpected success for a non-integer priority' >&2
   exit 1
 fi
-grep -Eq 'HTTP 4[0-9]{2}' "$plugin_bin/rejected.log"
+# Kubernetes can report malformed server-side apply conversions as InternalServerError.
+grep -Eq 'server dry-run request failed \(HTTP (4[0-9]{2}|500) ' "$plugin_bin/rejected.log"
 if grep -q private-config-marker "$plugin_bin/rejected.log"; then
   echo 'validation disclosed a rejected value' >&2
   exit 1
