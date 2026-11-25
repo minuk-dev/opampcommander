@@ -98,6 +98,32 @@ returns the current namespace UID: same-name recreation never reuses an old UID.
 This response is a point-in-time lookup, not a durable authorization grant; future
 Agent reads and mutations must validate enrolled UIDs and fencing independently.
 
+## Check your namespace from kubectl
+
+Use `kubectl opamp runtime-scope` to verify which namespace and installation UIDs
+Commander resolves. Pass the trusted runtime HTTPS origin explicitly, with a CA
+bundle when the gateway uses a private CA. For a ServiceAccount named
+`runtime-reader` with the RoleBinding described above:
+
+```sh
+(
+  set -e
+  token_file=$(mktemp)
+  trap 'rm -f "$token_file"' EXIT
+  kubectl --context staging -n collectors create token runtime-reader \
+    --audience=opampcommander-runtime --duration=10m > "$token_file"
+  kubectl opamp runtime-scope --context staging --namespace collectors \
+    --runtime-url https://commander.example.com \
+    --runtime-ca-file commander-ca.pem \
+    --runtime-token-file "$token_file" -o json
+)
+```
+
+With no `--namespace`, the command uses the selected kubeconfig context's
+namespace. It sends only the runtime token from the file. Kubeconfig credentials
+stay with Kubernetes. The output formats are `text` (default), `json`, and `yaml`.
+The same command is available as `opampctl kube runtime-scope`.
+
 ## Verification and remaining cutover
 
 Unit tests cover denied/anonymous/ambiguous credentials, audience enforcement,
