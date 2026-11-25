@@ -37,6 +37,7 @@ func NewMongoDB() fx.Option {
 				fx.As(new(agentport.TransactionPort)),
 			),
 			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(agentport.AgentPersistencePort))),
+			fx.Annotate(mongodb.NewAgentEnrollmentStore, fx.As(new(applicationport.AgentEnrollmentStore))),
 			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(agentport.AgentGroupPersistencePort))),
 			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(agentport.ServerPersistencePort))),
 			fx.Annotate(mongodb.NewServerConnectionAdapter, fx.As(new(agentport.ServerConnectionPersistencePort))),

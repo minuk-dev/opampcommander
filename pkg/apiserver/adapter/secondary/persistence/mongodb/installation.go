@@ -15,13 +15,17 @@ import (
 
 var errInstallationMismatch = errors.New("MongoDB installation binding does not match configured installation UID")
 
-// VerifyInstallation checks the database owner before schema migration or runtime startup.
-// With automatic DDL, competing gateways can initialize the singleton but cannot replace it.
-func VerifyInstallation(ctx context.Context, database *mongo.Database, uid string, ddlAuto bool) error {
-	collection := database.Collection("runtime_metadata", options.Collection().
+func runtimeMetadata(database *mongo.Database) *mongo.Collection {
+	return database.Collection("runtime_metadata", options.Collection().
 		SetReadPreference(readpref.Primary()).
 		SetReadConcern(readconcern.Majority()).
 		SetWriteConcern(writeconcern.Majority()))
+}
+
+// VerifyInstallation checks the database owner before schema migration or runtime startup.
+// With automatic DDL, competing gateways can initialize the singleton but cannot replace it.
+func VerifyInstallation(ctx context.Context, database *mongo.Database, uid string, ddlAuto bool) error {
+	collection := runtimeMetadata(database)
 	filter := bson.M{"_id": "installation"}
 
 	if uid == "" {

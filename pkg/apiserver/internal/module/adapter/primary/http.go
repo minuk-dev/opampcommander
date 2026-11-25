@@ -42,6 +42,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/server"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/user"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/version"
+	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
@@ -74,7 +75,7 @@ func NewHTTP() fx.Option {
 		fx.Provide(
 			// HTTP Server & Engine
 			NewHTTPServer,
-			newRuntimeController,
+			fx.Annotate(newRuntimeController, fx.ParamTags("", `optional:"true"`)),
 			fx.Annotate(NewEngine, fx.ParamTags(`group:"controllers"`)),
 
 			// Controllers — added to the "controllers" group consumed by NewEngine.
@@ -116,7 +117,9 @@ func NewHTTP() fx.Option {
 	)
 }
 
-func newRuntimeController(settings *config.ServerSettings) (*runtimeapi.Controller, error) {
+func newRuntimeController(
+	settings *config.ServerSettings, enrollments applicationport.AgentEnrollmentStore,
+) (*runtimeapi.Controller, error) {
 	if !settings.RuntimeAPI.Enabled {
 		return nil, nil //nolint:nilnil // Disabled native API intentionally has no controller.
 	}
@@ -131,7 +134,7 @@ func newRuntimeController(settings *config.ServerSettings) (*runtimeapi.Controll
 		return nil, fmt.Errorf("runtime Kubernetes client: %w", err)
 	}
 
-	controller, err := runtimeapi.NewController(settings.RuntimeAPI, client)
+	controller, err := runtimeapi.NewController(settings.RuntimeAPI, client, enrollments)
 	if err != nil {
 		return nil, fmt.Errorf("runtime API: %w", err)
 	}

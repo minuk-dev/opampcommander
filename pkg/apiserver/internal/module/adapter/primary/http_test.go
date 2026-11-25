@@ -52,7 +52,7 @@ func TestNewEngine_RuntimeAuthentication(t *testing.T) {
 	controller, err := runtimeapi.NewController(runtimeapi.Config{
 		Enabled: true, Audience: "runtime", InstallationNamespace: "system",
 		InstallationName: "anchor", InstallationUID: "installation",
-	}, client)
+	}, client, nil)
 	require.NoError(t, err)
 
 	engine := primary.NewEngine(nil, nil, nil, nil, &config.ServerSettings{},
