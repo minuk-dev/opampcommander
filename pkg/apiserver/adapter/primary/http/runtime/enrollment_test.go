@@ -27,6 +27,7 @@ const enrollmentInstance = "abc115aa-730b-4c1d-8638-e2b64eb27b34"
 type enrollmentStore struct {
 	key               port.AgentEnrollmentKey
 	serviceAccountUID string
+	lookup            bool
 	err               error
 }
 
@@ -37,11 +38,19 @@ func (s *enrollmentStore) Claim(_ context.Context, key port.AgentEnrollmentKey, 
 	return s.err
 }
 
+func (s *enrollmentStore) Lookup(_ context.Context, key port.AgentEnrollmentKey) (string, error) {
+	s.key = key
+	s.lookup = true
+
+	return "collector-uid", s.err
+}
+
 func TestAgentEnrollment(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
 		name            string
+		method          string
 		username        string
 		accountUID      string
 		namespaceUID    string
@@ -50,6 +59,7 @@ func TestAgentEnrollment(t *testing.T) {
 		storeError      error
 		wantStatus      int
 		wantClaim       bool
+		wantLookup      bool
 	}{
 		{name: "allowed", wantStatus: http.StatusNoContent, wantClaim: true},
 		{name: "forbidden", deny: true, wantStatus: http.StatusForbidden},
@@ -63,9 +73,20 @@ func TestAgentEnrollment(t *testing.T) {
 			wantStatus: http.StatusConflict, wantClaim: true},
 		{name: "storage unavailable", storeError: io.ErrUnexpectedEOF,
 			wantStatus: http.StatusServiceUnavailable, wantClaim: true},
+		{name: "lookup", method: http.MethodGet, wantStatus: http.StatusOK, wantLookup: true},
+		{name: "permission denied for lookup", method: http.MethodGet, deny: true, wantStatus: http.StatusForbidden},
+		{name: "no enrollment", method: http.MethodGet, storeError: port.ErrAgentEnrollmentNotFound,
+			wantStatus: http.StatusNotFound, wantLookup: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
+			method := cmp.Or(tt.method, http.MethodPut)
+
+			verb := "update"
+			if method == http.MethodGet {
+				verb = "get"
+			}
 
 			config, client := fixture()
 			_, err := client.CoreV1().ServiceAccounts("tenant").Create(t.Context(), &corev1.ServiceAccount{
@@ -94,7 +115,7 @@ func TestAgentEnrollment(t *testing.T) {
 				require.Equal(t, identity.Username, review.Spec.User)
 				require.Equal(t, identity.UID, review.Spec.UID)
 				require.Equal(t, &authorizationv1.ResourceAttributes{
-					Group: "runtime.opampcommander.io", Resource: "agentenrollments", Verb: "update",
+					Group: "runtime.opampcommander.io", Resource: "agentenrollments", Verb: verb,
 					Name: enrollmentInstance, Namespace: "tenant",
 				}, review.Spec.ResourceAttributes)
 
@@ -111,7 +132,7 @@ func TestAgentEnrollment(t *testing.T) {
 			engine := gin.New()
 			controller.Register(engine)
 
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodPut,
+			request := httptest.NewRequestWithContext(t.Context(), method,
 				"/api/runtime/v1/namespaces/tenant/agent-enrollments/"+enrollmentInstance,
 				strings.NewReader(`{"namespaceUID":"`+cmp.Or(tt.namespaceUID, "namespace-uid")+
 					`","installationUID":"`+cmp.Or(tt.installationUID, config.InstallationUID)+`"}`))
@@ -124,13 +145,18 @@ func TestAgentEnrollment(t *testing.T) {
 			require.Equal(t, "no-store", response.Header().Get("Cache-Control"))
 			require.NotContains(t, response.Body.String(), io.ErrUnexpectedEOF.Error())
 
-			if tt.wantClaim {
+			if tt.wantClaim || tt.wantLookup {
 				require.Equal(t, port.AgentEnrollmentKey{
 					InstallationUID: config.InstallationUID, NamespaceUID: "namespace-uid", InstanceUID: enrollmentInstance,
 				}, store.key)
-				require.Equal(t, "collector-uid", store.serviceAccountUID)
-			} else {
-				require.Empty(t, store.serviceAccountUID)
+			}
+
+			require.Equal(t, tt.wantLookup, store.lookup)
+			require.Equal(t, tt.wantClaim, store.serviceAccountUID == "collector-uid")
+
+			if tt.wantStatus == http.StatusOK {
+				require.JSONEq(t, `{"instanceUID":"`+enrollmentInstance+`","namespaceUID":"namespace-uid",`+
+					`"installationUID":"installation-uid","serviceAccountUID":"collector-uid"}`, response.Body.String())
 			}
 		})
 	}

@@ -40,9 +40,14 @@ func TestAgentEnrollmentClaim(t *testing.T) {
 	restarted := mongodb.NewAgentEnrollmentStore(database)
 	require.NoError(t, restarted.Claim(ctx, key, winner))
 	require.ErrorIs(t, restarted.Claim(ctx, key, loser), port.ErrAgentEnrollmentConflict)
+	owner, err := restarted.Lookup(ctx, key)
+	require.NoError(t, err)
+	require.Equal(t, winner, owner)
 
 	recreatedNamespace := key
 	recreatedNamespace.NamespaceUID = "new-namespace-uid"
+	_, err = restarted.Lookup(ctx, recreatedNamespace)
+	require.ErrorIs(t, err, port.ErrAgentEnrollmentNotFound)
 	require.NoError(t, restarted.Claim(ctx, recreatedNamespace, loser))
 	require.ErrorIs(t, restarted.Claim(ctx, key, loser), port.ErrAgentEnrollmentConflict)
 	require.NoError(t, mongodb.VerifyInstallation(ctx, database, "installation", false))

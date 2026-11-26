@@ -142,6 +142,14 @@ Back up these registrations with the installation metadata. OpAMP session
 authentication, existing Agent migration and runtime Agent operations have their
 own cutover steps.
 
+Use `GET` on the same path to inspect a registration. Grant the reader `get`
+on `agentenrollments` for the UID it needs to inspect. `update` and access to
+namespace discovery confer no read permission. The response contains the
+instance, namespace, installation and bound ServiceAccount UIDs. It reports the
+stored registration even if that account has since been deleted. An authorized
+lookup in a recreated namespace returns 404 until that namespace's Agent is
+registered.
+
 ## Check your namespace from kubectl
 
 Use `kubectl opamp runtime-scope` to check the namespace assignment against the
