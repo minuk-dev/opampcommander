@@ -113,6 +113,25 @@ returns the current namespace UID: same-name recreation never reuses an old UID.
 This response is a point-in-time lookup, not a durable authorization grant; future
 Agent reads and mutations must validate enrolled UIDs and fencing independently.
 
+## Check your namespace from kubectl
+
+Use `kubectl opamp runtime-scope` to check the namespace assignment against the
+installed identity anchor. The command reads the Namespace and installation
+ConfigMap through the Kubernetes API using the selected kubeconfig:
+
+```sh
+kubectl opamp runtime-scope --context staging --namespace collectors \
+  --installation-namespace opampcommander-operator-system \
+  --installation-name opampcommander-operator-opamp-installation -o json
+```
+
+With no `--namespace`, the command uses the context's namespace. Grant `get` on
+the named core Namespace at cluster scope and `get` on the anchor ConfigMap in
+its namespace. Restrict both grants with `resourceNames`. The result covers
+Kubernetes ownership. Gateway readiness and MongoDB state are separate checks.
+The output formats are `text` (default), `json`, and `yaml`. The same command is
+available as `opampctl kube runtime-scope`.
+
 ## Verification and remaining cutover
 
 Unit tests cover denied/anonymous/ambiguous credentials, audience enforcement,
