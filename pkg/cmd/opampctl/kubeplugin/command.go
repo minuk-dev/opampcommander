@@ -3,25 +3,31 @@ package kubeplugin
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/minuk-dev/opampcommander/pkg/version"
 )
 
 var (
+	errInvalidManifest   = errors.New("invalid manifest")
+	errValidationFailed  = errors.New("server dry-run request failed")
 	errNoManifest        = errors.New("supply a named Commander CR manifest with -f FILE or -f -")
 	errExplicitNamespace = errors.New("manifest namespace differs from --namespace")
 	errUnsupported       = errors.New("expected an opampcommander.io/v1alpha1 configuration resource")
@@ -58,6 +64,9 @@ func NewCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("load kubeconfig: %w", err)
 			}
+
+			// Admission warnings can quote rejected config or resolved Secret data.
+			restConfig.WarningHandlerWithContext = rest.NoWarnings{}
 
 			client, err := dynamic.NewForConfig(restConfig)
 			if err != nil {
@@ -98,14 +107,14 @@ func validateStream(cmd *cobra.Command, client dynamic.Interface, input io.Reade
 		}
 
 		if err != nil {
-			return fmt.Errorf("read manifest: %w", err)
+			return fmt.Errorf("read document %d: %w", count+1, errInvalidManifest)
 		}
 
 		var manifest *metav1.PartialObjectMetadata
 
 		err = yaml.Unmarshal(data, &manifest)
 		if err != nil {
-			return fmt.Errorf("decode manifest: %w", err)
+			return fmt.Errorf("decode document %d: %w", count+1, errInvalidManifest)
 		}
 
 		if manifest == nil {
@@ -144,11 +153,11 @@ func validateManifest(cmd *cobra.Command, client dynamic.Interface, manifest *me
 	switch manifest.Kind {
 	case "AgentGroup", "RemoteConfig", "RemoteConfigSchema", "Endpoint", "AgentPackage":
 	default:
-		return fmt.Errorf("%w: %s", errUnsupported, manifest.Kind)
+		return errUnsupported
 	}
 
 	if manifest.APIVersion != "opampcommander.io/v1alpha1" {
-		return fmt.Errorf("%w: %s", errUnsupported, manifest.APIVersion)
+		return errUnsupported
 	}
 
 	resource := schema.GroupVersionResource{
@@ -162,7 +171,7 @@ func validateManifest(cmd *cobra.Command, client dynamic.Interface, manifest *me
 
 	_, err := client.Resource(resource).Namespace(target).Patch(cmd.Context(), name, types.ApplyPatchType, data, options)
 	if err != nil {
-		return fmt.Errorf("validate %s %s/%s: %w", manifest.Kind, target, name, err)
+		return fmt.Errorf("validate %s %s/%s: %w", manifest.Kind, target, name, safeValidationError(err))
 	}
 
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "%s %s/%s validated (server dry run)\n", manifest.Kind, target, name)
@@ -171,4 +180,24 @@ func validateManifest(cmd *cobra.Command, client dynamic.Interface, manifest *me
 	}
 
 	return nil
+}
+
+// Status messages and causes can contain the full submitted value or webhook output.
+func safeValidationError(err error) error {
+	var status apierrors.APIStatus
+	if errors.As(err, &status) {
+		code := int(status.Status().Code)
+
+		return fmt.Errorf("%w (HTTP %d %s)", errValidationFailed, code, http.StatusText(code))
+	}
+
+	if errors.Is(err, context.Canceled) {
+		return context.Canceled
+	}
+
+	if errors.Is(err, context.DeadlineExceeded) {
+		return context.DeadlineExceeded
+	}
+
+	return errValidationFailed
 }
