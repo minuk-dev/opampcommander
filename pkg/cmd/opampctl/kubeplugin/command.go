@@ -48,6 +48,8 @@ func NewCommand() *cobra.Command {
 	root.PersistentFlags().StringVar(&overrides.CurrentContext, "context", "", "Kubernetes context")
 	root.PersistentFlags().StringVarP(&overrides.Context.Namespace, "namespace", "n", "", "Kubernetes namespace")
 
+	root.AddCommand(newRuntimeScopeCommand(rules, overrides))
+
 	var filename string
 	//exhaustruct:ignore
 	validate := &cobra.Command{

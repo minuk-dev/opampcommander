@@ -1,5 +1,5 @@
 # Build dist first with `make build`. Both Linux architectures are included.
-ARG GRAFANA_VERSION=13.3.0
+ARG GRAFANA_VERSION=13.3.1
 FROM grafana/grafana:${GRAFANA_VERSION}
 
 # /var/lib/grafana is mounted by Helm; baking plugins there would hide them.
