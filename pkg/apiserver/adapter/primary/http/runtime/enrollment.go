@@ -39,38 +39,23 @@ func (c *Controller) enrollAgent(ctx *gin.Context) {
 	requestContext, cancel := context.WithTimeout(ctx.Request.Context(), reviewTimeout)
 	defer cancel()
 
-	instanceUID := ctx.Param("instanceUID")
-
-	parsed, err := uuid.Parse(instanceUID)
-	if err != nil || parsed == uuid.Nil || parsed.String() != instanceUID {
-		ginutil.ProblemResponse(ctx, http.StatusBadRequest, "Agent instance UID must be a canonical nonzero UUID")
-
+	key, identity, ok := c.enrollmentRequest(requestContext, ctx, "update")
+	if !ok {
 		return
 	}
 
-	//exhaustruct:ignore
-	namespace, identity := c.requestNamespace(requestContext, ctx, authorizationv1.ResourceAttributes{
-		Group: permissionGroup, Resource: agentEnrollmentResource, Verb: "update",
-		Namespace: ctx.Param("namespace"), Name: instanceUID,
-	})
-	if namespace == nil {
+	if !enrollmentScopeMatches(ctx, key.NamespaceUID, key.InstallationUID) {
 		return
 	}
 
-	if !enrollmentScopeMatches(ctx, string(namespace.UID), c.config.InstallationUID) {
-		return
-	}
-
-	status := c.verifyEnrollmentIdentity(requestContext, namespace.Name, identity)
+	status := c.verifyEnrollmentIdentity(requestContext, ctx.Param("namespace"), identity)
 	if status != http.StatusOK {
 		ginutil.ProblemResponse(ctx, status, "Enrollment requires a current ServiceAccount in this namespace")
 
 		return
 	}
 
-	err = c.enrollments.Claim(requestContext, port.AgentEnrollmentKey{
-		InstallationUID: c.config.InstallationUID, NamespaceUID: string(namespace.UID), InstanceUID: instanceUID,
-	}, identity.UID)
+	err := c.enrollments.Claim(requestContext, key, identity.UID)
 	if errors.Is(err, port.ErrAgentEnrollmentConflict) {
 		ginutil.ProblemResponse(ctx, http.StatusConflict, "Agent enrollment belongs to another ServiceAccount")
 
@@ -84,6 +69,62 @@ func (c *Controller) enrollAgent(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+func (c *Controller) agentEnrollment(ctx *gin.Context) {
+	ctx.Header("Cache-Control", "no-store")
+
+	requestContext, cancel := context.WithTimeout(ctx.Request.Context(), reviewTimeout)
+	defer cancel()
+
+	key, _, ok := c.enrollmentRequest(requestContext, ctx, "get")
+	if !ok {
+		return
+	}
+
+	owner, err := c.enrollments.Lookup(requestContext, key)
+	if errors.Is(err, port.ErrAgentEnrollmentNotFound) {
+		ginutil.ProblemResponse(ctx, http.StatusNotFound, "Agent enrollment not found")
+
+		return
+	}
+
+	if err != nil {
+		ginutil.ProblemResponse(ctx, http.StatusServiceUnavailable, "Agent enrollment storage unavailable")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"instanceUID": key.InstanceUID, "namespaceUID": key.NamespaceUID, "installationUID": key.InstallationUID,
+		"serviceAccountUID": owner,
+	})
+}
+
+func (c *Controller) enrollmentRequest(
+	requestContext context.Context, ctx *gin.Context, verb string,
+) (port.AgentEnrollmentKey, authenticationv1.UserInfo, bool) {
+	instanceUID := ctx.Param("instanceUID")
+
+	parsed, err := uuid.Parse(instanceUID)
+	if err != nil || parsed == uuid.Nil || parsed.String() != instanceUID {
+		ginutil.ProblemResponse(ctx, http.StatusBadRequest, "Agent instance UID must be a canonical nonzero UUID")
+
+		return port.AgentEnrollmentKey{}, authenticationv1.UserInfo{}, false
+	}
+
+	//exhaustruct:ignore
+	namespace, identity := c.requestNamespace(requestContext, ctx, authorizationv1.ResourceAttributes{
+		Group: permissionGroup, Resource: agentEnrollmentResource, Verb: verb,
+		Namespace: ctx.Param("namespace"), Name: instanceUID,
+	})
+	if namespace == nil {
+		return port.AgentEnrollmentKey{}, authenticationv1.UserInfo{}, false
+	}
+
+	return port.AgentEnrollmentKey{
+		InstallationUID: c.config.InstallationUID, NamespaceUID: string(namespace.UID), InstanceUID: instanceUID,
+	}, identity, true
 }
 
 func enrollmentScopeMatches(ctx *gin.Context, namespaceUID, installationUID string) bool {

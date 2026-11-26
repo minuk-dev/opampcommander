@@ -5,6 +5,7 @@ package controlplane_test
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -100,13 +101,25 @@ func runtimeToken(t *testing.T, audience string) string {
 func runtimeRequest(t *testing.T, port int, namespace, token string) (int, map[string]string) {
 	t.Helper()
 
-	url := fmt.Sprintf("http://127.0.0.1:%d/api/runtime/v1/namespaces/%s", port, namespace)
+	return runtimeRequestWithMethod(t, port, http.MethodGet, "/api/runtime/v1/namespaces/"+namespace, token, nil)
+}
+
+func runtimeRequestWithMethod(
+	t *testing.T, port int, method, path, token string, body io.Reader,
+) (int, map[string]string) {
+	t.Helper()
+
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", port, path)
 	//nolint:gosec // URL targets this test's loopback port-forward and fixed namespace fixtures.
-	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	request, err := http.NewRequestWithContext(t.Context(), method, url, body)
 	require.NoError(t, err)
 
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	if body != nil {
+		request.Header.Set("Content-Type", "application/json")
 	}
 
 	request.Header.Set("X-Remote-User", "system:admin")

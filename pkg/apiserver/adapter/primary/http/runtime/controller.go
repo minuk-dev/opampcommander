@@ -87,6 +87,7 @@ func (c *Controller) Register(engine *gin.Engine) {
 
 	if c.enrollments != nil {
 		engine.PUT(agentEnrollmentPath, c.enrollAgent)
+		engine.GET(agentEnrollmentPath, c.agentEnrollment)
 	}
 }
 

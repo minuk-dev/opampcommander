@@ -45,6 +45,7 @@ func TestControlPlane(t *testing.T) {
 	require.NoError(t, apiClient.Ping())
 
 	t.Run("native runtime authorization", func(t *testing.T) { testRuntimeAuthorization(t, port) })
+	t.Run("native Agent enrollment", func(t *testing.T) { testRuntimeEnrollment(t, port) })
 
 	t.Run("runtime wire contracts", func(t *testing.T) {
 		for _, transport := range []testutil.ReferenceAgentTransport{
