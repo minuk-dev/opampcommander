@@ -24,7 +24,6 @@ func (opt *CommandOption) resolveSecretFiles(cmd *cobra.Command) error {
 		{"liveness.redis.password", &opt.Liveness.Redis.Password},
 		{"database.endpoints", &databaseURI},
 	} {
-
 		env := strings.ToUpper(strings.ReplaceAll(secret.key, ".", "_"))
 
 		filename := os.Getenv(env + "_FILE")
