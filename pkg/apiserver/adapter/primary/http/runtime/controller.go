@@ -13,14 +13,19 @@ import (
 	"github.com/gin-gonic/gin"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
-const reviewTimeout = 5 * time.Second
+const (
+	reviewTimeout   = 5 * time.Second
+	permissionGroup = "runtime.opampcommander.io"
+)
 
 var (
 	errInvalidConfig = errors.New(
@@ -38,15 +43,18 @@ type Config struct {
 	InstallationUID       string `mapstructure:"installationUID"`
 }
 
-// Controller resolves authorized runtime namespace identities without exposing Agent records.
+// Controller serves namespace discovery and Agent enrollment.
 type Controller struct {
-	config Config
-	client kubernetes.Interface
+	config      Config
+	client      kubernetes.Interface
+	enrollments port.AgentEnrollmentStore
 }
 
 // NewController validates the configured anchor before serving runtime requests.
 // A disabled API does not need Kubernetes credentials.
-func NewController(config Config, client kubernetes.Interface) (*Controller, error) {
+func NewController(
+	config Config, client kubernetes.Interface, enrollments port.AgentEnrollmentStore,
+) (*Controller, error) {
 	if !config.Enabled {
 		return nil, nil //nolint:nilnil // Disabled native API intentionally has no controller.
 	}
@@ -56,7 +64,7 @@ func NewController(config Config, client kubernetes.Interface) (*Controller, err
 		return nil, errInvalidConfig
 	}
 
-	controller := &Controller{config: config, client: client}
+	controller := &Controller{config: config, client: client, enrollments: enrollments}
 
 	ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 	defer cancel()
@@ -71,8 +79,14 @@ func NewController(config Config, client kubernetes.Interface) (*Controller, err
 
 // Register installs routes before the legacy JWT/Casbin middleware is added.
 func (c *Controller) Register(engine *gin.Engine) {
-	if c != nil {
-		engine.GET("/api/runtime/v1/namespaces/:namespace", c.namespace)
+	if c == nil {
+		return
+	}
+
+	engine.GET("/api/runtime/v1/namespaces/:namespace", c.namespace)
+
+	if c.enrollments != nil {
+		engine.PUT(agentEnrollmentPath, c.enrollAgent)
 	}
 }
 
@@ -82,41 +96,12 @@ func (c *Controller) namespace(ctx *gin.Context) {
 	requestContext, cancel := context.WithTimeout(ctx.Request.Context(), reviewTimeout)
 	defer cancel()
 
-	status := c.authorize(requestContext, ctx.Request.Header.Values("Authorization"), ctx.Param("namespace"))
-	if status != http.StatusOK {
-		if status == http.StatusUnauthorized {
-			ctx.Header("WWW-Authenticate", "Bearer")
-		}
-
-		ginutil.ProblemResponse(ctx, status, http.StatusText(status))
-
-		return
-	}
-
-	err := c.checkInstallation(requestContext)
-	if err != nil {
-		ginutil.ProblemResponse(ctx, http.StatusServiceUnavailable, "Runtime installation unavailable")
-
-		return
-	}
-
-	namespace, err := c.client.CoreV1().Namespaces().Get(requestContext, ctx.Param("namespace"), metav1.GetOptions{})
-	if apierrors.IsNotFound(err) {
-		ginutil.ProblemResponse(ctx, http.StatusNotFound, "Namespace unavailable")
-
-		return
-	}
-
-	if err != nil {
-		ginutil.ProblemResponse(ctx, http.StatusServiceUnavailable, "Namespace lookup unavailable")
-
-		return
-	}
-
-	if namespace.UID == "" || namespace.DeletionTimestamp != nil ||
-		namespace.Labels["opampcommander.io/installation-uid"] != c.config.InstallationUID {
-		ginutil.ProblemResponse(ctx, http.StatusForbidden, "Namespace is not assigned to this installation")
-
+	name := ctx.Param("namespace")
+	//exhaustruct:ignore
+	namespace, _ := c.requestNamespace(requestContext, ctx, authorizationv1.ResourceAttributes{
+		Group: permissionGroup, Resource: "namespaces", Verb: "get", Namespace: name, Name: name,
+	})
+	if namespace == nil {
 		return
 	}
 
@@ -125,14 +110,62 @@ func (c *Controller) namespace(ctx *gin.Context) {
 	})
 }
 
-func (c *Controller) authorize(ctx context.Context, headers []string, namespace string) int {
+func (c *Controller) requestNamespace(
+	requestContext context.Context, ctx *gin.Context, permission authorizationv1.ResourceAttributes,
+) (*corev1.Namespace, authenticationv1.UserInfo) {
+	identity, status := c.authenticate(requestContext, ctx.Request.Header.Values("Authorization"))
+	if status == http.StatusOK {
+		status = c.authorizeUser(requestContext, identity, permission)
+	}
+
+	if status != http.StatusOK {
+		if status == http.StatusUnauthorized {
+			ctx.Header("WWW-Authenticate", "Bearer")
+		}
+
+		ginutil.ProblemResponse(ctx, status, http.StatusText(status))
+
+		return nil, authenticationv1.UserInfo{}
+	}
+
+	err := c.checkInstallation(requestContext)
+	if err != nil {
+		ginutil.ProblemResponse(ctx, http.StatusServiceUnavailable, "Runtime installation unavailable")
+
+		return nil, authenticationv1.UserInfo{}
+	}
+
+	namespace, err := c.client.CoreV1().Namespaces().Get(requestContext, permission.Namespace, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		ginutil.ProblemResponse(ctx, http.StatusNotFound, "Namespace unavailable")
+
+		return nil, authenticationv1.UserInfo{}
+	}
+
+	if err != nil {
+		ginutil.ProblemResponse(ctx, http.StatusServiceUnavailable, "Namespace lookup unavailable")
+
+		return nil, authenticationv1.UserInfo{}
+	}
+
+	if namespace.UID == "" || namespace.DeletionTimestamp != nil ||
+		namespace.Labels["opampcommander.io/installation-uid"] != c.config.InstallationUID {
+		ginutil.ProblemResponse(ctx, http.StatusForbidden, "Namespace is not assigned to this installation")
+
+		return nil, authenticationv1.UserInfo{}
+	}
+
+	return namespace, identity
+}
+
+func (c *Controller) authenticate(ctx context.Context, headers []string) (authenticationv1.UserInfo, int) {
 	if len(headers) != 1 {
-		return http.StatusUnauthorized
+		return authenticationv1.UserInfo{}, http.StatusUnauthorized
 	}
 
 	fields := strings.Fields(headers[0])
 	if len(fields) != 2 || !strings.EqualFold(fields[0], "Bearer") {
-		return http.StatusUnauthorized
+		return authenticationv1.UserInfo{}, http.StatusUnauthorized
 	}
 
 	//exhaustruct:ignore
@@ -140,20 +173,22 @@ func (c *Controller) authorize(ctx context.Context, headers []string, namespace 
 		Spec: authenticationv1.TokenReviewSpec{Token: fields[1], Audiences: []string{c.config.Audience}},
 	}, metav1.CreateOptions{})
 	if err != nil {
-		return http.StatusServiceUnavailable
+		return authenticationv1.UserInfo{}, http.StatusServiceUnavailable
 	}
 
 	identity := review.Status.User
 	if !review.Status.Authenticated || review.Status.Error != "" ||
 		!slices.Contains(review.Status.Audiences, c.config.Audience) || identity.Username == "" ||
 		identity.Username == "system:anonymous" || slices.Contains(identity.Groups, "system:unauthenticated") {
-		return http.StatusUnauthorized
+		return authenticationv1.UserInfo{}, http.StatusUnauthorized
 	}
 
-	return c.authorizeUser(ctx, identity, namespace)
+	return identity, http.StatusOK
 }
 
-func (c *Controller) authorizeUser(ctx context.Context, identity authenticationv1.UserInfo, namespace string) int {
+func (c *Controller) authorizeUser(
+	ctx context.Context, identity authenticationv1.UserInfo, permission authorizationv1.ResourceAttributes,
+) int {
 	extra := make(map[string]authorizationv1.ExtraValue, len(identity.Extra))
 	for key, value := range identity.Extra {
 		extra[key] = authorizationv1.ExtraValue(value)
@@ -163,12 +198,7 @@ func (c *Controller) authorizeUser(ctx context.Context, identity authenticationv
 	access, err := c.client.AuthorizationV1().SubjectAccessReviews().Create(ctx, &authorizationv1.SubjectAccessReview{
 		//exhaustruct:ignore
 		Spec: authorizationv1.SubjectAccessReviewSpec{
-			User: identity.Username, UID: identity.UID, Groups: identity.Groups, Extra: extra,
-			//exhaustruct:ignore
-			ResourceAttributes: &authorizationv1.ResourceAttributes{
-				Group: "runtime.opampcommander.io", Resource: "namespaces", Verb: "get", Namespace: namespace,
-				Name: namespace,
-			},
+			User: identity.Username, UID: identity.UID, Groups: identity.Groups, Extra: extra, ResourceAttributes: &permission,
 		},
 	}, metav1.CreateOptions{})
 	if err != nil || access.Status.EvaluationError != "" {

@@ -10,11 +10,9 @@ needed by runtime clients. `GET /api/runtime/v1/namespaces/{name}` returns:
 {"name":"collectors","namespaceUID":"<namespace UID>","installationUID":"<anchor ConfigMap UID>"}
 ```
 
-This is identity discovery, not enrollment or Agent access. Legacy `/api/v1`
-routes still use their existing JWT/Casbin policy. Native credentials are not
-accepted by those routes, and legacy admin tokens cannot bypass native checks.
-Agent records do not yet carry the required installation/namespace UID binding;
-none are exposed through this endpoint. See the [control-plane ADR](../crd-control-plane/).
+Legacy `/api/v1` routes still use their existing JWT/Casbin policy. Native
+credentials are accepted on the runtime API. Agent records and their reports
+remain on the legacy API during migration. See the [control-plane ADR](../crd-control-plane/).
 
 ## Gateway setup
 
@@ -113,6 +111,37 @@ returns the current namespace UID: same-name recreation never reuses an old UID.
 This response is a point-in-time lookup, not a durable authorization grant; future
 Agent reads and mutations must validate enrolled UIDs and fencing independently.
 
+## Register an Agent identity
+
+On a Mongo-backed gateway with the native runtime API enabled, an authorized
+ServiceAccount can register its Agent instance UID:
+
+```http
+PUT /api/runtime/v1/namespaces/collectors/agent-enrollments/abc115aa-730b-4c1d-8638-e2b64eb27b34
+Authorization: Bearer <runtime audience token>
+Content-Type: application/json
+
+{"namespaceUID":"<current namespace UID>","installationUID":"<anchor ConfigMap UID>"}
+```
+
+Use the UIDs from discovery to pin the request to the intended scope even when
+retrying after namespace recreation. Grant the enrolling ServiceAccount `update`
+on the virtual `agentenrollments` resource in API group
+`runtime.opampcommander.io` with `resourceNames` restricted to its canonical
+instance UUID. Place the Role and RoleBinding in the Agent's namespace. Give the
+gateway ServiceAccount `get` access to core `serviceaccounts` in each enrolled
+namespace so it can verify that the reviewed credential belongs to the live
+ServiceAccount UID.
+
+The registration stores the verified ServiceAccount UID in MongoDB alongside
+the installation, namespace and instance UIDs. Repeating the same registration
+returns 204. A different ServiceAccount UID or changed installation/namespace
+scope returns 409 once the caller passes authorization. A recreated ServiceAccount
+has a new UID and requires an explicit migration of existing registrations.
+Back up these registrations with the installation metadata. OpAMP session
+authentication, existing Agent migration and runtime Agent operations have their
+own cutover steps.
+
 ## Check your namespace from kubectl
 
 Use `kubectl opamp runtime-scope` to check the namespace assignment against the
@@ -141,6 +170,6 @@ TokenReview/SAR, RoleBinding removal, ServiceAccount recreation, namespace
 recreation and installation-anchor replacement alongside the existing runtime
 and Operator regressions.
 
-Agent enrollment, scoped Agent operations and privileged payload permissions,
+OpAMP session enforcement, scoped Agent operations and privileged payload permissions,
 durable mutation audit, web/Grafana login and removal of legacy authentication
 remain follow-up work under #902. No Agent mutation permission is introduced here.

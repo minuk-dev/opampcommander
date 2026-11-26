@@ -33,7 +33,7 @@ func fixture() (runtimeapi.Config, *fake.Clientset) {
 func TestNewController(t *testing.T) {
 	t.Parallel()
 
-	disabled, err := runtimeapi.NewController(runtimeapi.Config{}, nil)
+	disabled, err := runtimeapi.NewController(runtimeapi.Config{}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, disabled)
 
@@ -53,7 +53,7 @@ func TestNewController(t *testing.T) {
 
 			config, client := fixture()
 			testCase.change(&config)
-			_, err := runtimeapi.NewController(config, client)
+			_, err := runtimeapi.NewController(config, client, nil)
 			require.Error(t, err)
 		})
 	}
@@ -151,7 +151,7 @@ func TestNamespaceAuthorization(t *testing.T) {
 				})
 			}
 
-			controller, err := runtimeapi.NewController(config, client)
+			controller, err := runtimeapi.NewController(config, client, nil)
 			require.NoError(t, err)
 
 			engine := gin.New()
@@ -202,7 +202,7 @@ func TestNamespaceIdentityChanges(t *testing.T) {
 			t.Parallel()
 
 			config, client := fixture()
-			controller, err := runtimeapi.NewController(config, client)
+			controller, err := runtimeapi.NewController(config, client, nil)
 			require.NoError(t, err)
 			client.PrependReactor("create", "tokenreviews", func(kubetesting.Action) (bool, runtime.Object, error) {
 				return true, &authenticationv1.TokenReview{Status: authenticationv1.TokenReviewStatus{
