@@ -29,12 +29,10 @@ tls:
   keyFile: server.key
   minVersion: "1.2"
   cipherSuites: [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256]
-auth:
-  jwt:
-    secret: s3cr3t
+liveness:
+  redis:
+    password: s3cr3t
 runtimeAPI:
-  enabled: true
-  audience: runtime
   installationNamespace: operator-system
   installationName: opamp-installation
   installationUID: installation-uid
@@ -82,7 +80,6 @@ event:
 	t.Run("merges flags, config file and env", func(t *testing.T) {
 		out, parsed := run(t)
 		assert.Equal(t, map[string]any{
-			"enabled": true, "audience": "runtime-from-env", "installationNamespace": "operator-system",
 			"installationName": "opamp-installation", "installationUID": "installation-uid",
 		}, parsed["runtimeAPI"])
 
@@ -98,12 +95,9 @@ event:
 		assert.Equal(t, "warn", log["level"])
 		assert.Equal(t, "json", log["format"])
 
-		auth, _ := parsed["auth"].(map[string]any)
-		jwt, _ := auth["jwt"].(map[string]any)
-		assert.Equal(t, "<redacted>", jwt["secret"])
-
-		oauth2, _ := auth["oauth2"].(map[string]any)
-		assert.Empty(t, oauth2["clientSecret"], "empty secrets are not redacted")
+		liveness, _ := parsed["liveness"].(map[string]any)
+		redis, _ := liveness["redis"].(map[string]any)
+		assert.Equal(t, "<redacted>", redis["password"])
 
 		event, _ := parsed["event"].(map[string]any)
 		kafka, _ := event["kafka"].(map[string]any)
@@ -181,9 +175,9 @@ event:
 	t.Run("show secrets", func(t *testing.T) {
 		_, parsed := run(t, "--show-secrets")
 
-		auth, _ := parsed["auth"].(map[string]any)
-		jwt, _ := auth["jwt"].(map[string]any)
-		assert.Equal(t, "s3cr3t", jwt["secret"])
+		liveness, _ := parsed["liveness"].(map[string]any)
+		redis, _ := liveness["redis"].(map[string]any)
+		assert.Equal(t, "s3cr3t", redis["password"])
 	})
 }
 

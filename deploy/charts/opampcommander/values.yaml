@@ -79,7 +79,6 @@ apiserver:
       # Which pre-built RemoteConfigSchemas to seed: latest, all, or none.
       remoteConfigSchemaLoad: latest
       defaultNamespace: default
-      defaultRole: default
 
     management:
       # Health checks (/healthz, /readyz), metrics and pprof. Kept on a separate
@@ -99,31 +98,6 @@ apiserver:
         # protocol: grpc
         # insecure: true
 
-    auth:
-      enabled: true
-      # "oauth2" (GitHub) or "basic".
-      type: oauth2
-      jwt:
-        issuer: opampcommander
-        expire: 30m
-        refreshExpire: 168h
-        audience:
-          - opampcommander
-      oauth2:
-        provider: github
-        # Public callback URL registered with the OAuth2 app.
-        redirectUri: ""
-        # Hosts the authcode endpoint accepts as redirect targets, on top of the
-        # always-allowed loopback hosts. Set this to the dashboard's public host.
-        allowedRedirectHosts: []
-        state:
-          mode: jwt
-          jwt:
-            issuer: opampcommander
-            expire: 5m
-            audience:
-              - opampcommander
-
     # metricsBackend:
     #   type: prometheus
     #   address: http://prometheus-server.monitoring:80
@@ -134,45 +108,15 @@ apiserver:
   # addresses are still read to derive container ports, so keep them in sync.
   existingConfigMap: ""
 
-  # Credentials injected as environment variables. Viper reads them with a
-  # higher precedence than the config file, so they override anything in
-  # `apiserver.config`.
+  # Optional Secret for authentication between direct-event peers.
   secrets:
-    # -- Render a Secret from the values below. Set false when using
-    # `existingSecret` or an external secret manager. Turning it off without
-    # some other credential source (existingSecret, existingConfigMap,
-    # extraEnv, extraEnvFrom) is refused: the server would otherwise fall back
-    # to its built-in admin/admin default and an empty JWT signing key.
-    create: true
-    # -- Name of an existing Secret to read credentials from. It must use the
-    # key names listed below; missing keys are tolerated.
+    create: false
     existingSecret: ""
     annotations: {}
-    # Key: adminUsername
-    adminUsername: "admin"
-    # Key: adminPassword. Generated randomly and preserved across upgrades when
-    # empty. Retrieve it with the command printed after install.
-    adminPassword: ""
-    # Key: jwtSecret. Signing key for issued access tokens. Generated when
-    # empty; changing it invalidates every outstanding token.
-    jwtSecret: ""
-    # Key: basicPepper. Server-side secret mixed into stored basic-auth password
-    # hashes. Generated when empty; changing it invalidates stored passwords.
-    basicPepper: ""
-    # Key: oauth2ClientId / oauth2ClientSecret. Required for OAuth2 login.
-    oauth2ClientId: ""
-    oauth2ClientSecret: ""
-    # Key: oauth2StateJwtSecret. Signs the OAuth2 CSRF state token. Generated
-    # when empty.
-    oauth2StateJwtSecret: ""
-    # Key: directAuthToken. Pre-shared bearer token peers present to each other
-    # in `event.type: direct`. Empty trusts the cluster network.
     directAuthToken: ""
 
   service:
-    # Applies to the API Service only. Health, metrics and pprof get their own
-    # Service, always ClusterIP: a NodePort or LoadBalancer Service publishes
-    # every one of its ports externally, and pprof must not be one of them.
+    # The combined REST and OpAMP listener stays on the cluster network.
     type: ClusterIP
     # REST API + OpAMP WebSocket endpoint.
     port: 8080
@@ -180,9 +124,6 @@ apiserver:
     managementPort: 9090
     annotations: {}
     labels: {}
-    # Only used when type is NodePort or LoadBalancer.
-    nodePorts:
-      http: ""
 
   ingress:
     enabled: false
@@ -194,9 +135,6 @@ apiserver:
     annotations: {}
     hosts:
       - host: opampcommander.local
-        paths:
-          - path: /
-            pathType: Prefix
     tls: []
     #  - secretName: opampcommander-tls
     #    hosts:
@@ -311,8 +249,8 @@ apiserver:
   args: []
 
 web:
-  # -- Deploy the Next.js dashboard.
-  enabled: true
+  # -- Deploy the legacy Next.js dashboard. Requires its own legacy backend.
+  enabled: false
   replicaCount: 1
 
   image:
@@ -321,8 +259,7 @@ web:
     tag: ""
     pullPolicy: IfNotPresent
 
-  # -- Base URL the dashboard's server-side proxy uses to reach the apiserver.
-  # Empty points at the in-cluster apiserver Service of this release.
+  # -- Base URL of a separately deployed legacy apiserver.
   apiUrl: ""
 
   service:

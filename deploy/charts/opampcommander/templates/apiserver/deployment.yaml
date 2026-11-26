@@ -4,7 +4,6 @@
 {{- $eventType := include "opampcommander.apiserver.eventType" . }}
 {{- $directPort := include "opampcommander.apiserver.directPort" . }}
 {{- $config := $apiserver.config | default dict }}
-{{- $gatewayOnly := dig "opamp" "gatewayOnly" false $config }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -120,28 +119,12 @@ spec:
             {{- end }}
             {{- if include "opampcommander.apiserver.hasSecret" . }}
             {{- $secretName := include "opampcommander.apiserver.secretName" . }}
-            # Credentials. Environment variables outrank the config file, and
-            # each key is optional so a partially populated existing Secret and
-            # an unset value both fall back to the config file.
-            {{- $credentials := dict "EVENT_DIRECT_AUTHTOKEN" "directAuthToken" }}
-            {{- if not $gatewayOnly }}
-            {{- $_ := merge $credentials (dict
-                  "AUTH_ADMIN_USERNAME" "adminUsername"
-                  "AUTH_ADMIN_PASSWORD" "adminPassword"
-                  "AUTH_JWT_SECRET" "jwtSecret"
-                  "AUTH_BASIC_PEPPER" "basicPepper"
-                  "AUTH_OAUTH2_CLIENTID" "oauth2ClientId"
-                  "AUTH_OAUTH2_CLIENTSECRET" "oauth2ClientSecret"
-                  "AUTH_OAUTH2_STATE_JWT_SECRET" "oauth2StateJwtSecret") }}
-            {{- end }}
-            {{- range $env, $key := $credentials }}
-            - name: {{ $env }}
+            - name: EVENT_DIRECT_AUTHTOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ $secretName }}
-                  key: {{ $key }}
+                  key: directAuthToken
                   optional: true
-            {{- end }}
             {{- end }}
             {{- with $apiserver.extraEnv }}
             {{- toYaml . | nindent 12 }}

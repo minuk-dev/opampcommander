@@ -11,7 +11,6 @@ bootstrap:
   # built-in defaults; the container image ships these at /etc/opampcommander/initial.
   dir: ./configs/apiserver/initial
   defaultNamespace: default # agents without a service.namespace land here
-  defaultRole: default # built-in role auto-granted to every user
 database:
   type: "inmemory" # in-memory store; no MongoDB needed. Data is not persisted across restarts.
 event:
@@ -29,33 +28,3 @@ management:
     format: text
   trace:
     enabled: false # no OpenTelemetry collector required in standalone mode
-auth:
-  enabled: true
-  admin:
-    username: "admin"
-    password: "admin"
-  basic:
-    # Server-side secret mixed into every basic-auth user password hash.
-    # Set a long, random value and keep it stable. Empty disables DB-backed basic-auth users.
-    pepper: "standalone_basic_auth_pepper_change_me"
-  jwt:
-    issuer: "opampcommander"
-    expire: 5m
-    refreshExpire: 168h
-    secret: "your_jwt_secret"
-    audience:
-    - "opampcommander"
-  type: "oauth2"
-  oauth2:
-    provider: github
-    clientId: "your_client_id"
-    clientSecret: "your_client_secret"
-    redirectUri: "http://localhost:8080/auth/callback"
-    state: # to prevent CSRF attacks
-      mode: jwt
-      jwt:
-        issuer: "opampcommander"
-        expire: 5m
-        secret: "your_jwt_secret"
-        audience:
-        - "opampcommander"

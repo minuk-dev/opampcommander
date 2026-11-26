@@ -3,6 +3,7 @@ apiserver:
   enabled: false
 
 web:
+  enabled: true
   apiUrl: "http://opampcommander-apiserver.opampcommander.svc.cluster.local:8080"
   ingress:
     enabled: true

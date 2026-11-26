@@ -12,7 +12,6 @@ import (
 	agentpackageApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentpackage"
 	agentremoteconfigApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentremoteconfig"
 	applicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/application"
-	authApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/auth"
 	certificateApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/certificate"
 	containerApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/container"
 	endpointApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/endpoint"
@@ -22,10 +21,7 @@ import (
 	opampApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/opamp"
 	reconcileApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/reconcile"
 	remoteconfigschemaApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/remoteconfigschema"
-	roleApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/role"
-	rolebindingApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/rolebinding"
 	serverApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/server"
-	userApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/user"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -115,21 +111,6 @@ func New() fx.Option {
 			fx.Annotate(
 				Identity[*endpointmetricsApplicationService.Service],
 				fx.As(new(usecase.EndpointMetricsUsecase)),
-			),
-
-			// user & RBAC application services
-			authApplicationService.New,
-			fx.Annotate(Identity[*authApplicationService.Service], fx.As(new(usecase.AuthProvisioningUsecase))),
-			userApplicationService.New,
-			fx.Annotate(Identity[*userApplicationService.Service], fx.As(new(usecase.UserManageUsecase))),
-
-			roleApplicationService.New,
-			fx.Annotate(Identity[*roleApplicationService.Service], fx.As(new(usecase.RoleManageUsecase))),
-
-			rolebindingApplicationService.New,
-			fx.Annotate(
-				Identity[*rolebindingApplicationService.Service],
-				fx.As(new(usecase.RoleBindingManageUsecase)),
 			),
 		),
 	)

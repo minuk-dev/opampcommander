@@ -80,7 +80,7 @@ spec:
           env:
             # Read per request by the dashboard's server-side proxy route.
             - name: OPAMP_API_URL
-              value: {{ include "opampcommander.web.apiUrl" . | quote }}
+              value: {{ .Values.web.apiUrl | quote }}
             - name: PORT
               value: {{ $web.containerPorts.http | quote }}
             {{- with $web.extraEnv }}

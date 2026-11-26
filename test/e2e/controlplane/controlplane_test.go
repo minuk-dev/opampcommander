@@ -40,12 +40,10 @@ func TestControlPlane(t *testing.T) {
 	port, err := strconv.Atoi(os.Getenv("OPAMP_E2E_PORT"))
 	require.NoError(t, err)
 
-	apiClient := client.New(fmt.Sprintf("http://127.0.0.1:%d", port),
-		client.WithBasicAuth(testutil.DefaultAdminUsername, testutil.DefaultAdminPassword))
+	apiClient := client.New(fmt.Sprintf("http://127.0.0.1:%d", port))
 	require.NoError(t, apiClient.Ping())
 
-	t.Run("native runtime authorization", func(t *testing.T) { testRuntimeAuthorization(t, port) })
-	t.Run("native Agent enrollment", func(t *testing.T) { testRuntimeEnrollment(t, port) })
+	t.Run("runtime namespace ownership", func(t *testing.T) { testRuntimeOwnership(t, port) })
 
 	t.Run("runtime wire contracts", func(t *testing.T) {
 		for _, transport := range []testutil.ReferenceAgentTransport{
@@ -173,8 +171,6 @@ func testNativeConfiguration(t *testing.T, apiClient *client.Client) {
 	}
 
 	kubectl(t, "label", "namespace", "default", "opampcommander.io/installation-uid="+anchorUID, "--overwrite")
-	waitCondition(t, "RuntimeScopeVerified", "Unknown")
-	kubectl(t, "apply", "-f", "operator-runtime-reader.yaml")
 	waitCondition(t, "RuntimeScopeVerified", "True")
 	waitCondition(t, "ReferencesFound", "True")
 	waitCondition(t, "Ready", "Unknown")

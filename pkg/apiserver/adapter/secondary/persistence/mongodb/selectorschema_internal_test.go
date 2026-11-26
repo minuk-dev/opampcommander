@@ -9,7 +9,6 @@ import (
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	"github.com/minuk-dev/opampcommander/pkg/selector"
 )
 
@@ -39,9 +38,6 @@ func TestSelectorSchemasCoverTheDomainAllowlists(t *testing.T) {
 		{"host", hostSelectorSchema, agentmodel.HostSelectableFields, true},
 		{"namespace", namespaceSelectorSchema, agentmodel.NamespaceSelectableFields, true},
 		{"remoteconfigschema", remoteConfigSchemaSelectorSchema, agentmodel.RemoteConfigSchemaSelectableFields, true},
-		{"user", userSelectorSchema, usermodel.UserSelectableFields, true},
-		{"role", roleSelectorSchema, usermodel.RoleSelectableFields, false},
-		{"rolebinding", roleBindingSelectorSchema, usermodel.RoleBindingSelectableFields, false},
 	}
 
 	for _, testCase := range testCases {

@@ -199,17 +199,6 @@ app.kubernetes.io/component: web
 {{- end }}
 
 {{/*
-Backend URL the dashboard's server-side proxy calls.
-*/}}
-{{- define "opampcommander.web.apiUrl" -}}
-{{- if .Values.web.apiUrl -}}
-{{- .Values.web.apiUrl -}}
-{{- else -}}
-{{- printf "http://%s:%d" (include "opampcommander.apiserver.fullname" .) (int .Values.apiserver.service.port) -}}
-{{- end -}}
-{{- end }}
-
-{{/*
 =============================================================================
 Validation. Rendered from the apiserver Deployment so a bad combination fails
 `helm install`/`helm template` instead of producing a silently broken release.
@@ -219,7 +208,6 @@ Validation. Rendered from the apiserver Deployment so a bad combination fails
 {{- $messages := list -}}
 {{- $eventType := include "opampcommander.apiserver.eventType" . -}}
 {{- $databaseType := include "opampcommander.apiserver.databaseType" . -}}
-{{- $gatewayOnly := dig "opamp" "gatewayOnly" false (.Values.apiserver.config | default dict) -}}
 {{- $multiReplica := or (gt (int .Values.apiserver.replicaCount) 1) .Values.apiserver.autoscaling.enabled -}}
 {{- if and .Values.apiserver.enabled $multiReplica (eq $databaseType "inmemory") -}}
 {{- $messages = append $messages "  - apiserver.config.database.type is \"inmemory\", which is per-process state and cannot be shared. Use \"mongodb\" to run more than one apiserver replica." -}}
@@ -239,26 +227,14 @@ Validation. Rendered from the apiserver Deployment so a bad combination fails
 {{- if and .Values.apiserver.enabled (eq $databaseType "mongodb") (not $externalDatabaseEndpoints) (not (dig "database" "endpoints" list (.Values.apiserver.config | default dict))) -}}
 {{- $messages = append $messages "  - apiserver.config.database.type is \"mongodb\" but apiserver.config.database.endpoints is empty." -}}
 {{- end -}}
-{{/*
-With no Secret and no other credential source, the server falls back to its
-built-in flag defaults: admin/admin, and an empty JWT signing key. Anything that
-could carry credentials instead — an existing ConfigMap, extraEnv, extraEnvFrom
-— counts, so this only fires when there is definitively nothing.
-*/}}
-{{- if and .Values.apiserver.enabled
-      (not $gatewayOnly)
-      (not .Values.apiserver.secrets.create)
-      (not .Values.apiserver.secrets.existingSecret)
-      (not .Values.apiserver.existingConfigMap)
-      (not .Values.apiserver.extraEnv)
-      (not .Values.apiserver.extraEnvFrom) -}}
-{{- $messages = append $messages "  - nothing supplies credentials: apiserver.secrets.create is false with no existingSecret, and no existingConfigMap, extraEnv or extraEnvFrom either. The apiserver would start with its built-in admin/admin default and an empty JWT signing key." -}}
+{{- if and .Values.apiserver.enabled (ne .Values.apiserver.service.type "ClusterIP") -}}
+{{- $messages = append $messages "  - apiserver.service.type must be ClusterIP because the REST listener is private." -}}
 {{- end -}}
-{{- if and .Values.apiserver.enabled $gatewayOnly .Values.web.enabled (not .Values.web.apiUrl) -}}
-{{- $messages = append $messages "  - the web dashboard requires the legacy API. Disable web.enabled or configure web.apiUrl for a separate legacy deployment." -}}
+{{- if and .Values.apiserver.enabled .Values.apiserver.hostNetwork -}}
+{{- $messages = append $messages "  - apiserver.hostNetwork must be false because the REST listener is private." -}}
 {{- end -}}
-{{- if and .Values.web.enabled (not .Values.apiserver.enabled) (not .Values.web.apiUrl) -}}
-{{- $messages = append $messages "  - apiserver.enabled is false, so web.apiUrl must point at an apiserver deployed elsewhere." -}}
+{{- if and .Values.web.enabled (not .Values.web.apiUrl) -}}
+{{- $messages = append $messages "  - web.apiUrl must point at a separately deployed legacy apiserver." -}}
 {{- end -}}
 {{- if $messages -}}
 {{- fail (printf "\nopampcommander: invalid values:\n%s" (join "\n" $messages)) -}}

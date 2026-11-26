@@ -536,7 +536,7 @@ func TestAgentPackageController_ConditionalMutations(t *testing.T) {
 	ctrlBase := testutil.NewBase(t).ForController()
 	repo := inmemory.NewAgentPackageRepository()
 	domain := agentservice.NewAgentPackageService(repo)
-	service := agentpackagesvc.NewAgentPackageService(domain, ctrlBase.Logger)
+	service := agentpackagesvc.NewAgentPackageService(domain)
 	ctrlBase.SetupRouter(agentpackage.NewController(service, ctrlBase.Logger))
 	server := httptest.NewServer(ctrlBase.Router)
 	t.Cleanup(server.Close)
@@ -611,7 +611,7 @@ func TestAgentPackageController_MergePatch(t *testing.T) {
 	ctx := t.Context()
 	base := testutil.NewBase(t).ForController()
 	domain := agentservice.NewAgentPackageService(inmemory.NewAgentPackageRepository())
-	svc := agentpackagesvc.NewAgentPackageService(domain, base.Logger)
+	svc := agentpackagesvc.NewAgentPackageService(domain)
 	base.SetupRouter(agentpackage.NewController(svc, base.Logger))
 
 	server := httptest.NewServer(base.Router)

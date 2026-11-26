@@ -442,35 +442,6 @@ var (
 			"spec.version":       {path: "spec.version", kind: fieldString},
 		},
 	}
-	// Roles and role bindings carry no label map, so a label selector against
-	// either is rejected rather than silently answered with an empty page.
-	roleSelectorSchema = selectorSchema{
-		labelPath:           "",
-		additionalLabelPath: "",
-		labelStorage:        labelsUnsupported,
-		namePath:            "spec.displayName",
-		fields: map[string]fieldSpec{
-			"spec.isBuiltIn": {path: "spec.isBuiltIn", kind: fieldBool},
-		},
-	}
-	roleBindingSelectorSchema = selectorSchema{
-		labelPath:           "",
-		additionalLabelPath: "",
-		labelStorage:        labelsUnsupported,
-		namePath:            roleBindingNameFieldName,
-		fields: map[string]fieldSpec{
-			"spec.roleRef.name": {path: "spec.roleRef.name", kind: fieldString},
-		},
-	}
-	userSelectorSchema = selectorSchema{
-		labelPath:           "metadata.labels",
-		additionalLabelPath: "",
-		labelStorage:        labelsMap,
-		namePath:            "spec.email",
-		fields: map[string]fieldSpec{
-			"spec.isActive": {path: "spec.isActive", kind: fieldBool},
-		},
-	}
 	// noSelectorSchema is for collections that expose no selector filtering; a
 	// request that carries one is rejected rather than silently unfiltered.
 	//

@@ -15,7 +15,6 @@ import (
 	agentpackagesvc "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentpackage"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 var errMock = errors.New("mock error")
@@ -115,9 +114,7 @@ func (m *mockAgentPackageUsecase) DeleteAgentPackage(
 func newSvc(t *testing.T, pkg *mockAgentPackageUsecase) *agentpackagesvc.Service {
 	t.Helper()
 
-	base := testutil.NewBase(t)
-
-	return agentpackagesvc.NewAgentPackageService(pkg, base.Logger)
+	return agentpackagesvc.NewAgentPackageService(pkg)
 }
 
 func newPkg() *agentmodel.AgentPackage {

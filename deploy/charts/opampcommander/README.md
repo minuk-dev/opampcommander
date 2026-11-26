@@ -12,17 +12,14 @@ helm install opampcommander ./deploy/charts/opampcommander \
   --namespace opampcommander --create-namespace
 ```
 
-The defaults install a **self-contained demo**: one apiserver replica backed by
-the in-memory store, plus the dashboard. Nothing outside the cluster is needed
-and nothing survives a restart.
-
-Reach it, and read the generated admin password:
+The defaults install a single apiserver replica with an in-memory store.
+For local Agent testing, port-forward over loopback:
 
 ```sh
-kubectl -n opampcommander port-forward svc/opampcommander-web 3000:3000
-kubectl -n opampcommander get secret opampcommander-apiserver \
-  -o jsonpath='{.data.adminPassword}' | base64 -d; echo
+kubectl -n opampcommander port-forward svc/opampcommander-apiserver 8080:8080
 ```
+
+Connect an Agent to `ws://localhost:8080/api/v1/opamp`.
 
 Verify a release with the bundled connectivity test:
 
@@ -135,13 +132,6 @@ apiserver:
       kafka:
         brokers: ["kafka-0.kafka:9092"]
         topic: "prod.opampcommander.events"
-    auth:
-      oauth2:
-        redirectUri: "https://opampcommander.example.com/auth/callback"
-        allowedRedirectHosts: ["opampcommander.example.com"]
-  secrets:
-    create: false
-    existingSecret: opampcommander-credentials
   ingress:
     enabled: true
     className: nginx
@@ -151,16 +141,9 @@ apiserver:
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     hosts:
       - host: api.opampcommander.example.com
-        paths: [{ path: /, pathType: Prefix }]
-
-web:
-  ingress:
-    enabled: true
-    className: nginx
-    hosts:
-      - host: opampcommander.example.com
-        paths: [{ path: /, pathType: Prefix }]
 ```
+
+The Ingress serves only the OpAMP path on the configured hosts.
 
 The chart refuses to render combinations that cannot work — more than one
 replica on the in-memory store or the in-memory event bus, `type: mongodb` with
@@ -193,36 +176,17 @@ Two things are handled outside that map:
   Service can never drift from what the process actually binds. Both must bind
   `0.0.0.0`, not `localhost`, or the pod is unreachable.
 
-### OpAMP-only gateway
+### API access and runtime identity
 
-Use this mode where Kubernetes is the management entry point and Commander
-only needs to accept Agent traffic:
+The apiserver Service is ClusterIP. The optional chart Ingress forwards only
+`/api/v1/opamp` on each configured host. Restrict access to the private REST
+API to trusted workloads. Users manage resources through the Kubernetes API.
 
-```yaml
-apiserver:
-  config:
-    opamp:
-      gatewayOnly: true
-  secrets:
-    create: false
-web:
-  enabled: false
-```
-
-The API listener serves `/api/v1/opamp` over HTTP and WebSocket. Configure
-Agent TLS or mTLS as usual. The internal management Service retains `/healthz`
-and `/readyz`. Gateway mode skips REST routes, Commander user authentication,
-Casbin, and the legacy bootstrap manifests. Keep `runtimeAPI.enabled` off.
-For an installation-bound deployment, keep `runtimeAPI.installationNamespace`,
-`runtimeAPI.installationName` and `runtimeAPI.installationUID` configured. Allow
-the gateway ServiceAccount to `get` the anchor ConfigMap. The gateway verifies
-the anchor and, with MongoDB, the database binding before serving traffic.
-Supply MongoDB, Redis, and direct messaging credentials used by your deployment.
-Pin an image built with gateway mode before enabling these values.
-
-Kubernetes configuration operations use the installed CRDs. Agent reads and
-actions through Kubernetes are a separate part of the cutover. Existing REST
-clients need a compatibility deployment during their migration.
+For installation binding, set `runtimeAPI.installationNamespace`,
+`runtimeAPI.installationName` and `runtimeAPI.installationUID`, and allow
+the apiserver ServiceAccount to read the anchor ConfigMap and Namespaces.
+The apiserver verifies the live anchor and, with MongoDB, checks the database
+binding before serving traffic.
 
 ### Mounted secret files
 
@@ -238,8 +202,7 @@ Create the referenced `opampcommander-secret-files` Secret in the release
 namespace first, with every key named in the example. `databaseURI` holds one
 complete MongoDB URI, including any replica-set host list. The example reuses
 `extraEnv`, `extraVolumes`, and `extraVolumeMounts`; credentials never enter the
-chart ConfigMap. Set the appropriate public OAuth2 client ID and callback URL
-separately. Mount files readable by the pod's configured user/group.
+chart ConfigMap. Mount files readable by the pod's configured user/group.
 
 Keep `secrets.create: false` and `secrets.existingSecret: ""` in file mode so the
 chart does not inject direct secret environment values, which would take
@@ -250,25 +213,12 @@ Restart the deployment after changing mounted secrets; values are read at startu
 
 | Secret key | Environment variable | Purpose |
 |---|---|---|
-| `adminUsername` | `AUTH_ADMIN_USERNAME` | Built-in admin login |
-| `adminPassword` | `AUTH_ADMIN_PASSWORD` | Built-in admin login |
-| `jwtSecret` | `AUTH_JWT_SECRET` | Signs issued access tokens |
-| `basicPepper` | `AUTH_BASIC_PEPPER` | Peppers stored basic-auth password hashes |
-| `oauth2ClientId` | `AUTH_OAUTH2_CLIENTID` | GitHub OAuth2 app |
-| `oauth2ClientSecret` | `AUTH_OAUTH2_CLIENTSECRET` | GitHub OAuth2 app |
-| `oauth2StateJwtSecret` | `AUTH_OAUTH2_STATE_JWT_SECRET` | Signs the OAuth2 CSRF state token |
-| `directAuthToken` | `EVENT_DIRECT_AUTHTOKEN` | Pre-shared token between peers in `event.type: direct` |
+| `directAuthToken` | `EVENT_DIRECT_AUTHTOKEN` | Pre-shared token between direct-event peers |
 
-`adminPassword`, `jwtSecret`, `basicPepper` and `oauth2StateJwtSecret` are
-generated when left empty and carried forward on upgrade by reading the Secret
-already in the cluster.
-
-> That lookup returns nothing under `helm template` and `--dry-run`. A
-> render-then-apply (GitOps/Argo CD) flow therefore **must** set them
-> explicitly, or every render rotates them — invalidating every issued token and
-> every stored password. Point `apiserver.secrets.existingSecret` at a Secret
-> you manage (External Secrets, Sealed Secrets, …) and set
-> `apiserver.secrets.create: false`.
+For direct events, supply a managed Secret through
+`apiserver.secrets.existingSecret`, or set `apiserver.secrets.create` and
+provide the token. Helm can carry an existing token forward on upgrade.
+A render-only workflow must provide the token explicitly or use a managed Secret.
 
 ### Multi-replica coordination
 
@@ -308,11 +258,11 @@ changed ones:
 | `apiserver.config` | see values | Contents of the apiserver `config.yaml` |
 | `apiserver.existingConfigMap` | `""` | Use a ConfigMap you manage instead |
 | `apiserver.secrets.existingSecret` | `""` | Use a Secret you manage instead |
-| `apiserver.ingress.enabled` | `false` | Expose the REST API and OpAMP endpoint |
+| `apiserver.ingress.enabled` | `false` | Expose only the OpAMP endpoint |
 | `apiserver.serviceMonitor.enabled` | `false` | Prometheus Operator scrape config |
 | `apiserver.autoscaling.enabled` | `false` | HPA for the apiserver |
-| `web.enabled` | `true` | Deploy the dashboard |
-| `web.apiUrl` | `""` | Defaults to this release's apiserver Service |
+| `web.enabled` | `false` | Deploy the legacy dashboard |
+| `web.apiUrl` | `""` | Required legacy backend URL if the legacy dashboard is enabled |
 | `web.ingress.enabled` | `false` | Expose the dashboard |
 
 ## Development

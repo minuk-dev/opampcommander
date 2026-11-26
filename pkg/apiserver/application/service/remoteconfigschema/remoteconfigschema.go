@@ -4,7 +4,6 @@ package remoteconfigschema
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/samber/lo"
 
@@ -14,7 +13,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -26,13 +25,11 @@ type Service struct {
 	schemaUsecase agentport.RemoteConfigSchemaUsecase
 	mapper        *helper.Mapper
 	clock         clock.Clock
-	logger        *slog.Logger
 }
 
 // NewRemoteConfigSchemaService creates a new remote config schema Service.
 func NewRemoteConfigSchemaService(
 	schemaUsecase agentport.RemoteConfigSchemaUsecase,
-	logger *slog.Logger,
 ) *Service {
 	realClock := clock.NewRealClock()
 
@@ -40,7 +37,6 @@ func NewRemoteConfigSchemaService(
 		schemaUsecase: schemaUsecase,
 		mapper:        helper.NewMapper(realClock, 0),
 		clock:         realClock,
-		logger:        logger,
 	}
 }
 
@@ -93,7 +89,7 @@ func (s *Service) CreateRemoteConfigSchema(
 ) (*v1.RemoteConfigSchema, error) {
 	domainModel := s.mapper.MapAPIToRemoteConfigSchema(apiModel)
 
-	saved, err := s.schemaUsecase.CreateRemoteConfigSchema(ctx, domainModel, s.actor(ctx))
+	saved, err := s.schemaUsecase.CreateRemoteConfigSchema(ctx, domainModel, model.APIServerActor)
 	if err != nil {
 		return nil, fmt.Errorf("create remote config schema: %w", err)
 	}
@@ -125,27 +121,11 @@ func (s *Service) DeleteRemoteConfigSchema(
 	name string,
 ) error {
 	err := s.schemaUsecase.DeleteRemoteConfigSchema(
-		ctx, namespace, name, s.clock.Now(), s.actor(ctx),
+		ctx, namespace, name, s.clock.Now(), model.APIServerActor,
 	)
 	if err != nil {
 		return fmt.Errorf("delete remote config schema: %w", err)
 	}
 
 	return nil
-}
-
-// actor resolves the acting user from the request context, falling back to an
-// anonymous identity (and logging) when none is present.
-func (s *Service) actor(ctx context.Context) string {
-	user, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn(
-			"failed to get user from context",
-			slog.String("error", err.Error()),
-		)
-
-		user = security.NewAnonymousUser()
-	}
-
-	return user.String()
 }

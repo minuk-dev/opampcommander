@@ -4,7 +4,6 @@ package namespace
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/samber/lo"
 
@@ -14,7 +13,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -31,24 +30,21 @@ var (
 var _ usecase.NamespaceManageUsecase = (*Service)(nil)
 
 // Service is a service for managing namespaces. It maps between the HTTP DTOs and
-// the domain, extracts the acting user from the request context, and delegates
+// the domain, and delegates
 // all namespace business rules (uniqueness, default-namespace protection, cascade
 // delete) to the domain NamespaceUsecase.
 type Service struct {
 	namespaceUsecase agentport.NamespaceUsecase
 	mapper           *helper.Mapper
-	logger           *slog.Logger
 }
 
 // NewNamespaceService creates a new namespace manage service.
 func NewNamespaceService(
 	namespaceUsecase agentport.NamespaceUsecase,
-	logger *slog.Logger,
 ) *Service {
 	return &Service{
 		namespaceUsecase: namespaceUsecase,
 		mapper:           helper.NewMapper(clock.NewRealClock(), 0),
-		logger:           logger,
 	}
 }
 
@@ -99,7 +95,7 @@ func (s *Service) CreateNamespace(
 ) (*v1.Namespace, error) {
 	domainModel := s.mapper.MapAPIToNamespace(apiModel)
 
-	created, err := s.namespaceUsecase.CreateNamespace(ctx, domainModel, s.actor(ctx))
+	created, err := s.namespaceUsecase.CreateNamespace(ctx, domainModel, model.APIServerActor)
 	if err != nil {
 		return nil, fmt.Errorf("create namespace: %w", err)
 	}
@@ -130,7 +126,7 @@ func (s *Service) DeleteNamespace(
 	name string,
 	resourceVersion ...int64,
 ) error {
-	err := s.namespaceUsecase.DeleteNamespace(ctx, name, s.actor(ctx), resourceVersion...)
+	err := s.namespaceUsecase.DeleteNamespace(ctx, name, model.APIServerActor, resourceVersion...)
 	if err != nil {
 		return fmt.Errorf("delete namespace %q: %w", name, err)
 	}
@@ -153,17 +149,4 @@ func (s *Service) PatchNamespace(
 	}
 
 	return result, nil
-}
-
-// actor resolves the acting user from the request context, falling back to an
-// anonymous identity (and logging) when none is present.
-func (s *Service) actor(ctx context.Context) string {
-	user, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		user = security.NewAnonymousUser()
-	}
-
-	return user.String()
 }

@@ -116,11 +116,12 @@ proxy and port forwarding for privileged cluster operations: those permissions
 grant access to the backend service or Pod as a whole. Read access to configuration
 CRs gives no permission to resolved Agent configuration.
 
-`opamp.gatewayOnly` starts the OpAMP transport and the separate health and metrics
-listener. It omits user and runtime REST routes and skips legacy auth and manifest
-bootstrap. Legacy installations can read about the transitional direct API in
-[runtime authentication](../runtime-authentication/). Kubernetes-mediated Agent
-reads and actions and migration of existing runtime records are tracked in
+The apiserver serves the OpAMP endpoint and an internal REST API. Kubernetes
+RBAC controls management requests at the Kubernetes API. If a deployment adds
+a proxy in front of the internal API, enforce access at that proxy. See
+[runtime identity setup](../runtime-authentication/) for namespace ownership
+and the MongoDB installation binding. Kubernetes-mediated Agent reads and
+actions and migration of existing records are tracked in
 [#902](https://github.com/minuk-dev/opampcommander/issues/902) and
 [#906](https://github.com/minuk-dev/opampcommander/issues/906).
 
