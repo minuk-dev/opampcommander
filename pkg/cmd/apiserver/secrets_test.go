@@ -84,6 +84,15 @@ func TestSecretFileFailures(t *testing.T) {
 	}
 }
 
+func TestGatewayDoesNotReadUserAuthFiles(t *testing.T) {
+	t.Setenv("AUTH_JWT_SECRET", "")
+	t.Setenv("AUTH_JWT_SECRET_FILE", filepath.Join(t.TempDir(), "absent"))
+
+	out, _, err := secretConfigView(t, "--opamp.gatewayOnly")
+	require.NoError(t, err)
+	require.NotContains(t, out, "AUTH_JWT_SECRET_FILE")
+}
+
 func TestSecretFileOverridesYAML(t *testing.T) {
 	t.Setenv("AUTH_JWT_SECRET", "")
 	filename := filepath.Join(t.TempDir(), "secret")

@@ -219,6 +219,7 @@ Validation. Rendered from the apiserver Deployment so a bad combination fails
 {{- $messages := list -}}
 {{- $eventType := include "opampcommander.apiserver.eventType" . -}}
 {{- $databaseType := include "opampcommander.apiserver.databaseType" . -}}
+{{- $gatewayOnly := dig "opamp" "gatewayOnly" false (.Values.apiserver.config | default dict) -}}
 {{- $multiReplica := or (gt (int .Values.apiserver.replicaCount) 1) .Values.apiserver.autoscaling.enabled -}}
 {{- if and .Values.apiserver.enabled $multiReplica (eq $databaseType "inmemory") -}}
 {{- $messages = append $messages "  - apiserver.config.database.type is \"inmemory\", which is per-process state and cannot be shared. Use \"mongodb\" to run more than one apiserver replica." -}}
@@ -245,12 +246,16 @@ could carry credentials instead — an existing ConfigMap, extraEnv, extraEnvFro
 — counts, so this only fires when there is definitively nothing.
 */}}
 {{- if and .Values.apiserver.enabled
+      (not $gatewayOnly)
       (not .Values.apiserver.secrets.create)
       (not .Values.apiserver.secrets.existingSecret)
       (not .Values.apiserver.existingConfigMap)
       (not .Values.apiserver.extraEnv)
       (not .Values.apiserver.extraEnvFrom) -}}
 {{- $messages = append $messages "  - nothing supplies credentials: apiserver.secrets.create is false with no existingSecret, and no existingConfigMap, extraEnv or extraEnvFrom either. The apiserver would start with its built-in admin/admin default and an empty JWT signing key." -}}
+{{- end -}}
+{{- if and .Values.apiserver.enabled $gatewayOnly .Values.web.enabled (not .Values.web.apiUrl) -}}
+{{- $messages = append $messages "  - the web dashboard requires the legacy API. Disable web.enabled or configure web.apiUrl for a separate legacy deployment." -}}
 {{- end -}}
 {{- if and .Values.web.enabled (not .Values.apiserver.enabled) (not .Values.web.apiUrl) -}}
 {{- $messages = append $messages "  - apiserver.enabled is false, so web.apiUrl must point at an apiserver deployed elsewhere." -}}

@@ -1,4 +1,5 @@
 {{ .Chart.Name }} {{ .Chart.AppVersion }} has been installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+{{- $gatewayOnly := dig "opamp" "gatewayOnly" false (.Values.apiserver.config | default dict) }}
 
 {{- if .Values.apiserver.enabled }}
 
@@ -19,7 +20,10 @@ Port-forward to reach it:
 
   kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "opampcommander.apiserver.fullname" . }} {{ .Values.apiserver.service.port }}:{{ .Values.apiserver.service.port }}
 
-  REST API + OpAMP WebSocket: http://localhost:{{ .Values.apiserver.service.port }}
+  OpAMP WebSocket: ws://localhost:{{ .Values.apiserver.service.port }}/api/v1/opamp
+  {{- if not $gatewayOnly }}
+  REST API: http://localhost:{{ .Values.apiserver.service.port }}
+  {{- end }}
 {{- end }}
 
 Point a collector's OpAMP extension at:
@@ -50,7 +54,7 @@ Port-forward to reach it:
 {{- end }}
 {{- end }}
 
-{{- if and .Values.apiserver.enabled .Values.apiserver.secrets.create (not .Values.apiserver.secrets.existingSecret) }}
+{{- if and .Values.apiserver.enabled (not $gatewayOnly) .Values.apiserver.secrets.create (not .Values.apiserver.secrets.existingSecret) }}
 
 admin credentials
 -----------------
@@ -72,7 +76,7 @@ user is held in process memory and is lost when the pod restarts. Set it to
 WARNING: apiserver.config.event.type is "inmemory" with more than one replica.
 Replicas cannot coordinate; use "kafka" or "direct".
 {{- end }}
-{{- if and .Values.apiserver.secrets.create (not .Values.apiserver.secrets.existingSecret) (not .Values.apiserver.secrets.jwtSecret) }}
+{{- if and (not $gatewayOnly) .Values.apiserver.secrets.create (not .Values.apiserver.secrets.existingSecret) (not .Values.apiserver.secrets.jwtSecret) }}
 
 NOTE: the JWT signing key, basic-auth pepper and OAuth2 state key were generated
 for you and are carried forward on upgrade by reading the existing Secret. That

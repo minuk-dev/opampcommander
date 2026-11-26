@@ -70,11 +70,21 @@ const (
 var swaggerOnce sync.Once
 
 // NewHTTP provides the HTTP server, the Gin engine, and every controller registered into it.
-func NewHTTP() fx.Option {
+func NewHTTP(gatewayOnly bool) fx.Option {
+	transport := fx.Provide(
+		NewHTTPServer,
+		newOpAMPController,
+		func(controller *opamp.Controller) func(context.Context, net.Conn) context.Context {
+			return controller.ConnContext
+		},
+	)
+	if gatewayOnly {
+		return fx.Options(transport, fx.Provide(newGatewayEngine))
+	}
+
 	return fx.Options(
+		transport,
 		fx.Provide(
-			// HTTP Server & Engine
-			NewHTTPServer,
 			fx.Annotate(newRuntimeController, fx.ParamTags("", `optional:"true"`)),
 			fx.Annotate(NewEngine, fx.ParamTags(`group:"controllers"`)),
 
@@ -102,17 +112,10 @@ func NewHTTP() fx.Option {
 			AsController(github.NewController),
 			AsController(basic.NewController),
 
-			// Keep the concrete controller for ConnContext and register it for routes.
-			newOpAMPController,
 			fx.Annotate(
 				func(c *opamp.Controller) Controller { return c },
 				fx.ResultTags(`group:"controllers"`),
 			),
-
-			// OpAMP specific connection context
-			func(opampController *opamp.Controller) func(context.Context, net.Conn) context.Context {
-				return opampController.ConnContext
-			},
 		),
 	)
 }
@@ -124,6 +127,20 @@ func newRuntimeController(
 		return nil, nil //nolint:nilnil // Disabled native API intentionally has no controller.
 	}
 
+	client, err := newRuntimeKubernetesClient()
+	if err != nil {
+		return nil, err
+	}
+
+	controller, err := runtimeapi.NewController(settings.RuntimeAPI, client, enrollments)
+	if err != nil {
+		return nil, fmt.Errorf("runtime API: %w", err)
+	}
+
+	return controller, nil
+}
+
+func newRuntimeKubernetesClient() (*kubernetes.Clientset, error) {
 	clientConfig, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, fmt.Errorf("runtime Kubernetes credentials: %w", err)
@@ -134,12 +151,7 @@ func newRuntimeController(
 		return nil, fmt.Errorf("runtime Kubernetes client: %w", err)
 	}
 
-	controller, err := runtimeapi.NewController(settings.RuntimeAPI, client, enrollments)
-	if err != nil {
-		return nil, fmt.Errorf("runtime API: %w", err)
-	}
-
-	return controller, nil
+	return client, nil
 }
 
 func newOpAMPController(
@@ -246,10 +258,7 @@ func NewEngine(
 	runtimeController *runtimeapi.Controller,
 	logger *slog.Logger,
 ) *gin.Engine {
-	engine := gin.New()
-	engine.Use(sloggin.New(logger))
-	engine.Use(gin.Recovery())
-	engine.Use(observabilityService.Middleware())
+	engine := newBaseEngine(observabilityService, logger)
 	runtimeController.Register(engine)
 	engine.Use(security.NewAuthJWTMiddleware(securityService))
 	engine.Use(security.NewAuthorizationMiddleware(
@@ -270,13 +279,46 @@ func NewEngine(
 	})
 
 	for _, controller := range controllers {
-		routeInfo := controller.RoutesInfo()
-		for _, route := range routeInfo {
-			engine.Handle(route.Method, route.Path, route.HandlerFunc)
-		}
+		registerRoutes(engine, controller)
 	}
 
 	return engine
+}
+
+func newGatewayEngine(
+	controller *opamp.Controller, observabilityService *observability.Service, logger *slog.Logger,
+	settings *config.ServerSettings,
+) (*gin.Engine, error) {
+	identity := settings.RuntimeAPI
+	if identity.InstallationUID != "" || identity.InstallationName != "" || identity.InstallationNamespace != "" {
+		client, err := newRuntimeKubernetesClient()
+		if err != nil {
+			return nil, err
+		}
+
+		err = runtimeapi.VerifyInstallation(identity, client)
+		if err != nil {
+			return nil, fmt.Errorf("gateway installation: %w", err)
+		}
+	}
+
+	engine := newBaseEngine(observabilityService, logger)
+	registerRoutes(engine, controller)
+
+	return engine, nil
+}
+
+func newBaseEngine(observabilityService *observability.Service, logger *slog.Logger) *gin.Engine {
+	engine := gin.New()
+	engine.Use(sloggin.New(logger), gin.Recovery(), observabilityService.Middleware())
+
+	return engine
+}
+
+func registerRoutes(engine *gin.Engine, controller Controller) {
+	for _, route := range controller.RoutesInfo() {
+		engine.Handle(route.Method, route.Path, route.HandlerFunc)
+	}
 }
 
 // Controller is an interface that defines the methods for handling HTTP requests.

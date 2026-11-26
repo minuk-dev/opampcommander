@@ -31,10 +31,13 @@ var (
 	errInvalidConfig = errors.New(
 		"runtime API requires audience, installationNamespace, installationName and installationUID",
 	)
+	errInvalidInstallation = errors.New(
+		"installation requires installationNamespace, installationName and installationUID",
+	)
 	errInstallationChanged = errors.New("identity anchor does not match configured installation UID")
 )
 
-// Config opts into the native runtime API and pins its installation identity.
+// Config pins the installation identity and optionally serves the compatibility runtime API.
 type Config struct {
 	Enabled               bool   `mapstructure:"enabled"`
 	Audience              string `mapstructure:"audience"`
@@ -66,10 +69,7 @@ func NewController(
 
 	controller := &Controller{config: config, client: client, enrollments: enrollments}
 
-	ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-	defer cancel()
-
-	err := controller.checkInstallation(ctx)
+	err := VerifyInstallation(config, client)
 	if err != nil {
 		return nil, fmt.Errorf("runtime installation: %w", err)
 	}
@@ -129,7 +129,7 @@ func (c *Controller) requestNamespace(
 		return nil, authenticationv1.UserInfo{}
 	}
 
-	err := c.checkInstallation(requestContext)
+	err := checkInstallation(requestContext, c.config, c.client)
 	if err != nil {
 		ginutil.ProblemResponse(ctx, http.StatusServiceUnavailable, "Runtime installation unavailable")
 
@@ -213,14 +213,26 @@ func (c *Controller) authorizeUser(
 	return http.StatusOK
 }
 
-func (c *Controller) checkInstallation(ctx context.Context) error {
-	anchor, err := c.client.CoreV1().ConfigMaps(c.config.InstallationNamespace).
-		Get(ctx, c.config.InstallationName, metav1.GetOptions{})
+// VerifyInstallation checks the startup identity anchor without exposing runtime routes.
+func VerifyInstallation(config Config, client kubernetes.Interface) error {
+	if config.InstallationNamespace == "" || config.InstallationName == "" || config.InstallationUID == "" {
+		return errInvalidInstallation
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+	defer cancel()
+
+	return checkInstallation(ctx, config, client)
+}
+
+func checkInstallation(ctx context.Context, config Config, client kubernetes.Interface) error {
+	anchor, err := client.CoreV1().ConfigMaps(config.InstallationNamespace).
+		Get(ctx, config.InstallationName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("get identity anchor: %w", err)
 	}
 
-	if string(anchor.UID) != c.config.InstallationUID || anchor.DeletionTimestamp != nil {
+	if string(anchor.UID) != config.InstallationUID || anchor.DeletionTimestamp != nil {
 		return errInstallationChanged
 	}
 

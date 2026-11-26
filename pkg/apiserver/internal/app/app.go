@@ -6,6 +6,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -27,6 +28,8 @@ const (
 	// DefaultServerStartTimeout = 30 * time.Second.
 	DefaultServerStartTimeout = 30 * time.Second
 )
+
+var errGatewayRuntimeAPI = errors.New("opamp.gatewayOnly requires runtimeAPI.enabled to be false")
 
 // Server is a struct that represents the server application.
 // It embeds the fx.App struct from the Uber Fx framework.
@@ -52,17 +55,31 @@ func New(settings config.ServerSettings) *Server {
 // appOptions returns the full FX option set for the apiserver. It is the single source of
 // truth for the composition root so New and ValidateWiring stay in sync.
 func appOptions(settings *config.ServerSettings) []fx.Option {
+	if settings.OpAMP.GatewayOnly && settings.RuntimeAPI.Enabled {
+		return []fx.Option{fx.Error(errGatewayRuntimeAPI)}
+	}
+
+	legacy := fx.Options()
+	if !settings.OpAMP.GatewayOnly {
+		legacy = fx.Options(
+			infrastructuremodule.New(settings.DatabaseSettings.Type),
+			helper.NewModule(),
+			fx.Provide(helper.PointerFunc(settings.Security)),
+		)
+	}
+
 	return []fx.Option{
 		// Hexagonal architecture layers
 		// Adapters: HTTP, DB, messaging, scheduler, liveness fast tier
-		adaptermodule.NewAdapterModules(settings.DatabaseSettings.Type, settings.LivenessSettings),
-		infrastructuremodule.New(settings.DatabaseSettings.Type), // Bootstrap: Casbin RBAC + default seed hooks
+		adaptermodule.NewAdapterModules(
+			settings.DatabaseSettings.Type, settings.LivenessSettings, settings.OpAMP.GatewayOnly,
+		),
+		legacy,
 		applicationmodule.New(),   // Application services
 		domainmodule.New(),        // Domain services
 		NewConfigModule(settings), // Configuration
 
 		// Base utilities
-		helper.NewModule(),
 		management.NewModule(),
 
 		// Route FX's own lifecycle events (provided/invoked/OnStart/OnStop) through the
@@ -126,8 +143,6 @@ func NewConfigModule(settings *config.ServerSettings) fx.Option {
 		// config
 		fx.Provide(helper.ValueFunc(settings)),
 		fx.Provide(helper.PointerFunc(settings.DatabaseSettings)),
-		// security owns its config; the aggregate composes it and we inject it back.
-		fx.Provide(helper.PointerFunc(settings.Security)),
 		fx.Provide(helper.PointerFunc(settings.ManagementSettings)),
 		// observability owns its config; aggregated under ManagementSettings.
 		fx.Provide(helper.PointerFunc(settings.ManagementSettings.Observability)),

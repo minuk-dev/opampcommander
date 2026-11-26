@@ -222,6 +222,8 @@ func NewCommand(opt CommandOption) *cobra.Command {
 		"maximum OpAMP message bytes after decompression (0 = 64 MiB, negative = unlimited)")
 	cmd.PersistentFlags().Bool("opamp.enableCompression", opampDefaults.EnableCompression,
 		"enable OpAMP transport compression")
+	cmd.PersistentFlags().Bool("opamp.gatewayOnly", opampDefaults.GatewayOnly,
+		"serve only OpAMP traffic on the API listener")
 
 	shutdownDefaults := appconfig.ShutdownSettings{}.WithDefaults()
 	cmd.PersistentFlags().Duration("shutdown.drainWindow", shutdownDefaults.DrainWindow,

@@ -23,3 +23,35 @@ func TestWiringValidates(t *testing.T) {
 		t.Fatalf("fx app graph failed to validate: %v", err)
 	}
 }
+
+func TestGatewayWiring(t *testing.T) {
+	t.Parallel()
+
+	for _, database := range []config.DatabaseType{config.DatabaseTypeInMemory, config.DatabaseTypeMongoDB} {
+		t.Run(string(database), func(t *testing.T) {
+			t.Parallel()
+
+			settings := config.ServerSettings{}
+			settings.OpAMP.GatewayOnly = true
+			settings.DatabaseSettings.Type = database
+
+			err := app.ValidateWiring(settings)
+			if err != nil {
+				t.Fatalf("gateway graph failed to validate: %v", err)
+			}
+		})
+	}
+}
+
+func TestGatewayRejectsNativeBearerAPI(t *testing.T) {
+	t.Parallel()
+
+	settings := config.ServerSettings{}
+	settings.OpAMP.GatewayOnly = true
+	settings.RuntimeAPI.Enabled = true
+
+	err := app.ValidateWiring(settings)
+	if err == nil || err.Error() != "opamp.gatewayOnly requires runtimeAPI.enabled to be false" {
+		t.Fatalf("expected conflicting settings to be rejected, got %v", err)
+	}
+}

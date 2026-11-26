@@ -136,7 +136,7 @@ func NewMongoDatabase(
 
 	lifecycle.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			if settings.RuntimeAPI.Enabled {
+			if settings.RuntimeAPI.Enabled || (settings.OpAMP.GatewayOnly && settings.RuntimeAPI.InstallationUID != "") {
 				err := mongodb.VerifyInstallation(
 					ctx, database, settings.RuntimeAPI.InstallationUID, settings.DatabaseSettings.DDLAuto,
 				)

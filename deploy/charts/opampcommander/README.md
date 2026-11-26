@@ -193,6 +193,37 @@ Two things are handled outside that map:
   Service can never drift from what the process actually binds. Both must bind
   `0.0.0.0`, not `localhost`, or the pod is unreachable.
 
+### OpAMP-only gateway
+
+Use this mode where Kubernetes is the management entry point and Commander
+only needs to accept Agent traffic:
+
+```yaml
+apiserver:
+  config:
+    opamp:
+      gatewayOnly: true
+  secrets:
+    create: false
+web:
+  enabled: false
+```
+
+The API listener serves `/api/v1/opamp` over HTTP and WebSocket. Configure
+Agent TLS or mTLS as usual. The internal management Service retains `/healthz`
+and `/readyz`. Gateway mode skips REST routes, Commander user authentication,
+Casbin, and the legacy bootstrap manifests. Keep `runtimeAPI.enabled` off.
+For an installation-bound deployment, keep `runtimeAPI.installationNamespace`,
+`runtimeAPI.installationName` and `runtimeAPI.installationUID` configured. Allow
+the gateway ServiceAccount to `get` the anchor ConfigMap. The gateway verifies
+the anchor and, with MongoDB, the database binding before serving traffic.
+Supply MongoDB, Redis, and direct messaging credentials used by your deployment.
+Pin an image built with gateway mode before enabling these values.
+
+Kubernetes configuration operations use the installed CRDs. Agent reads and
+actions through Kubernetes are a separate part of the cutover. Existing REST
+clients need a compatibility deployment during their migration.
+
 ### Mounted secret files
 
 To read credentials from a Secret volume instead of injecting their values as

@@ -107,11 +107,18 @@ replacement_uid="$(kubectl get configmap -n opampcommander-operator-system \
   opampcommander-operator-opamp-installation -o jsonpath='{.metadata.uid}')"
 test -n "$replacement_uid"
 test "$replacement_uid" != "$installation_uid"
-kubectl get deployment apiserver -n opamp-e2e -o json | jq --arg uid "$replacement_uid" '
-  {apiVersion:"v1",kind:"Pod",metadata:{name:"replacement-gateway",namespace:"opamp-e2e"},spec:.spec.template.spec}
-  | .spec.restartPolicy = "Never"
-  | .spec.containers[0].args += ["--runtimeAPI.installationUID=" + $uid]
-' | kubectl create -f -
-kubectl wait -n opamp-e2e pod/replacement-gateway --for=jsonpath='{.status.phase}'=Failed --timeout=90s
-kubectl logs -n opamp-e2e replacement-gateway > "$artifacts/replacement-gateway.log"
-grep -Fq 'MongoDB installation binding does not match configured installation UID' "$artifacts/replacement-gateway.log"
+for mode in legacy opamp; do
+  replacement="replacement-gateway-$mode"
+  kubectl get deployment apiserver -n opamp-e2e -o json | jq \
+    --arg uid "$replacement_uid" --arg name "$replacement" --arg mode "$mode" '
+    {apiVersion:"v1",kind:"Pod",metadata:{name:$name,namespace:"opamp-e2e"},spec:.spec.template.spec}
+    | .spec.restartPolicy = "Never"
+    | .spec.containers[0].args += ["--runtimeAPI.installationUID=" + $uid]
+    | if $mode == "opamp" then
+        .spec.containers[0].args += ["--runtimeAPI.enabled=false", "--opamp.gatewayOnly=true"]
+      else . end
+  ' | kubectl create -f -
+  kubectl wait -n opamp-e2e "pod/$replacement" --for=jsonpath='{.status.phase}'=Failed --timeout=90s
+  kubectl logs -n opamp-e2e "$replacement" > "$artifacts/$replacement.log"
+  grep -Fq 'MongoDB installation binding does not match configured installation UID' "$artifacts/$replacement.log"
+done

@@ -22,10 +22,11 @@ import (
 func NewAdapterModules(
 	databaseType config.DatabaseType,
 	livenessSettings config.LivenessSettings,
+	gatewayOnly bool,
 ) fx.Option {
 	return fx.Module(
 		"adapter",
-		primary.New(),
+		primary.New(gatewayOnly),
 		secondary.New(databaseType, livenessSettings),
 		common.New(),
 	)

@@ -1,7 +1,12 @@
 ---
 title: Runtime authentication
-description: Kubernetes identity and namespace discovery for the CRD runtime API
+description: Compatibility access to installations serving the transitional runtime API
 ---
+
+This page describes the compatibility deployment. The target control plane
+accepts management requests through the Kubernetes API under Kubernetes RBAC.
+With `opamp.gatewayOnly: true`, the Commander API listener serves OpAMP traffic
+only. See the [control-plane ADR](../crd-control-plane/#tenancy-and-enrollment).
 
 The opt-in native runtime endpoint resolves the installation and namespace UIDs
 needed by runtime clients. `GET /api/runtime/v1/namespaces/{name}` returns:
