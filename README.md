@@ -250,4 +250,4 @@ through `opampctl kube validate` during migration. Existing management commands
 remain available under `opampctl`.
 
 Use `kubectl opamp runtime-scope` to resolve the selected namespace and
-installation UIDs through the [Commander runtime API](docs/content/en/docs/runtime-authentication.md#check-your-namespace-from-kubectl).
+installation UIDs through the [Kubernetes API](docs/content/en/docs/runtime-authentication.md#check-your-namespace-from-kubectl).
