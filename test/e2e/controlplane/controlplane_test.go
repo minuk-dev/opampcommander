@@ -172,6 +172,9 @@ func testNativeConfiguration(t *testing.T, apiClient *client.Client) {
 	}
 
 	kubectl(t, "label", "namespace", "default", "opampcommander.io/installation-uid="+anchorUID, "--overwrite")
+	waitCondition(t, "RuntimeScopeVerified", "Unknown")
+	kubectl(t, "apply", "-f", "operator-runtime-reader.yaml")
+	waitCondition(t, "RuntimeScopeVerified", "True")
 	waitCondition(t, "ReferencesFound", "True")
 	waitCondition(t, "Ready", "Unknown")
 	require.Eventually(t, func() bool {
