@@ -35,15 +35,12 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/ping"
 	reconcilecontroller "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/reconcile"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/remoteconfigschema"
-
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/server"
-
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/version"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
-
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/servertls"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
 )

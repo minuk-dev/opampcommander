@@ -56,7 +56,7 @@ event:
 	t.Setenv("EVENT_KAFKA_RETRYATTEMPTS", "5")
 	t.Setenv("TLS_MINVERSION", "1.3")
 	t.Setenv("MANAGEMENT_TLS_CERTFILE", "env-management.crt")
-	t.Setenv("RUNTIMEAPI_AUDIENCE", "runtime-from-env")
+	t.Setenv("RUNTIMEAPI_INSTALLATIONUID", "installation-from-env")
 
 	run := func(t *testing.T, extraArgs ...string) (string, map[string]any) {
 		t.Helper()
@@ -80,7 +80,9 @@ event:
 	t.Run("merges flags, config file and env", func(t *testing.T) {
 		out, parsed := run(t)
 		assert.Equal(t, map[string]any{
-			"installationName": "opamp-installation", "installationUID": "installation-uid",
+			"installationName":      "opamp-installation",
+			"installationNamespace": "operator-system",
+			"installationUID":       "installation-from-env",
 		}, parsed["runtimeAPI"])
 
 		assert.Contains(t, out, "# config file: "+configFile)

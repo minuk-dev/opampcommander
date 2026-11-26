@@ -64,11 +64,13 @@ func TestNamespaceOwnership(t *testing.T) {
 	}{
 		{"tenant", http.StatusOK}, {"foreign", http.StatusForbidden}, {"absent", http.StatusNotFound},
 	} {
-		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/runtime/v1/namespaces/"+tt.namespace, nil)
+		path := "/api/runtime/v1/namespaces/" + tt.namespace
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		response := httptest.NewRecorder()
 		engine.ServeHTTP(response, request)
 		require.Equal(t, tt.status, response.Code)
 		require.Equal(t, "no-store", response.Header().Get("Cache-Control"))
+
 		if tt.status == http.StatusOK {
 			require.JSONEq(t, `{"name":"tenant","namespaceUID":"namespace-uid","installationUID":"installation-uid"}`,
 				response.Body.String())

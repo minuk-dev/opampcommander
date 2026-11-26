@@ -15,6 +15,7 @@ import (
 
 type enrollmentStore struct {
 	port.AgentEnrollmentStore
+
 	key port.AgentEnrollmentKey
 }
 
@@ -27,8 +28,10 @@ func (s *enrollmentStore) Lookup(_ context.Context, key port.AgentEnrollmentKey)
 func TestEnrollmentRead(t *testing.T) {
 	t.Parallel()
 
-	const instance = "abc115aa-730b-4c1d-8638-e2b64eb27b34"
-	const path = "/api/runtime/v1/namespaces/tenant/agent-enrollments/" + instance
+	const (
+		instance = "abc115aa-730b-4c1d-8638-e2b64eb27b34"
+		path     = "/api/runtime/v1/namespaces/tenant/agent-enrollments/" + instance
+	)
 
 	config, client := fixture()
 	store := &enrollmentStore{}

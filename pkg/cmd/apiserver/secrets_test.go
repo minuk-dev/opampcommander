@@ -77,7 +77,8 @@ func TestSecretFileFailures(t *testing.T) {
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
 			cmd.SetArgs([]string{"--config", filepath.Join(t.TempDir(), "missing.yaml")})
-			require.ErrorContains(t, cmd.Execute(), "LIVENESS_REDIS_PASSWORD_FILE", "startup must fail before preparing the server")
+			require.ErrorContains(t, cmd.Execute(), "LIVENESS_REDIS_PASSWORD_FILE",
+				"startup must fail before preparing the server")
 		})
 	}
 }
