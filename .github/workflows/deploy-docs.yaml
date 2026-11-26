@@ -32,14 +32,11 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Hugo
-        uses: peaceiris/actions-hugo@v3
+        uses: peaceiris/actions-hugo@v3.3.0
         with:
-          # Pinned: Hugo 0.158+ regressed the Node-based PostCSS pipeline used
-          # by the Docsy theme, failing with "node: bad option: --permission".
-          # 0.151.0 builds these docs cleanly. Bump deliberately once the
-          # upstream regression is resolved.
           hugo-version: '0.170.1'
-          extended: true
+          # Hugo 0.170+ requires Dart Sass to compile Docsy's SCSS.
+          dart-sass-version: '1.108.2'
 
       - name: Setup Node
         uses: actions/setup-node@v7
