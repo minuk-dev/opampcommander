@@ -113,8 +113,8 @@ After authorization, the gateway rechecks the configured anchor and the target
 namespace's `opampcommander.io/installation-uid` label. Anchor deletion/recreation
 returns 503; unassigned, foreign or terminating namespaces are denied. Discovery
 returns the current namespace UID: same-name recreation never reuses an old UID.
-This response is a point-in-time lookup, not a durable authorization grant; future
-Agent reads and mutations must validate enrolled UIDs and fencing independently.
+The response is a point-in-time lookup. Agent reads and work derived from
+AgentGroups validate the enrolled namespace and installation UIDs independently.
 
 ## Register an Agent identity
 
@@ -164,6 +164,7 @@ TokenReview/SAR, RoleBinding removal, ServiceAccount recreation, namespace
 recreation and installation-anchor replacement alongside the existing runtime
 and Operator regressions.
 
-OpAMP session enforcement, scoped Agent operations and privileged payload permissions,
-durable mutation audit, web/Grafana login and removal of legacy authentication
-remain follow-up work under #902. No Agent mutation permission is introduced here.
+OpAMP session enforcement, scoped Agent reads, privileged payload permissions,
+execution audit, and retirement of legacy authentication remain follow-up work
+under #902. The [AgentGroup management contract](../crd-control-plane/#agent-management)
+defines the user-facing write path.

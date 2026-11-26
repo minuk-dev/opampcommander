@@ -220,9 +220,9 @@ the anchor and, with MongoDB, the database binding before serving traffic.
 Supply MongoDB, Redis, and direct messaging credentials used by your deployment.
 Pin an image built with gateway mode before enabling these values.
 
-Kubernetes configuration operations use the installed CRDs. Agent reads and
-actions through Kubernetes are a separate part of the cutover. Existing REST
-clients need a compatibility deployment during their migration.
+Kubernetes users manage Agent behavior through namespaced `AgentGroup` resources.
+Read-only Agent views and AgentGroup action delivery are separate parts of the
+cutover. Existing REST clients use a compatibility deployment during migration.
 
 ### Mounted secret files
 

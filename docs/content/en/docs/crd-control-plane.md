@@ -63,7 +63,7 @@ when installing the Operator.
 | `users` | Kubernetes/external identity provider; retire local user/password/bootstrap-admin authority. |
 | `roles` | Native Role/ClusterRole. |
 | `rolebindings` | Native RoleBinding/ClusterRoleBinding. |
-| `permissions` | Native RBAC rules including documented virtual Agent-operation resources. |
+| `permissions` | Native RBAC rules for AgentGroup writes and scoped Agent observation. |
 | `user_roles` | Native RBAC subjects and bindings; no separate membership authority. |
 | `casbin_rules` | Retire persisted Casbin policy after delegated authorization cutover. Inventory historical `casbin_rule` installations too; never assume library defaults match deployment configuration. |
 
@@ -109,20 +109,42 @@ namespace-scoped RBAC, and the management request audit trail. Commander has no
 user-facing HTTP endpoint in the target deployment. Its OpAMP listener serves
 Agents using the Agent transport credentials described above.
 
-Expose Agent runtime reads and actions through Kubernetes resource paths with
-explicit verbs and namespace scope. Keep the Commander runtime behind that
-boundary and restrict backend access to its trusted workloads. Reserve Service
-proxy and port forwarding for privileged cluster operations: those permissions
-grant access to the backend service or Pod as a whole. Read access to configuration
-CRs gives no permission to resolved Agent configuration.
+Keep the Commander runtime behind the Kubernetes boundary and restrict backend
+access to its trusted workloads. Reserve Service proxy and port forwarding for
+privileged cluster operations because those permissions grant access to the
+backend service or Pod as a whole.
 
 `opamp.gatewayOnly` starts the OpAMP transport and the separate health and metrics
 listener. It omits user and runtime REST routes and skips legacy auth and manifest
 bootstrap. Legacy installations can read about the transitional direct API in
-[runtime authentication](../runtime-authentication/). Kubernetes-mediated Agent
-reads and actions and migration of existing runtime records are tracked in
-[#902](https://github.com/minuk-dev/opampcommander/issues/902) and
-[#906](https://github.com/minuk-dev/opampcommander/issues/906).
+[runtime authentication](../runtime-authentication/).
+
+## Agent management
+
+Agent records are read-only for users. User-facing Agent views expose inventory,
+health, and delivery status with namespace-scoped read permissions. Permissions
+to read configuration CRs do not grant access to resolved Agent configuration.
+The gateway owns Agent enrollment and runtime state.
+
+Create or update a namespaced `AgentGroup` to change Agent behavior. This applies
+to configuration and package delivery, connection settings, restarts, and manual
+reconciliation. To act on one Agent, use an AgentGroup whose selector matches
+that Agent alone. A group references the configuration resources that supply its
+desired state. Deleting the group withdraws its contribution to that state.
+
+Kubernetes RBAC authorizes the AgentGroup write. The Operator resolves the
+selected Agents in that namespace and the gateway executes the resulting work
+using their enrolled UIDs. A one-time group action must have durable per-Agent
+progress so a controller retry or failover can resume it without repeating work
+already confirmed. The Kubernetes audit record identifies the user who changed the
+group. Runtime audit associates execution with the group UID, generation, and
+affected Agent identity.
+
+The native CLI and Grafana follow the same contract: Agent views are read-only
+and control workflows write AgentGroups through Kubernetes. The read interface
+and group execution path are tracked in
+[#906](https://github.com/minuk-dev/opampcommander/issues/906) and
+[#901](https://github.com/minuk-dev/opampcommander/issues/901).
 
 ## Desired-state contract
 
@@ -277,12 +299,13 @@ endpoint translate old CRUD into Kubernetes writes under caller-scoped identity.
 It cannot keep writing an authoritative Mongo spec or fall back on Kubernetes
 failure. Incompatible operations fail explicitly with migration guidance.
 
-Native kubectl handles configuration. `kubectl-opamp` reuses the existing Cobra
-runtime commands and explicitly handles kubeconfig/context/namespace. Old
-configuration CRUD, local login/role management and standalone configuration flags
-are deprecated with replacements; Agent commands can retain an `opampctl`
-compatibility executable for the documented window. Do not remove old behavior
-in a scaffold-only release.
+Native kubectl handles AgentGroup and configuration writes. `kubectl-opamp`
+reuses the existing Cobra read commands and explicitly handles kubeconfig,
+context, and namespace. During cutover, retire direct Agent update, delete,
+restart, and reconcile commands with migration guidance to the AgentGroup
+workflow. Old configuration CRUD, local login and role management, and standalone
+configuration flags are deprecated with replacements. Legacy commands remain
+available in the compatibility deployment during the documented window.
 
 Removal requires: rehearsed export/import and rollback, equivalent desired state
 on a cohort, passing auth/isolation/acknowledgment/outage tests, migrated clients,
