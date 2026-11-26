@@ -1,3 +1,29 @@
 # Intentional conditional-delete contract from #781; migration: docs/resource-writes.md.
 DELETE /api/v1/namespaces/{namespace}/agentgroups/{name} added the new required `query` request parameter `resourceVersion`
 DELETE /api/v1/namespaces/{namespace}/agentpackages/{name} added the new required `query` request parameter `resourceVersion`
+
+# Intentional removal of local authentication and RBAC in #938. See the deployment upgrade guide.
+GET /api/v1/auth/basic API path removed without deprecation
+GET /api/v1/auth/github API path removed without deprecation
+GET /api/v1/auth/github/authcode API path removed without deprecation
+GET /api/v1/auth/github/device API path removed without deprecation
+GET /api/v1/auth/github/device/exchange API path removed without deprecation
+GET /api/v1/auth/info API path removed without deprecation
+POST /api/v1/auth/refresh API path removed without deprecation
+GET /api/v1/namespaces/{namespace}/rolebindings API path removed without deprecation
+POST /api/v1/namespaces/{namespace}/rolebindings API path removed without deprecation
+DELETE /api/v1/namespaces/{namespace}/rolebindings/{name} API path removed without deprecation
+GET /api/v1/namespaces/{namespace}/rolebindings/{name} API path removed without deprecation
+PUT /api/v1/namespaces/{namespace}/rolebindings/{name} API path removed without deprecation
+GET /api/v1/roles API path removed without deprecation
+POST /api/v1/roles API path removed without deprecation
+DELETE /api/v1/roles/{id} API path removed without deprecation
+GET /api/v1/roles/{id} API path removed without deprecation
+PUT /api/v1/roles/{id} API path removed without deprecation
+GET /api/v1/users API path removed without deprecation
+POST /api/v1/users API path removed without deprecation
+GET /api/v1/users/me API path removed without deprecation
+DELETE /api/v1/users/{id} API path removed without deprecation
+GET /api/v1/users/{id} API path removed without deprecation
+GET /auth/github API path removed without deprecation
+GET /auth/github/callback API path removed without deprecation
