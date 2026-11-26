@@ -12,8 +12,6 @@ import (
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/reconcile"
-	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
-	userservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper"
 )
 
@@ -72,17 +70,6 @@ func New() fx.Option {
 		fx.Annotate(
 			Identity[*agentservice.AgentNotificationService],
 			fx.As(new(agentport.AgentNotificationUsecase)),
-		),
-		// RBAC domain services
-		fx.Annotate(userservice.NewUserService, fx.As(new(userport.UserUsecase))),
-		fx.Annotate(userservice.NewRoleService, fx.As(new(userport.RoleUsecase))),
-		fx.Annotate(userservice.NewPermissionService, fx.As(new(userport.PermissionUsecase))),
-		fx.Annotate(userservice.NewUserRoleService, fx.As(new(userport.UserRoleUsecase))),
-		fx.Annotate(userservice.NewRoleBindingService, fx.As(new(userport.RoleBindingUsecase))),
-		provideRBACService,
-		fx.Annotate(
-			Identity[*userservice.RBACService],
-			fx.As(new(userport.RBACUsecase)),
 		),
 		helper.AsRunner(Identity[*agentservice.Service]),
 		helper.AsRunner(Identity[*agentservice.AgentGroupService]),
@@ -210,29 +197,6 @@ func provideApplicationService(
 	applicationPersistencePort agentport.ApplicationPersistencePort,
 ) *agentservice.ApplicationService {
 	return agentservice.NewApplicationService(applicationPersistencePort, clock.RealClock{})
-}
-
-// provideRBACService builds the RBAC domain service, sourcing the built-in
-// default role/namespace identifiers from configuration.
-func provideRBACService(
-	rbacEnforcerPort userport.RBACEnforcerPort,
-	roleBindingPersistencePort userport.RoleBindingPersistencePort,
-	rolePersistencePort userport.RolePersistencePort,
-	permissionPersistencePort userport.PermissionPersistencePort,
-	userPersistencePort userport.UserPersistencePort,
-	logger *slog.Logger,
-	settings *config.ServerSettings,
-) *userservice.RBACService {
-	return userservice.NewRBACService(
-		rbacEnforcerPort,
-		roleBindingPersistencePort,
-		rolePersistencePort,
-		permissionPersistencePort,
-		userPersistencePort,
-		logger,
-		settings.BootstrapSettings.DefaultRole,
-		settings.BootstrapSettings.DefaultNamespace,
-	)
 }
 
 // Identity is a generic function that returns the input value.

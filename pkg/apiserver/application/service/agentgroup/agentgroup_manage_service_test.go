@@ -16,7 +16,6 @@ import (
 	agentgroupsvc "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentgroup"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 var errMock = errors.New("mock error")
@@ -212,9 +211,7 @@ func (m *mockAgentUsecase) PersistAgentLiveness(_ context.Context, _ *agentmodel
 func newSvc(t *testing.T, group *mockAgentGroupUsecase, agent *mockAgentUsecase) *agentgroupsvc.ManageService {
 	t.Helper()
 
-	base := testutil.NewBase(t)
-
-	return agentgroupsvc.NewManageService(group, agent, base.Logger)
+	return agentgroupsvc.NewManageService(group, agent)
 }
 
 func newGroup() *agentmodel.AgentGroup {

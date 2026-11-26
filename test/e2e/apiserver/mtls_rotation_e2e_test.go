@@ -36,8 +36,7 @@ func TestE2E_OpAMPMTLSRotate(t *testing.T) {
 	settings, roots, ca, caKey := mtlsFixture(t)
 	server := base.StartStandaloneAPIServerWithOpAMPTLS(settings)
 	require.Eventually(t, server.IsReady, 30*time.Second, 100*time.Millisecond)
-	apiClient := client.New(server.Endpoint, client.WithTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots}),
-		client.WithBasicAuth(server.AdminUsername(), server.AdminPassword()))
+	apiClient := client.New(server.Endpoint, client.WithTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots}))
 	ctx := t.Context()
 	uid := uuid.New()
 	// The test acts as the external CA; APIServer only receives issued client credentials.

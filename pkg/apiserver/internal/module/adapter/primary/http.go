@@ -18,8 +18,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/auth/basic"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/auth/github"
 	runtimeapi "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/runtime"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentgroup"
@@ -37,19 +35,14 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/ping"
 	reconcilecontroller "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/reconcile"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/remoteconfigschema"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/role"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/rolebinding"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/server"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/user"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/version"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
-	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/servertls"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
 const (
@@ -70,7 +63,7 @@ const (
 var swaggerOnce sync.Once
 
 // NewHTTP provides the HTTP server, the Gin engine, and every controller registered into it.
-func NewHTTP(gatewayOnly bool) fx.Option {
+func NewHTTP() fx.Option {
 	transport := fx.Provide(
 		NewHTTPServer,
 		newOpAMPController,
@@ -78,10 +71,6 @@ func NewHTTP(gatewayOnly bool) fx.Option {
 			return controller.ConnContext
 		},
 	)
-	if gatewayOnly {
-		return fx.Options(transport, fx.Provide(newGatewayEngine))
-	}
-
 	return fx.Options(
 		transport,
 		fx.Provide(
@@ -106,11 +95,6 @@ func NewHTTP(gatewayOnly bool) fx.Option {
 			AsController(container.NewController),
 			AsController(applicationcontroller.NewController),
 			AsController(server.NewController),
-			AsController(user.NewController),
-			AsController(role.NewController),
-			AsController(rolebinding.NewController),
-			AsController(github.NewController),
-			AsController(basic.NewController),
 
 			fx.Annotate(
 				func(c *opamp.Controller) Controller { return c },
@@ -123,8 +107,8 @@ func NewHTTP(gatewayOnly bool) fx.Option {
 func newRuntimeController(
 	settings *config.ServerSettings, enrollments applicationport.AgentEnrollmentStore,
 ) (*runtimeapi.Controller, error) {
-	if !settings.RuntimeAPI.Enabled {
-		return nil, nil //nolint:nilnil // Disabled native API intentionally has no controller.
+	if !settings.RuntimeAPI.Configured() {
+		return nil, nil //nolint:nilnil // Namespace identity lookup requires a configured installation.
 	}
 
 	client, err := newRuntimeKubernetesClient()
@@ -250,23 +234,12 @@ func NewHTTPServer(
 // NewEngine creates a new Gin engine and registers the provided controllers' routes.
 func NewEngine(
 	controllers []Controller,
-	securityService *security.Service,
-	rbacUsecase userport.RBACUsecase,
-	userUsecase userport.UserUsecase,
-	settings *config.ServerSettings,
 	observabilityService *observability.Service,
 	runtimeController *runtimeapi.Controller,
 	logger *slog.Logger,
 ) *gin.Engine {
 	engine := newBaseEngine(observabilityService, logger)
 	runtimeController.Register(engine)
-	engine.Use(security.NewAuthJWTMiddleware(securityService))
-	engine.Use(security.NewAuthorizationMiddleware(
-		rbacUsecase,
-		userUsecase,
-		settings.Security.AdminSettings.Email,
-		logger,
-	))
 	// swagger
 	engine.GET("/swagger/*any", gin.WrapH(httpswagger.Handler()))
 	engine.GET("/docs", func(ctx *gin.Context) {
@@ -283,29 +256,6 @@ func NewEngine(
 	}
 
 	return engine
-}
-
-func newGatewayEngine(
-	controller *opamp.Controller, observabilityService *observability.Service, logger *slog.Logger,
-	settings *config.ServerSettings,
-) (*gin.Engine, error) {
-	identity := settings.RuntimeAPI
-	if identity.InstallationUID != "" || identity.InstallationName != "" || identity.InstallationNamespace != "" {
-		client, err := newRuntimeKubernetesClient()
-		if err != nil {
-			return nil, err
-		}
-
-		err = runtimeapi.VerifyInstallation(identity, client)
-		if err != nil {
-			return nil, fmt.Errorf("gateway installation: %w", err)
-		}
-	}
-
-	engine := newBaseEngine(observabilityService, logger)
-	registerRoutes(engine, controller)
-
-	return engine, nil
 }
 
 func newBaseEngine(observabilityService *observability.Service, logger *slog.Logger) *gin.Engine {

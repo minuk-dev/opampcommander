@@ -37,7 +37,7 @@ func CheckResourcePatches(t *testing.T, groups agentport.AgentGroupPersistencePo
 
 		queue := &patchChangeStore{}
 		svc := groupsvc.NewManageService(agentservice.NewAgentGroupService(groups, configs, nil, nil, nil, queue,
-			logger), nil, logger)
+			logger), nil)
 
 		checkPatches(t, "attributes", func(data []byte) (any, error) {
 			return svc.PatchAgentGroup(ctx, "default",
@@ -62,7 +62,7 @@ func CheckResourcePatches(t *testing.T, groups agentport.AgentGroupPersistencePo
 				Name: "patch-package"}})
 		require.NoError(t, err)
 
-		svc := packagesvc.NewAgentPackageService(agentservice.NewAgentPackageService(packages), logger)
+		svc := packagesvc.NewAgentPackageService(agentservice.NewAgentPackageService(packages))
 
 		checkPatches(t, "attributes", func(data []byte) (any, error) {
 			return svc.PatchAgentPackage(ctx, "default",
@@ -125,7 +125,7 @@ func CheckResourcePatches(t *testing.T, groups agentport.AgentGroupPersistencePo
 		require.NoError(t, err)
 
 		svc := namespacesvc.NewNamespaceService(agentservice.NewNamespaceService(namespaces, nil, nil, nil, nil,
-			nil, ""), logger)
+			nil, ""))
 
 		checkPatches(t, "labels", func(data []byte) (any, error) {
 			return svc.PatchNamespace(ctx, "patch-namespace",

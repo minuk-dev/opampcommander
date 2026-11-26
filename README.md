@@ -12,13 +12,14 @@ you manage, monitor, and remotely configure a fleet of agents from a central pla
   <img src="docs/static/images/screenshots/dashboard.png" alt="Dashboard" width="700" />
 </p>
 
-It is made of three components:
+## Components
 
 | Component | Path | Description |
 |---|---|---|
-| **apiserver** | `cmd/apiserver` | The server. Hosts the OpAMP WebSocket endpoint that agents connect to, plus a REST API for managing agents, configuration, namespaces, RBAC and certificates. |
-| **opampctl** | `cmd/opampctl` | A `kubectl`-style command-line client for the apiserver. |
-| **web** | `web/` | A Next.js + MUI dashboard for the apiserver. |
+| **apiserver** | `cmd/apiserver` | Terminates OpAMP connections and serves a private runtime API. |
+| **Operator** | `operator/` | Reconciles Kubernetes resources such as AgentGroups. |
+| **kubectl opamp** | `cmd/kubectl-opamp` | Uses the Kubernetes API and the selected kubeconfig. |
+| **web** | `web/` | Legacy Next.js dashboard for older deployments. |
 
 📖 **Full documentation:** <https://minuk-dev.github.io/opampcommander/>
 
@@ -27,20 +28,22 @@ It is made of three components:
 ```mermaid
 graph TB
     subgraph Clients
-        CLI[opampctl CLI]
-        Web[Web Dashboard]
+        CLI[kubectl]
     end
     subgraph Agents
         Agent[OpenTelemetry Collectors<br/>OpAMP agents]
     end
     subgraph Server[OpAMP Commander]
+        K8s[Kubernetes API]
+        Operator[Commander Operator]
         API[apiserver]
     end
     DB[(MongoDB)]
     MQ[[Kafka<br/>optional, multi-node]]
 
-    CLI -->|REST /api/v1| API
-    Web -->|REST /api/v1| API
+    CLI -->|AgentGroup and configuration CRs| K8s
+    Operator -->|watch and reconcile| K8s
+    Operator -->|private runtime lookup| API
     Agent <-->|OpAMP over WebSocket| API
     API --> DB
     API <-.->|server-to-server events| MQ
@@ -48,7 +51,7 @@ graph TB
 
 - Agents connect to the apiserver's OpAMP WebSocket endpoint (`/api/v1/opamp`) for
   bidirectional management.
-- Operators drive the apiserver through the REST API, via `opampctl` or the web dashboard.
+- Users manage AgentGroups and configuration through the Kubernetes API with Kubernetes RBAC.
 - State is persisted in MongoDB (an in-memory store is available for development).
 - In multi-node deployments, servers coordinate through Kafka so that a management
   request received by one server can be delivered to an agent connected to another.
@@ -97,49 +100,13 @@ go run ./cmd/apiserver/main.go --config ./configs/apiserver/dev.yaml
 The server listens on `localhost:8080` (API) and `localhost:9090` (management:
 health checks, metrics, pprof) by default.
 
-### Install and use opampctl
+### Use Commander with Kubernetes
 
-```sh
-# install
-go install github.com/minuk-dev/opampcommander/cmd/opampctl@latest
+Install the [Operator](operator/README.md) and use the selected kubeconfig
+to work with the installed resources. See the
+[control-plane design](docs/content/en/docs/crd-control-plane.md) for the
+AgentGroup management contract.
 
-# create a config file at ~/.config/opampcommander/opampctl/config.yaml
-opampctl config init
-
-# inspect the fleet
-opampctl get agent
-opampctl whoami
-```
-
-See the [CLI reference](https://minuk-dev.github.io/opampcommander/docs/cli/) for the
-full command set.
-
-### Run the web dashboard
-
-```sh
-cd web
-npm install
-OPAMP_API_URL=http://localhost:8080 npm run dev
-```
-
-Open <http://localhost:3000>. See [`web/README.md`](web/README.md) for details.
-
-See the [two-image deployment guide](docs/deployment.md) for Compose evaluation,
-ingress routing, image configuration, and HA deployment.
-
-### Deploy on Kubernetes
-
-The Helm chart in [`deploy/charts/opampcommander`](deploy/charts/opampcommander)
-installs the apiserver and the dashboard:
-
-```sh
-helm install opampcommander ./deploy/charts/opampcommander \
-  --namespace opampcommander --create-namespace
-```
-
-The defaults are a self-contained demo (in-memory store, no external
-dependencies). See the [chart README](deploy/charts/opampcommander/README.md)
-for a production configuration.
 
 ## Development
 
@@ -250,3 +217,6 @@ namespace takes precedence over the context default, and must match an explicit
 `-n`. Native Kubernetes patch/create permissions apply. Use the same command
 through `opampctl kube validate` during migration. Existing management commands
 remain available under `opampctl`.
+
+Use `kubectl opamp runtime-scope` to resolve the selected namespace and
+installation UIDs through the [Kubernetes API](docs/content/en/docs/runtime-authentication.md#check-your-namespace-from-kubectl).

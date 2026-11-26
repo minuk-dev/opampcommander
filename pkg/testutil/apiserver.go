@@ -9,16 +9,13 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	runtimeapi "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/runtime"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 )
 
@@ -26,13 +23,7 @@ const (
 	apiServerStartTimeout = 60 * time.Second
 	apiServerPollInterval = 500 * time.Millisecond
 	dbConnectTimeout      = 10 * time.Second
-	jwtExpiration         = 24 * time.Hour
 	kafkaEventTopic       = "e2e.opampcommander.events"
-
-	// DefaultAdminUsername is the admin username used in test API servers.
-	DefaultAdminUsername = "test-admin"
-	// DefaultAdminPassword is the admin password used in test API servers.
-	DefaultAdminPassword = "test-password"
 )
 
 // APIServer holds a running test API server and its configuration.
@@ -52,16 +43,6 @@ type APIServer struct {
 
 	Settings   config.ServerSettings
 	stopServer func() // cancels the server's running context
-}
-
-// AdminUsername returns the admin username configured for this test server.
-func (a *APIServer) AdminUsername() string {
-	return a.Settings.Security.AdminSettings.Username
-}
-
-// AdminPassword returns the admin password configured for this test server.
-func (a *APIServer) AdminPassword() string {
-	return a.Settings.Security.AdminSettings.Password
 }
 
 // WaitForReady blocks until the API server responds to ping or the timeout expires.
@@ -110,50 +91,9 @@ func (a *APIServer) Stop() {
 	a.stopServer()
 }
 
-// Client returns a pre-authenticated client pointing at this test server.
+// Client returns a client pointing at this test server.
 func (a *APIServer) Client() *client.Client {
-	return client.New(a.Endpoint,
-		client.WithBasicAuth(a.AdminUsername(), a.AdminPassword()),
-	)
-}
-
-// IssueTokenForEmail signs an access JWT for the given email using the same key,
-// issuer, and audience as the running test server. The token mirrors what the
-// production basic/GitHub auth flows would issue, so RBAC enforcement can be
-// exercised in tests for any user that already exists in the user store.
-//
-// The caller is responsible for ensuring a user record with this email exists —
-// the authorization middleware rejects requests whose email does not resolve to a
-// stored user. Use the admin client's UserService.CreateUser to seed it first.
-func (a *APIServer) IssueTokenForEmail(email string) string {
-	a.t.Helper()
-
-	jwtSettings := a.Settings.Security.JWTSettings
-	now := time.Now()
-
-	claims := jwt.MapClaims{
-		"email":     email,
-		"tokenType": "access",
-		"iss":       jwtSettings.Issuer,
-		"sub":       "opampcommander",
-		"aud":       jwtSettings.Audience,
-		"nbf":       now.Unix(),
-		"iat":       now.Unix(),
-		"exp":       now.Add(jwtSettings.Expiration).Unix(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	signed, err := token.SignedString([]byte(jwtSettings.SigningKey))
-	require.NoError(a.t, err, "failed to sign test JWT")
-
-	return signed
-}
-
-// ClientAs returns a client authenticated as the given email. The user must
-// already exist (see IssueTokenForEmail).
-func (a *APIServer) ClientAs(email string) *client.Client {
-	return client.New(a.Endpoint, client.WithBearerToken(a.IssueTokenForEmail(email)))
+	return client.New(a.Endpoint)
 }
 
 func buildServerSettings(
@@ -185,22 +125,6 @@ func buildServerSettings(
 			Sharding:       config.ShardingSettings{Enabled: false},
 		},
 		//exhaustruct:ignore
-		Security: security.Config{
-			//exhaustruct:ignore
-			AdminSettings: security.AdminSettings{
-				Username: DefaultAdminUsername,
-				Password: DefaultAdminPassword,
-				Email:    "test@test.com",
-			},
-			//exhaustruct:ignore
-			JWTSettings: security.JWTSettings{
-				SigningKey: "test-secret-key",
-				Issuer:     "e2e-test",
-				Expiration: jwtExpiration,
-				Audience:   []string{"test"},
-			},
-		},
-		//exhaustruct:ignore
 		ManagementSettings: config.ManagementSettings{
 			Address: fmt.Sprintf(":%d", managementPort),
 			//exhaustruct:ignore
@@ -225,9 +149,7 @@ func buildServerSettings(
 			RemoteConfigSchemaDir:  "",
 			RemoteConfigSchemaLoad: config.RemoteConfigSchemaLoadNone,
 			DefaultNamespace:       agentmodel.DefaultNamespaceName,
-			DefaultRole:            usermodel.RoleDefault,
 		},
-		RBACModelPath: "",
 	}
 }
 

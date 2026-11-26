@@ -6,7 +6,6 @@ import (
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 )
 
 // The clone* functions deep-copy a domain value so the in-memory store never
@@ -368,76 +367,6 @@ func cloneCertificate(certificate *agentmodel.Certificate) *agentmodel.Certifica
 	cloned.Spec.PrivateKey = cloneBytes(certificate.Spec.PrivateKey)
 	cloned.Spec.CaCert = cloneBytes(certificate.Spec.CaCert)
 	cloned.Status.Conditions = slices.Clone(certificate.Status.Conditions)
-
-	return &cloned
-}
-
-func cloneUser(user *usermodel.User) *usermodel.User {
-	if user == nil {
-		return nil
-	}
-
-	cloned := *user
-	cloned.Metadata.DeletedAt = cloneTimePtr(user.Metadata.DeletedAt)
-	cloned.Metadata.Labels = maps.Clone(user.Metadata.Labels)
-	cloned.Spec.Identities = slices.Clone(user.Spec.Identities)
-	cloned.Status.Conditions = slices.Clone(user.Status.Conditions)
-	cloned.Status.Roles = slices.Clone(user.Status.Roles)
-
-	if user.Spec.BasicAuth != nil {
-		basicAuth := *user.Spec.BasicAuth
-		cloned.Spec.BasicAuth = &basicAuth
-	}
-
-	return &cloned
-}
-
-func cloneRole(role *usermodel.Role) *usermodel.Role {
-	if role == nil {
-		return nil
-	}
-
-	cloned := *role
-	cloned.Metadata.DeletedAt = cloneTimePtr(role.Metadata.DeletedAt)
-	cloned.Spec.Permissions = slices.Clone(role.Spec.Permissions)
-	cloned.Status.Conditions = slices.Clone(role.Status.Conditions)
-
-	return &cloned
-}
-
-func clonePermission(permission *usermodel.Permission) *usermodel.Permission {
-	if permission == nil {
-		return nil
-	}
-
-	cloned := *permission
-	cloned.Metadata.DeletedAt = cloneTimePtr(permission.Metadata.DeletedAt)
-	cloned.Status.Conditions = slices.Clone(permission.Status.Conditions)
-
-	return &cloned
-}
-
-func cloneUserRole(userRole *usermodel.UserRole) *usermodel.UserRole {
-	if userRole == nil {
-		return nil
-	}
-
-	cloned := *userRole
-	cloned.Metadata.DeletedAt = cloneTimePtr(userRole.Metadata.DeletedAt)
-	cloned.Status.Conditions = slices.Clone(userRole.Status.Conditions)
-
-	return &cloned
-}
-
-func cloneRoleBinding(roleBinding *usermodel.RoleBinding) *usermodel.RoleBinding {
-	if roleBinding == nil {
-		return nil
-	}
-
-	cloned := *roleBinding
-	cloned.Metadata.DeletedAt = cloneTimePtr(roleBinding.Metadata.DeletedAt)
-	cloned.Spec.Subjects = slices.Clone(roleBinding.Spec.Subjects)
-	cloned.Status.Conditions = slices.Clone(roleBinding.Status.Conditions)
 
 	return &cloned
 }

@@ -53,15 +53,13 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var installationNamespace, installationConfigMap string
-	var runtimeURL, runtimeCA, runtimeToken string
+	var runtimeURL, runtimeCA string
 	var tlsOpts []func(*tls.Config)
 
 	flag.StringVar(&runtimeURL, "runtime-url", os.Getenv("COMMANDER_RUNTIME_URL"),
 		"Commander HTTPS origin for runtime namespace verification.")
 	flag.StringVar(&runtimeCA, "runtime-ca-file", os.Getenv("COMMANDER_RUNTIME_CA_FILE"),
 		"Commander CA bundle (defaults to system roots).")
-	flag.StringVar(&runtimeToken, "runtime-token-file", "/var/run/opamp-runtime/token",
-		"Projected Commander audience token file.")
 	flag.StringVar(&installationNamespace, "installation-namespace", os.Getenv("POD_NAMESPACE"),
 		"Namespace containing the installation ConfigMap.")
 	flag.StringVar(&installationConfigMap, "installation-configmap", "opamp-installation",
@@ -200,7 +198,7 @@ func main() {
 
 	var runtimeClient *controller.RuntimeClient
 	if runtimeURL != "" {
-		runtimeClient, err = controller.NewRuntimeClient(runtimeURL, runtimeCA, runtimeToken)
+		runtimeClient, err = controller.NewRuntimeClient(runtimeURL, runtimeCA)
 		if err != nil {
 			setupLog.Error(err, "Invalid Commander connection")
 			os.Exit(1)

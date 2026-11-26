@@ -34,18 +34,11 @@ camel-case words are not separated (for example `clientSecret` → `CLIENTSECRET
 
 | Configuration key | Environment variable (append `_FILE` for a path) |
 |---|---|
-| `auth.admin.password` | `AUTH_ADMIN_PASSWORD` |
-| `auth.basic.pepper` | `AUTH_BASIC_PEPPER` |
-| `auth.jwt.secret` | `AUTH_JWT_SECRET` |
-| `auth.oauth2.clientSecret` | `AUTH_OAUTH2_CLIENTSECRET` |
-| `auth.oauth2.state.jwt.secret` | `AUTH_OAUTH2_STATE_JWT_SECRET` |
 | `event.direct.authToken` | `EVENT_DIRECT_AUTHTOKEN` |
 | `liveness.redis.password` | `LIVENESS_REDIS_PASSWORD` |
 | `database.endpoints` | `DATABASE_ENDPOINTS` |
 
 ```sh
-AUTH_JWT_SECRET_FILE=/run/secrets/jwtSecret \
-AUTH_BASIC_PEPPER_FILE=/run/secrets/basicPepper \
 DATABASE_ENDPOINTS_FILE=/run/secrets/databaseURI \
   /apiserver --config /etc/opampcommander/config.yaml
 ```
@@ -437,7 +430,6 @@ bootstrap:
   dir: /etc/opampcommander/initial
   remoteConfigSchemaLoad: latest   # latest | all | none
   defaultNamespace: default   # namespace for agents without a service.namespace
-  defaultRole: default        # role auto-granted to every user
 ```
 
 Setting `bootstrap.dir` empty disables bootstrapping.
@@ -530,51 +522,12 @@ poll after the cache expires. Monitor the `/healthz` JSON body to detect degrade
 cross-server command delivery: Kubernetes probes intentionally stay successful
 so a broker outage does not drain or restart every replica.
 
-## Authentication
+## API access
 
-OpAMP Commander supports OAuth2 (GitHub), basic auth (with hashed passwords), and a
-manual bearer-token mode used by the CLI.
-
-```yaml
-auth:
-  enabled: true
-  admin:
-    username: "admin"
-    password: "admin_password"
-    email: "admin@admin"
-  basic:
-    # Server-side secret mixed into every basic-auth password hash. Set a long,
-    # random, stable value. Empty disables DB-backed basic-auth users.
-    pepper: ""
-  jwt:
-    issuer: "opampcommander"
-    expire: 30m                   # access token lifetime
-    refreshExpire: 168h           # refresh token lifetime (0 disables refresh)
-    secret: "your_jwt_secret"
-    audience:
-      - "opampcommander"
-  type: "oauth2"
-  oauth2:
-    provider: github
-    clientId: "your_client_id"
-    clientSecret: "your_client_secret"
-    redirectUri: "http://localhost:8080/auth/callback"
-    # Extra hosts the authcode endpoint accepts as redirect targets, on top of the
-    # always-allowed loopback hosts (127.0.0.1, ::1, localhost). Add your web UI host.
-    allowedRedirectHosts:
-      - opampcommander.minuk.dev
-    state:                        # CSRF protection for the OAuth2 flow
-      mode: jwt
-      jwt:
-        issuer: "opampcommander"
-        expire: 5m
-        secret: "your_jwt_secret"
-        audience:
-          - "opampcommander"
-```
-
-With `auth.enabled: false`, authentication is bypassed — only suitable for local
-development.
+Keep REST routes private to trusted workloads. User management requests go
+through the Kubernetes API under Kubernetes RBAC. Deployments that publish
+internal routes must enforce caller access at the infrastructure boundary.
+See [runtime identity](../runtime-authentication/) for installation binding.
 
 ## Command-line flags
 

@@ -14,26 +14,23 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// RuntimeClient checks the Commander namespace identity with a dedicated ServiceAccount token.
+// RuntimeClient checks the namespace identity through the internal Commander service.
 type RuntimeClient struct {
 	endpoint *url.URL
 	http     *http.Client
 }
 
 // NewRuntimeClient builds a TLS client for the configured Commander origin.
-func NewRuntimeClient(address, caFile, tokenFile string) (*RuntimeClient, error) {
+func NewRuntimeClient(address, caFile string) (*RuntimeClient, error) {
 	endpoint, err := url.Parse(address)
 	if err != nil || endpoint.Scheme != "https" || endpoint.Hostname() == "" ||
 		endpoint.User != nil || endpoint.Fragment != "" || endpoint.RawQuery != "" || endpoint.ForceQuery ||
 		(endpoint.Path != "" && endpoint.Path != "/") {
 		return nil, errors.New("runtime URL must be an HTTPS origin")
 	}
-	if tokenFile == "" {
-		return nil, errors.New("runtime token file is required")
-	}
 	httpClient, err := rest.HTTPClientFor(&rest.Config{
 		TLSClientConfig: rest.TLSClientConfig{CAFile: caFile},
-		BearerTokenFile: tokenFile, Timeout: 5 * time.Second,
+		Timeout:         5 * time.Second,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create runtime client: %w", err)

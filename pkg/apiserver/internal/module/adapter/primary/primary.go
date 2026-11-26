@@ -8,9 +8,9 @@ import (
 )
 
 // New creates the primary adapter module.
-func New(gatewayOnly bool) fx.Option {
+func New() fx.Option {
 	return fx.Options(
-		NewHTTP(gatewayOnly),
+		NewHTTP(),
 		fx.Provide(
 			fx.Annotate(NewExecutor, fx.ParamTags(``, `group:"runners"`)),
 			// Inbound messaging: server-event receiver.

@@ -14,14 +14,8 @@ spec:
               readOnly: true
       volumes:
         - name: runtime-credentials
-          projected:
-            sources:
-              - serviceAccountToken:
-                  path: token
-                  audience: opampcommander-runtime
-                  expirationSeconds: 3600
-              - configMap:
-                  name: runtime-ca
-                  items:
-                    - key: ca.crt
-                      path: ca.crt
+          configMap:
+            name: runtime-ca
+            items:
+              - key: ca.crt
+                path: ca.crt

@@ -114,10 +114,11 @@ access to its trusted workloads. Reserve Service proxy and port forwarding for
 privileged cluster operations because those permissions grant access to the
 backend service or Pod as a whole.
 
-`opamp.gatewayOnly` starts the OpAMP transport and the separate health and metrics
-listener. It omits user and runtime REST routes and skips legacy auth and manifest
-bootstrap. Legacy installations can read about the transitional direct API in
-[runtime authentication](../runtime-authentication/).
+The apiserver serves the OpAMP endpoint and an internal REST API. Kubernetes
+RBAC controls management requests at the Kubernetes API. If a deployment adds
+a proxy in front of the internal API, enforce access at that proxy. See
+[runtime identity setup](../runtime-authentication/) for namespace ownership
+and the MongoDB installation binding.
 
 ## Agent management
 
@@ -304,8 +305,8 @@ reuses the existing Cobra read commands and explicitly handles kubeconfig,
 context, and namespace. During cutover, retire direct Agent update, delete,
 restart, and reconcile commands with migration guidance to the AgentGroup
 workflow. Old configuration CRUD, local login and role management, and standalone
-configuration flags are deprecated with replacements. Legacy commands remain
-available in the compatibility deployment during the documented window.
+configuration flags are deprecated with replacements. Existing deployments on earlier releases retain their previous CLI commands
+during the documented migration window.
 
 Removal requires: rehearsed export/import and rollback, equivalent desired state
 on a cohort, passing auth/isolation/acknowledgment/outage tests, migrated clients,

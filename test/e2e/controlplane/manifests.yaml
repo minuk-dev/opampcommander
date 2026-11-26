@@ -88,8 +88,6 @@ data:
   config.yaml: |
     address: 0.0.0.0:8080
     runtimeAPI:
-      enabled: true
-      audience: opampcommander-runtime
       installationNamespace: opampcommander-operator-system
       installationName: opampcommander-operator-opamp-installation
       installationUID: INSTALLATION_UID
@@ -104,14 +102,6 @@ data:
     event:
       enabled: false
       type: inmemory
-    auth:
-      admin:
-        username: test-admin
-        password: test-password
-      jwt:
-        secret: kind-e2e-only-signing-key
-        issuer: kind-e2e
-        audience: [kind-e2e]
     management:
       address: 0.0.0.0:9090
       log:
@@ -174,14 +164,8 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: opamp-runtime-reviewer
+  name: opamp-runtime-namespace-reader
 rules:
-  - apiGroups: [authentication.k8s.io]
-    resources: [tokenreviews]
-    verbs: [create]
-  - apiGroups: [authorization.k8s.io]
-    resources: [subjectaccessreviews]
-    verbs: [create]
   - apiGroups: [""]
     resources: [namespaces]
     verbs: [get]
@@ -189,11 +173,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: opamp-runtime-reviewer
+  name: opamp-runtime-namespace-reader
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: opamp-runtime-reviewer
+  name: opamp-runtime-namespace-reader
 subjects:
   - kind: ServiceAccount
     name: apiserver

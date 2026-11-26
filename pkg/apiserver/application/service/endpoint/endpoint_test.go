@@ -15,7 +15,6 @@ import (
 	endpointsvc "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/endpoint"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 var errMock = errors.New("mock error")
@@ -116,9 +115,7 @@ func (m *mockEndpointUsecase) DeleteEndpoint(
 func newSvc(t *testing.T, ep *mockEndpointUsecase) *endpointsvc.Service {
 	t.Helper()
 
-	base := testutil.NewBase(t)
-
-	return endpointsvc.NewEndpointService(ep, base.Logger)
+	return endpointsvc.NewEndpointService(ep)
 }
 
 func newEndpoint() *agentmodel.Endpoint {

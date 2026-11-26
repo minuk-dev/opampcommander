@@ -29,12 +29,10 @@ tls:
   keyFile: server.key
   minVersion: "1.2"
   cipherSuites: [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256]
-auth:
-  jwt:
-    secret: s3cr3t
+liveness:
+  redis:
+    password: s3cr3t
 runtimeAPI:
-  enabled: true
-  audience: runtime
   installationNamespace: operator-system
   installationName: opamp-installation
   installationUID: installation-uid
@@ -58,7 +56,7 @@ event:
 	t.Setenv("EVENT_KAFKA_RETRYATTEMPTS", "5")
 	t.Setenv("TLS_MINVERSION", "1.3")
 	t.Setenv("MANAGEMENT_TLS_CERTFILE", "env-management.crt")
-	t.Setenv("RUNTIMEAPI_AUDIENCE", "runtime-from-env")
+	t.Setenv("RUNTIMEAPI_INSTALLATIONUID", "installation-from-env")
 
 	run := func(t *testing.T, extraArgs ...string) (string, map[string]any) {
 		t.Helper()
@@ -82,8 +80,9 @@ event:
 	t.Run("merges flags, config file and env", func(t *testing.T) {
 		out, parsed := run(t)
 		assert.Equal(t, map[string]any{
-			"enabled": true, "audience": "runtime-from-env", "installationNamespace": "operator-system",
-			"installationName": "opamp-installation", "installationUID": "installation-uid",
+			"installationName":      "opamp-installation",
+			"installationNamespace": "operator-system",
+			"installationUID":       "installation-from-env",
 		}, parsed["runtimeAPI"])
 
 		assert.Contains(t, out, "# config file: "+configFile)
@@ -98,12 +97,9 @@ event:
 		assert.Equal(t, "warn", log["level"])
 		assert.Equal(t, "json", log["format"])
 
-		auth, _ := parsed["auth"].(map[string]any)
-		jwt, _ := auth["jwt"].(map[string]any)
-		assert.Equal(t, "<redacted>", jwt["secret"])
-
-		oauth2, _ := auth["oauth2"].(map[string]any)
-		assert.Empty(t, oauth2["clientSecret"], "empty secrets are not redacted")
+		liveness, _ := parsed["liveness"].(map[string]any)
+		redis, _ := liveness["redis"].(map[string]any)
+		assert.Equal(t, "<redacted>", redis["password"])
 
 		event, _ := parsed["event"].(map[string]any)
 		kafka, _ := event["kafka"].(map[string]any)
@@ -181,9 +177,9 @@ event:
 	t.Run("show secrets", func(t *testing.T) {
 		_, parsed := run(t, "--show-secrets")
 
-		auth, _ := parsed["auth"].(map[string]any)
-		jwt, _ := auth["jwt"].(map[string]any)
-		assert.Equal(t, "s3cr3t", jwt["secret"])
+		liveness, _ := parsed["liveness"].(map[string]any)
+		redis, _ := liveness["redis"].(map[string]any)
+		assert.Equal(t, "s3cr3t", redis["password"])
 	})
 }
 

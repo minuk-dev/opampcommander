@@ -26,7 +26,7 @@ func TestRuntimeNamespaceVerification(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "/api/runtime/v1/namespaces/tenant" || r.Header.Get("Authorization") != "Bearer projected" {
+				if r.URL.Path != "/api/runtime/v1/namespaces/tenant" || r.Header.Get("Authorization") != "" {
 					t.Error("incorrect scoped request")
 				}
 				if tc.code == 302 {
@@ -38,14 +38,10 @@ func TestRuntimeNamespaceVerification(t *testing.T) {
 			defer server.Close()
 			dir := t.TempDir()
 			ca := filepath.Join(dir, "ca")
-			token := filepath.Join(dir, "token")
 			if err := os.WriteFile(ca, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0600); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(token, []byte("projected"), 0600); err != nil {
-				t.Fatal(err)
-			}
-			c, err := NewRuntimeClient(server.URL, ca, token)
+			c, err := NewRuntimeClient(server.URL, ca)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -65,11 +61,9 @@ func TestRuntimeNamespaceVerification(t *testing.T) {
 func TestRuntimeClientRequiresHTTPSOrigin(t *testing.T) {
 	t.Parallel()
 	for _, address := range []string{"", "http://commander", "https://user:password@commander", "https://commander/path", "https://commander?token=x", "https://commander#fragment"} {
-		if _, err := NewRuntimeClient(address, "", "token"); err == nil {
+		if _, err := NewRuntimeClient(address, ""); err == nil {
 			t.Errorf("accepted invalid runtime origin %q", address)
 		}
 	}
-	if _, err := NewRuntimeClient("https://commander", "", ""); err == nil {
-		t.Error("accepted missing token file")
-	}
+
 }

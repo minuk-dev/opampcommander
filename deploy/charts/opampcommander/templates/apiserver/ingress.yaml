@@ -26,14 +26,12 @@ spec:
     - host: {{ .host | quote }}
       http:
         paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            pathType: {{ .pathType | default "Prefix" }}
+          - path: /api/v1/opamp
+            pathType: Exact
             backend:
               service:
                 name: {{ $fullname }}
                 port:
                   number: {{ $port }}
-          {{- end }}
     {{- end }}
 {{- end }}

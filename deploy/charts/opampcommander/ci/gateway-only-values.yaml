@@ -1,8 +1,0 @@
-apiserver:
-  config:
-    opamp:
-      gatewayOnly: true
-  secrets:
-    create: false
-web:
-  enabled: false

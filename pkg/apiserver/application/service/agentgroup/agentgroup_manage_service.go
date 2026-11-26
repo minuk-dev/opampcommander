@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"maps"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/selector"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -37,14 +35,12 @@ type ManageService struct {
 	mapper            *helper.Mapper
 	sanityFilter      *filter.Sanity
 	clock             clock.Clock
-	logger            *slog.Logger
 }
 
 // NewManageService returns a new ManageService.
 func NewManageService(
 	agentgroupUsecase agentport.AgentGroupUsecase,
 	agentUsecase agentport.AgentUsecase,
-	logger *slog.Logger,
 ) *ManageService {
 	realClock := clock.NewRealClock()
 
@@ -54,7 +50,6 @@ func NewManageService(
 		mapper:            helper.NewMapper(realClock, agentmodel.DefaultConnectionStaleness),
 		sanityFilter:      filter.NewSanity(),
 		clock:             realClock,
-		logger:            logger,
 	}
 }
 
@@ -191,13 +186,6 @@ func (s *ManageService) CreateAgentGroup(
 		return nil, fmt.Errorf("check existing agent group: %w", getErr)
 	}
 
-	createdBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		createdBy = security.NewAnonymousUser()
-	}
-
 	domainAgentGroup := s.mapper.MapAPIToAgentGroup(agentGroup)
 
 	// Set the created condition with createdBy information
@@ -210,12 +198,12 @@ func (s *ManageService) CreateAgentGroup(
 			Type:               model.ConditionTypeCreated,
 			LastTransitionTime: now,
 			Status:             model.ConditionStatusTrue,
-			Reason:             createdBy.String(),
+			Reason:             model.APIServerActor,
 			Message:            "Agent group created",
 		},
 	}
 
-	domainAgentGroup, err = s.agentgroupUsecase.SaveAgentGroup(ctx, namespace, name, domainAgentGroup)
+	domainAgentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, namespace, name, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("create agent group: %w", err)
 	}
@@ -241,13 +229,6 @@ func (s *ManageService) UpdateAgentGroup(
 		return nil, fmt.Errorf("get agent group for update: %w", err)
 	}
 
-	updatedBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		updatedBy = security.NewAnonymousUser()
-	}
-
 	domainAgentGroup := s.mapper.MapAPIToAgentGroup(apiAgentGroup)
 
 	if apiAgentGroup.Metadata.ResourceVersion <= 0 {
@@ -269,7 +250,7 @@ func (s *ManageService) UpdateAgentGroup(
 	domainAgentGroup = s.sanityFilter.Sanitize(existingAgentGroup, domainAgentGroup)
 
 	domainAgentGroup.SetCondition(model.ConditionTypeUpdated, model.ConditionStatusTrue,
-		s.clock.Now(), updatedBy.String(), "Agent group updated")
+		s.clock.Now(), model.APIServerActor, "Agent group updated")
 
 	updatedAgentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, namespace, name, domainAgentGroup)
 	if err != nil {
@@ -286,16 +267,9 @@ func (s *ManageService) DeleteAgentGroup(
 	name string,
 	resourceVersion ...int64,
 ) error {
-	deletedBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		deletedBy = security.NewAnonymousUser()
-	}
-
 	deletedAt := s.clock.Now()
 
-	err = s.agentgroupUsecase.DeleteAgentGroup(ctx, namespace, name, deletedAt, deletedBy.String(), resourceVersion...)
+	err := s.agentgroupUsecase.DeleteAgentGroup(ctx, namespace, name, deletedAt, model.APIServerActor, resourceVersion...)
 	if err != nil {
 		return fmt.Errorf("get agent group for delete: %w", err)
 	}

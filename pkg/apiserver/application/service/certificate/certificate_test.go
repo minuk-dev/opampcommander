@@ -15,7 +15,6 @@ import (
 	certificatesvc "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/certificate"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 var errMock = errors.New("mock error")
@@ -124,9 +123,7 @@ func (m *mockCertificateUsecase) DeleteCertificate(
 func newSvc(t *testing.T, cert *mockCertificateUsecase) *certificatesvc.Service {
 	t.Helper()
 
-	base := testutil.NewBase(t)
-
-	return certificatesvc.NewCertificateService(cert, base.Logger)
+	return certificatesvc.NewCertificateService(cert)
 }
 
 func newCert() *agentmodel.Certificate {
