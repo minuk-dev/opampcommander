@@ -14,8 +14,9 @@ To run the documentation site locally:
 
 ### Prerequisites
 
-- [Hugo Extended](https://gohugo.io/installation/) v0.110.0 or later
-- Node.js and npm (optional, for PostCSS processing)
+- [Hugo](https://gohugo.io/installation/) v0.170.1 or later
+- [Dart Sass](https://gohugo.io/functions/css/sass/#dart-sass) with `sass` on your `PATH`
+- Node.js 24 and npm for PostCSS processing
 
 ### Running Locally
 
