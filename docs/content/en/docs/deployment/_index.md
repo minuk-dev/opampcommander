@@ -217,6 +217,11 @@ HTTPS, the server CA, and client credentials when required; the bundled
 ServiceMonitor uses HTTP, so disable it and provide your own HTTPS
 ServiceMonitor for this topology.
 
+## Grafana migration
+
+Use the [standalone web migration checklist](../grafana-migration/) to map
+existing workflows and rehearse retiring the standalone service.
+
 ## Configuration
 
 `apiserver.config` is rendered verbatim into a ConfigMap and mounted at
