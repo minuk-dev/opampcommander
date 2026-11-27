@@ -71,6 +71,7 @@ func NewHTTP() fx.Option {
 			return controller.ConnContext
 		},
 	)
+
 	return fx.Options(
 		transport,
 		fx.Provide(

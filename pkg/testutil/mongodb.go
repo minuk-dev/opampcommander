@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	mongoTestContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 const mongoDBImage = "mongo:4.4.10"
@@ -31,6 +32,10 @@ func (b *Base) StartMongoDB() *MongoDB {
 		b.t.Context(),
 		mongoDBImage,
 		mongoTestContainer.WithReplicaSet("rs0"),
+		// rs.status().ok can succeed before the node accepts writes.
+		testcontainers.WithAdditionalWaitStrategy(wait.ForExec([]string{
+			"mongo", "--quiet", "--eval", "quit(db.isMaster().ismaster ? 0 : 1)",
+		})),
 	)
 	require.NoError(b.t, err)
 
