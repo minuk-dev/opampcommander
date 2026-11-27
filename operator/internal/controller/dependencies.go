@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -33,13 +34,8 @@ type dependency struct {
 	name string
 }
 
-func dependencies(object client.Object) []dependency {
+func configurationDependencies(object client.Object) []dependency {
 	var refs []dependency
-	secret := func(ref *api.SecretKeyReference) {
-		if ref != nil {
-			refs = append(refs, dependency{secretKind, ref.Name})
-		}
-	}
 	switch object := object.(type) {
 	case *api.AgentGroup:
 		for _, ref := range object.Spec.RemoteConfigs {
@@ -48,24 +44,38 @@ func dependencies(object client.Object) []dependency {
 		for _, ref := range object.Spec.PackageRefs {
 			refs = append(refs, dependency{packageKind, ref.Name})
 		}
-		secret(object.Spec.ConnectionSettingsSecretRef)
 	case *api.RemoteConfig:
-		secret(object.Spec.ValueFrom)
 		for _, ref := range object.Spec.SchemaRefs {
 			refs = append(refs, dependency{schemaKind, ref.Name})
 		}
 		for _, ref := range object.Spec.EndpointRefs {
 			refs = append(refs, dependency{endpointKind, ref.Name})
 		}
+	}
+	return refs
+}
+
+func secretReferences(object client.Object) []api.SecretKeyReference {
+	var refs []api.SecretKeyReference
+	add := func(ref *api.SecretKeyReference) {
+		if ref != nil {
+			refs = append(refs, *ref)
+		}
+	}
+	switch object := object.(type) {
+	case *api.AgentGroup:
+		add(object.Spec.ConnectionSettingsSecretRef)
+	case *api.RemoteConfig:
+		add(object.Spec.ValueFrom)
 	case *api.AgentPackage:
-		secret(object.Spec.SignatureSecretRef)
+		add(object.Spec.SignatureSecretRef)
 		for _, header := range object.Spec.Headers {
-			secret(&header.ValueFrom)
+			add(&header.ValueFrom)
 		}
 	case *api.Endpoint:
 		for _, tenant := range object.Spec.Tenants {
 			for _, header := range tenant.Headers {
-				secret(&header.ValueFrom)
+				add(&header.ValueFrom)
 			}
 		}
 	}
@@ -73,10 +83,14 @@ func dependencies(object client.Object) []dependency {
 }
 
 func dependencyKeys(object client.Object) []string {
-	refs := dependencies(object)
-	keys := make([]string, 0, len(refs))
+	refs := configurationDependencies(object)
+	secrets := secretReferences(object)
+	keys := make([]string, 0, len(refs)+len(secrets))
 	for _, ref := range refs {
 		keys = append(keys, ref.kind+"/"+ref.name)
+	}
+	for _, ref := range secrets {
+		keys = append(keys, secretKind+"/"+ref.Name)
 	}
 	return keys
 }
@@ -92,15 +106,16 @@ func (ref dependency) object() client.Object {
 	case endpointKind:
 		return &api.Endpoint{}
 	default:
-		// Secret contents are not needed to watch or check object existence.
+		// Secret watches must not cache private values.
 		return &metav1.PartialObjectMetadata{TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: secretKind}}
 	}
 }
 
 // referencesFound reads the current dependency graph without copying configuration to Mongo.
-// Secret key resolution and content validation belong to the delivery/admission path.
-func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object client.Object, seen map[dependency]bool) (bool, error) {
-	for _, ref := range dependencies(object) {
+// It collects Secret key references for a separate uncached check.
+func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object client.Object, seen map[dependency]bool, keys *[]api.SecretKeyReference) (bool, error) {
+	*keys = append(*keys, secretReferences(object)...)
+	for _, ref := range configurationDependencies(object) {
 		if seen[ref] {
 			continue
 		}
@@ -115,12 +130,44 @@ func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object clien
 		if !child.GetDeletionTimestamp().IsZero() {
 			return false, nil
 		}
-		found, err := r.referencesFound(ctx, child, seen)
+		found, err := r.referencesFound(ctx, child, seen, keys)
 		if err != nil || !found {
 			return found, err
 		}
 	}
 	return true, nil
+}
+
+// secretKeysAvailable checks both existence and key availability with one read per Secret.
+func secretKeysAvailable(ctx context.Context, reader client.Reader, namespace string, refs []api.SecretKeyReference) (found, available bool, err error) {
+	keysByName := make(map[string][]string)
+	var names []string
+	for _, ref := range refs {
+		if _, exists := keysByName[ref.Name]; !exists {
+			names = append(names, ref.Name)
+		}
+		keysByName[ref.Name] = append(keysByName[ref.Name], ref.Key)
+	}
+	available = true
+	for _, name := range names {
+		secret := &corev1.Secret{}
+		if err := reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, secret); err != nil {
+			if apierrors.IsNotFound(err) {
+				return false, false, nil
+			}
+			return false, false, errors.New("could not check Secret keys")
+		}
+		if !secret.DeletionTimestamp.IsZero() {
+			return false, false, nil
+		}
+		for _, key := range keysByName[name] {
+			if len(secret.Data[key]) == 0 {
+				available = false
+				break
+			}
+		}
+	}
+	return true, available, nil
 }
 
 func (r *AgentGroupReconciler) enqueueDependents(kind string) handler.MapFunc {
