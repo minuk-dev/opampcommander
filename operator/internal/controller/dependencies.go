@@ -39,7 +39,7 @@ type dependency struct {
 	name string
 }
 
-func dependencies(object client.Object) []dependency {
+func configurationDependencies(object client.Object) []dependency {
 	var refs []dependency
 	switch object := object.(type) {
 	case *api.AgentGroup:
@@ -56,9 +56,6 @@ func dependencies(object client.Object) []dependency {
 		for _, ref := range object.Spec.EndpointRefs {
 			refs = append(refs, dependency{endpointKind, ref.Name})
 		}
-	}
-	for _, ref := range secretReferences(object) {
-		refs = append(refs, dependency{secretKind, ref.Name})
 	}
 	return refs
 }
@@ -91,10 +88,14 @@ func secretReferences(object client.Object) []api.SecretKeyReference {
 }
 
 func dependencyKeys(object client.Object) []string {
-	refs := dependencies(object)
-	keys := make([]string, 0, len(refs))
+	refs := configurationDependencies(object)
+	secrets := secretReferences(object)
+	keys := make([]string, 0, len(refs)+len(secrets))
 	for _, ref := range refs {
 		keys = append(keys, ref.kind+"/"+ref.name)
+	}
+	for _, ref := range secrets {
+		keys = append(keys, secretKind+"/"+ref.Name)
 	}
 	return keys
 }
@@ -110,7 +111,7 @@ func (ref dependency) object() client.Object {
 	case endpointKind:
 		return &api.Endpoint{}
 	default:
-		// Secret contents are not needed to watch or check object existence.
+		// Secret watches must not cache private values.
 		return &metav1.PartialObjectMetadata{TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: secretKind}}
 	}
 }
@@ -132,10 +133,10 @@ func (i *configurationInputs) fingerprint() string {
 }
 
 // referencesFound reads the current dependency graph without copying configuration to Mongo.
-// It gathers Secret key references while reading only metadata for Secret objects.
+// It collects Secret key references for a separate uncached check.
 func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object client.Object, inputs *configurationInputs) (bool, error) {
 	inputs.secretKeys = append(inputs.secretKeys, secretReferences(object)...)
-	for _, ref := range dependencies(object) {
+	for _, ref := range configurationDependencies(object) {
 		if inputs.seen[ref] {
 			continue
 		}
@@ -150,9 +151,7 @@ func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object clien
 		if !child.GetDeletionTimestamp().IsZero() {
 			return false, nil
 		}
-		if ref.kind != secretKind {
-			inputs.observe(ref.kind, child, strconv.FormatInt(child.GetGeneration(), 10))
-		}
+		inputs.observe(ref.kind, child, strconv.FormatInt(child.GetGeneration(), 10))
 		found, err := r.referencesFound(ctx, child, inputs)
 		if err != nil || !found {
 			return found, err
@@ -161,8 +160,8 @@ func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object clien
 	return true, nil
 }
 
-// secretKeysAvailable reads one Secret at a time through the uncached API reader.
-func secretKeysAvailable(ctx context.Context, reader client.Reader, namespace string, inputs *configurationInputs) (bool, error) {
+// secretKeysAvailable checks both existence and key availability with one read per Secret.
+func secretKeysAvailable(ctx context.Context, reader client.Reader, namespace string, inputs *configurationInputs) (found, available bool, err error) {
 	keysByName := make(map[string][]string)
 	var names []string
 	for _, ref := range inputs.secretKeys {
@@ -171,25 +170,27 @@ func secretKeysAvailable(ctx context.Context, reader client.Reader, namespace st
 		}
 		keysByName[ref.Name] = append(keysByName[ref.Name], ref.Key)
 	}
+	available = true
 	for _, name := range names {
 		secret := &corev1.Secret{}
 		if err := reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, secret); err != nil {
 			if apierrors.IsNotFound(err) {
-				return false, nil
+				return false, false, nil
 			}
-			return false, errors.New("could not check Secret keys")
+			return false, false, errors.New("could not check Secret keys")
 		}
 		if !secret.DeletionTimestamp.IsZero() {
-			return false, nil
+			return false, false, nil
 		}
 		for _, key := range keysByName[name] {
 			if len(secret.Data[key]) == 0 {
-				return false, nil
+				available = false
+				break
 			}
 		}
 		inputs.observe(secretKind, secret, secret.ResourceVersion)
 	}
-	return true, nil
+	return true, available, nil
 }
 
 func (r *AgentGroupReconciler) enqueueDependents(kind string) handler.MapFunc {

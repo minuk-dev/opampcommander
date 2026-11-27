@@ -2,18 +2,89 @@ package controller
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	api "github.com/minuk-dev/opampcommander/operator/api/v1alpha1"
 )
+
+func TestAgentGroupSecretReferencesUseLiveState(t *testing.T) {
+	t.Parallel()
+	const privateValue = "private-value"
+	for _, tc := range []struct {
+		name string
+		deny bool
+		want metav1.ConditionStatus
+	}{
+		{name: "cached Secret has been deleted", want: metav1.ConditionFalse},
+		{name: "live Secret cannot be read", deny: true, want: metav1.ConditionUnknown},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			reader, installation := installationFixture(t)
+			namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "tenant", Labels: map[string]string{InstallationLabel: string(installation.UID)}}}
+			group := &api.AgentGroup{ObjectMeta: metav1.ObjectMeta{Name: "group", Namespace: namespace.Name}, Spec: api.AgentGroupSpec{
+				ConnectionSettingsSecretRef: &api.SecretKeyReference{Name: "settings", Key: "bundle"},
+			}}
+			foreign := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "settings", Namespace: "other"},
+				Data:       map[string][]byte{"bundle": []byte(privateValue)},
+			}
+			for _, object := range []client.Object{namespace, group, foreign} {
+				if err := reader.Create(t.Context(), object); err != nil {
+					t.Fatal(err)
+				}
+			}
+			clientWithStaleMetadata := interceptor.NewClient(reader.(client.WithWatch), interceptor.Funcs{Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, object client.Object, opts ...client.GetOption) error {
+				if object.GetObjectKind().GroupVersionKind() == corev1.SchemeGroupVersion.WithKind(secretKind) {
+					object.SetName(key.Name)
+					object.SetNamespace(key.Namespace)
+					return nil
+				}
+				if _, ok := object.(*corev1.Secret); ok && tc.deny {
+					return errors.New(privateValue)
+				}
+				return c.Get(ctx, key, object, opts...)
+			}})
+			installation.reader = clientWithStaleMetadata
+			r := &AgentGroupReconciler{Client: clientWithStaleMetadata, Installation: installation}
+			key := client.ObjectKeyFromObject(group)
+			_, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: key})
+			if (err != nil) != tc.deny {
+				t.Fatalf("Reconcile error = %v, want error = %v", err, tc.deny)
+			}
+			if err != nil && strings.Contains(err.Error(), privateValue) {
+				t.Fatal("Reconcile returned the raw Secret read error")
+			}
+			if err := reader.Get(t.Context(), key, group); err != nil {
+				t.Fatal(err)
+			}
+			condition := meta.FindStatusCondition(group.Status.Conditions, "ReferencesFound")
+			if condition == nil || condition.Status != tc.want {
+				t.Fatalf("ReferencesFound = %v, want %s", condition, tc.want)
+			}
+			keys := meta.FindStatusCondition(group.Status.Conditions, "SecretKeysAvailable")
+			if tc.deny && (keys == nil || keys.Status != metav1.ConditionUnknown || strings.Contains(keys.Message, privateValue)) {
+				t.Fatalf("SecretKeysAvailable = %v, want a redacted Unknown condition", keys)
+			}
+			if !tc.deny && keys != nil {
+				t.Fatalf("SecretKeysAvailable = %v for a missing Secret", keys)
+			}
+		})
+	}
+}
 
 func TestEnqueueDependents(t *testing.T) {
 	scheme := runtime.NewScheme()
