@@ -150,7 +150,20 @@ func TestControlPlane(t *testing.T) {
 func testNativeConfiguration(t *testing.T, apiClient *client.Client) {
 	t.Helper()
 
-	kubectl(t, "apply", "-k", "../../../operator/config/samples")
+	const samples = "../../../operator/config/samples"
+
+	manifests := kubectl(t, "apply", "--server-side", "--dry-run=server", "-k", samples)
+	require.Contains(t, string(manifests), "agentgroup.opampcommander.io/collectors")
+	require.Empty(t, kubectl(t, "get", "agentgroup", "collectors", "--ignore-not-found", "-o", "name"))
+	require.Empty(t, kubectl(t, "get", "remoteconfig", "otlp-debug", "--ignore-not-found", "-o", "name"))
+
+	denied, err := runKubectl(t.Context(), "create", "-n", "default", "--as=system:serviceaccount:default:default",
+		"-f", samples+"/opampcommander_v1alpha1_agentgroup.yaml")
+	require.Error(t, err)
+	require.Contains(t, string(denied), "Forbidden")
+	require.Empty(t, kubectl(t, "get", "agentgroup", "collectors", "--ignore-not-found", "-o", "name"))
+
+	kubectl(t, "apply", "-k", samples)
 	anchorName := string(kubectl(t, "get", "configmap", "-n", operatorNamespace,
 		"-l", "app.kubernetes.io/component=installation", "-o", "jsonpath={.items[0].metadata.name}"))
 	anchorUID := string(kubectl(t, "get", "configmap", anchorName, "-n", operatorNamespace,
@@ -243,15 +256,24 @@ func mongoWriteFailure(t *testing.T, enabled bool) {
 func kubectl(t *testing.T, args ...string) []byte {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(t.Context(), 150*time.Second)
+	output, err := runKubectl(t.Context(), args...)
+	require.NoError(t, err, "kubectl %v: %s", args, output)
+
+	return output
+}
+
+func runKubectl(ctx context.Context, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 150*time.Second)
 	defer cancel()
 
 	//nolint:gosec // Arguments come from this test; no shell is involved.
 	cmd := exec.CommandContext(ctx, "kubectl", args...)
 	output, err := cmd.CombinedOutput()
-	require.NoError(t, err, "kubectl %v: %s", args, output)
+	if err != nil {
+		return output, fmt.Errorf("kubectl: %w", err)
+	}
 
-	return output
+	return output, nil
 }
 
 func waitCondition(t *testing.T, kind, status string) {

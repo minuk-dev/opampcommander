@@ -28,13 +28,12 @@ the existing runtime suites; it does not replace them with a smaller smoke test.
 | Agent registration, description, health, heartbeats | `apiserver/e2e_test.go`, `conformance_e2e_test.go` | Reference Agents over HTTP and WebSocket report health/sequence through the deployed apiserver. |
 | Remote/effective config and restart | `conformance_e2e_test.go`, `agentgroup_remoteconfig_e2e_test.go` | Existing REST selection and config/report/restart round trips through the deployed apiserver. |
 | Agent persistence failures and Redis data loss | OpAMP persistence unit tests, Redis runtime E2E | Mongo update failures return `Unavailable` over HTTP/WebSocket without publishing the failed report; reports resume after recovery. Redis `FLUSHDB` rebuilds liveness while preserving committed reports and configuration. |
-| CR configuration and dependency changes | Operator envtest API/dependency suites | All five samples, no-op apply, missing/restored RemoteConfig and truthful ReferencesFound/Ready conditions. |
+| CR configuration and dependency changes | Operator envtest API/dependency suites | All five samples, server-side dry-run with no persisted resources, a denied AgentGroup create with no persistence, no-op apply, and missing/restored dependency conditions. |
 | Operator deployment and authenticated metrics | `operator/test/e2e` | The existing manager suite runs on this same disposable Kind cluster. |
 | Restart and ownership | Operator dependency envtest | Changes made while the Operator is stopped converge after startup; two replicas use a Lease and recover after the leader Pod is deleted. Gateway ping remains available. |
 | Installation and namespace ownership | Operator identity unit tests and namespace-watch envtest | Unassigned/foreign namespaces remain untouched. Assignment enqueues existing CRs. Recreating the installation ConfigMap makes both replicas unready and prevents further status writes; gateway ping remains available. |
 | Runtime namespace identity | Runtime controller and HTTP routing unit tests | Checks assigned and foreign namespaces, same-name namespace recreation, and rejection of replacement installation UIDs against the original MongoDB database. |
-| Native Agent enrollment | Runtime controller and MongoDB replica-set tests | A ServiceAccount enrolls its Agent after receiving a grant scoped to the instance UID. Reads distinguish missing and committed registrations, block other instance UIDs, and fail after revocation. |
-| Selectors, namespace boundaries, CRUD/deletion, inventory, users/RBAC, certificates, mTLS, Redis outage, Kafka | Remaining `test/e2e/apiserver/*_test.go` cases | Retained in `test-e2e`; these fault-injection cases are not yet ported to Kind. |
+| Selectors, namespace boundaries, CRUD/deletion, inventory, certificates, mTLS, Redis outage, Kafka | Remaining `test/e2e/apiserver/*_test.go` cases | Retained in `test-e2e`; these fault-injection cases are not yet ported to Kind. |
 | Released Supervisor connection-settings policy | `test-supervisor-policy` | Retained as its own workflow job. |
 
 There is **no CR-to-Agent delivery assertion yet**. The Operator currently checks
