@@ -115,6 +115,10 @@ spec:
                       x-kubernetes-list-map-keys:
                       - name
                       x-kubernetes-list-type: map
+                      x-kubernetes-validations:
+                      - message: HTTP header names must be unique ignoring case
+                        rule: self.map(h, h.name.lowerAscii()).all(name, self.exists_one(other,
+                          other.name.lowerAscii() == name))
                     name:
                       minLength: 1
                       type: string

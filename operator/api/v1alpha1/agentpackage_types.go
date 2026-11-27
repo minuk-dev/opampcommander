@@ -22,6 +22,7 @@ type AgentPackageSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:XValidation:rule="self.map(h, h.name.lowerAscii()).all(name, self.exists_one(other, other.name.lowerAscii() == name))",message="HTTP header names must be unique ignoring case"
 	Headers []HeaderReference `json:"headers,omitempty"`
 	// +optional
 	SignatureSecretRef *SecretKeyReference `json:"signatureSecretRef,omitempty"`

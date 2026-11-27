@@ -74,6 +74,29 @@ var _ = Describe("Configuration API contract", func() {
 		Entry("unknown signal", "Endpoint", map[string]any{"url": "https://example.test/", "protocol": "otlphttp", "signals": []any{"unknown"}}),
 	)
 
+	It("rejects ambiguous credential headers during native dry-run and create", func() {
+		headers := []any{
+			map[string]any{"name": "Authorization", "valueFrom": map[string]any{"name": "first", "key": "value"}},
+			map[string]any{"name": "authorization", "valueFrom": map[string]any{"name": "second", "key": "value"}},
+		}
+		objects := []*unstructured.Unstructured{
+			rawResource("AgentPackage", "duplicate-headers", map[string]any{
+				"packageType": "otelcol", "version": "1", "headers": headers,
+				"artifact": map[string]any{"url": "https://example.test/artifact", "digest": "sha256:" + strings.Repeat("a", 64), "sizeBytes": int64(10)},
+			}),
+			rawResource("Endpoint", "duplicate-headers", map[string]any{
+				"url": "https://example.test/", "protocol": "otlphttp", "signals": []any{"traces"},
+				"tenants": []any{map[string]any{"name": "tenant", "headers": headers}},
+			}),
+		}
+		for _, object := range objects {
+			err := applyObject(object.DeepCopy(), "header-validation", client.DryRunAll)
+			Expect(apierrors.IsInvalid(err)).To(BeTrue())
+			Expect(err).To(MatchError(ContainSubstring("HTTP header names must be unique ignoring case")))
+			Expect(apierrors.IsInvalid(k8sClient.Create(ctx, object))).To(BeTrue())
+		}
+	})
+
 	It("preserves opaque config, defaults content type, and isolates status writes", func() {
 		text := "vendor:\n  unknown_future_field: true\n"
 		resource := &api.RemoteConfig{ObjectMeta: metav1.ObjectMeta{Name: "contract-status", Namespace: metav1.NamespaceDefault}, Spec: api.RemoteConfigSpec{Value: text}, Status: api.RemoteConfigStatus{Conditions: []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Injected", Message: "ignored", LastTransitionTime: metav1.Now()}}}}
