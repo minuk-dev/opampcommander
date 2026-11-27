@@ -6,14 +6,11 @@ services:
     command: ['--config', '/etc/commander/config.yaml']
     environment:
       GOMEMLIMIT: 128MiB
-      AUTH_ADMIN_PASSWORD: ${COMMANDER_ADMIN_PASSWORD:?Run make grafana-demo}
-      AUTH_BASIC_PEPPER: ${COMMANDER_PEPPER:?Run make grafana-demo}
-      AUTH_JWT_SECRET: ${COMMANDER_JWT_SECRET:?Run make grafana-demo}
     ports:
       - '127.0.0.1:${COMMANDER_DEMO_PORT:-3301}:8080'
     volumes:
       - ./demo/server.yaml:/etc/commander/config.yaml:ro
-      - ./.demo/initial:/etc/commander/initial:ro
+      - ../../configs/apiserver/initial:/etc/commander/initial:ro
   collector-a:
     image: otel/opentelemetry-collector-contrib:0.163.2
     command: ['--config=/etc/otelcol/demo.yaml']
@@ -35,7 +32,6 @@ services:
   grafana:
     mem_limit: ${GRAFANA_DEMO_MEMORY_LIMIT:-512m}
     environment:
-      COMMANDER_DEMO_TOKEN: ${COMMANDER_DEMO_TOKEN:-}
       GOMEMLIMIT: ${GRAFANA_GOMEMLIMIT:-128MiB}
       GOGC: '50'
       # This disposable demo only needs Commander, not other datasource backends.

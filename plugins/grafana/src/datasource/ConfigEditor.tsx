@@ -24,8 +24,8 @@ export function ConfigEditor({
   return (
     <div style={{ maxWidth: 640 }}>
       <Alert title="Read-only access" severity="info">
-        Use a Commander identity with agent:LIST permission in this namespace. Everyone allowed to query this Grafana
-        data source shares that identity’s visibility. Access tokens must be replaced when they expire.
+        Connect to a private Commander service or an access-controlled proxy. Everyone allowed to query this data source
+        can view agents in its configured namespace.
       </Alert>
       <Field label="Commander URL">
         <Input
@@ -42,7 +42,10 @@ export function ConfigEditor({
           onChange={(event) => update({ namespace: event.currentTarget.value })}
         />
       </Field>
-      <Field label="Access token" description="Stored encrypted by Grafana. Never put the token in the URL.">
+      <Field
+        label="Access token (optional)"
+        description="Supply a token when the upstream requires bearer authentication."
+      >
         <Input
           id="commander-token"
           type="password"
@@ -71,10 +74,7 @@ export function ConfigEditor({
           Reset token
         </Button>
       )}
-      <Field
-        label="Allow HTTP for local development"
-        description="Sends the access token without TLS. Only use on a trusted development network."
-      >
+      <Field label="Allow HTTP for local development" description="Use only on a trusted development network.">
         <Switch
           id="commander-http"
           value={!!options.jsonData.allowInsecureHTTP}

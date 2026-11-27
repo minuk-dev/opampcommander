@@ -65,8 +65,8 @@ func NewDatasource(ctx context.Context, instance backend.DataSourceInstanceSetti
 func (d *Datasource) Dispose() { d.client.CloseIdleConnections() }
 
 func (d *Datasource) endpoint() (*url.URL, error) {
-	if d.settings.URL == "" || d.token == "" || d.settings.Namespace == "" {
-		return nil, errors.New("configure a Commander URL, namespace and access token in the data source")
+	if d.settings.URL == "" || d.settings.Namespace == "" {
+		return nil, errors.New("configure a Commander URL and namespace in the data source")
 	}
 	u, err := url.Parse(d.settings.URL)
 	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "https" && u.Scheme != "http") {
@@ -128,7 +128,9 @@ func (d *Datasource) list(ctx context.Context, cursor string) (*agentPage, backe
 	if err != nil {
 		return nil, backend.StatusBadRequest, errors.New("invalid Commander request")
 	}
-	request.Header.Set("Authorization", "Bearer "+d.token)
+	if d.token != "" {
+		request.Header.Set("Authorization", "Bearer "+d.token)
+	}
 	request.Header.Set("Accept", "application/json")
 	response, err := d.client.Do(request)
 	if err != nil {
@@ -138,7 +140,7 @@ func (d *Datasource) list(ctx context.Context, cursor string) (*agentPage, backe
 	switch response.StatusCode {
 	case http.StatusOK:
 	case http.StatusUnauthorized:
-		return nil, backend.StatusUnauthorized, errors.New("Commander access token is invalid or expired; update the data source token")
+		return nil, backend.StatusUnauthorized, errors.New("Commander or its proxy requires valid credentials; check the data source token")
 	case http.StatusForbidden:
 		return nil, backend.StatusForbidden, errors.New("Commander denied access to this namespace")
 	default:
@@ -227,5 +229,5 @@ func (d *Datasource) CheckHealth(ctx context.Context, _ *backend.CheckHealthRequ
 	if err != nil {
 		return &backend.CheckHealthResult{Status: backend.HealthStatusError, Message: err.Error()}, nil
 	}
-	return &backend.CheckHealthResult{Status: backend.HealthStatusOk, Message: "Authorized to read agents in namespace " + d.settings.Namespace}, nil
+	return &backend.CheckHealthResult{Status: backend.HealthStatusOk, Message: "Read agents in namespace " + d.settings.Namespace}, nil
 }

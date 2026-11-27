@@ -16,12 +16,17 @@ import (
 
 func datasource(t *testing.T, endpoint string, allowHTTP bool) *plugin.Datasource {
 	t.Helper()
+	return datasourceWithToken(t, endpoint, allowHTTP, "private-token")
+}
+
+func datasourceWithToken(t *testing.T, endpoint string, allowHTTP bool, token string) *plugin.Datasource {
+	t.Helper()
 	config, err := json.Marshal(map[string]any{"url": endpoint, "namespace": "default", "allowInsecureHTTP": allowHTTP})
 	if err != nil {
 		t.Fatal(err)
 	}
 	instance, err := plugin.NewDatasource(t.Context(), backend.DataSourceInstanceSettings{
-		Type: "minukdev-opampcommander-datasource", JSONData: config, DecryptedSecureJSONData: map[string]string{"token": "private-token"},
+		Type: "minukdev-opampcommander-datasource", JSONData: config, DecryptedSecureJSONData: map[string]string{"token": token},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -154,5 +159,21 @@ func TestHealthChecksProtectedResourceAndEmptyFleet(t *testing.T) {
 	cancel()
 	if result := query(t, ctx, ds, `{}`); result.Error == nil {
 		t.Fatal("cancelled request succeeded")
+	}
+}
+
+func TestPrivateUpstreamOmitsAuthorizationHeader(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/namespaces/default/agents" || r.Header.Get("Authorization") != "" {
+			t.Error("private upstream read must remain namespace scoped and omit the Authorization header")
+		}
+		fmt.Fprint(w, `{"items":[]}`)
+	}))
+	defer server.Close()
+
+	result := query(t, t.Context(), datasourceWithToken(t, server.URL, true, ""), `{}`)
+	if result.Error != nil || len(result.Frames) != 1 {
+		t.Fatalf("private upstream read failed: %+v", result)
 	}
 }

@@ -20,12 +20,10 @@ make grafana-demo-stop
 This builds the plugin and current Commander server, then starts an in-memory
 Commander and two real OpenTelemetry Collectors, then stops one to demonstrate
 both connected and disconnected states. The page labels them as a local
-demo; their states come from OpAMP reports through the real authenticated API.
-No production server is contacted. Credentials are generated under the ignored
-`plugins/grafana/.demo/` directory. A read-only basic-auth user receives an access
-token valid for 24 hours; restarting the demo creates new credentials and resets
-all Commander/Grafana demo state. All host ports bind to loopback. `GRAFANA_PORT`
-(default 3300) and `COMMANDER_DEMO_PORT` (default 3301) are configurable.
+demo. They report through OpAMP to the disposable Commander server. Grafana reads
+the private demo REST endpoint. Restarting the demo resets the Commander fleet.
+Host ports bind to loopback. Set `GRAFANA_PORT` (default 3300) or
+`COMMANDER_DEMO_PORT` (default 3301) to override them.
 
 Run the live browser checks with:
 
@@ -44,16 +42,17 @@ backends are disabled in this disposable demo to keep it usable on small Docker 
 ## Connect an existing Commander
 
 Add an OpAMP Commander data source in Grafana Connections. Configure its base
-URL, namespace and access token, then use **Save & test**. The token's identity
-needs `agent:LIST` in that namespace. HTTPS is required unless HTTP is explicitly
-enabled for trusted development. The URL is set by the data-source administrator;
-queries cannot change its host, namespace or HTTP method. Redirects are rejected.
+URL and namespace, then use **Save & test**. Connect through a private
+Commander Service or an access-controlled proxy. Set an access token only
+when the configured upstream requires bearer credentials. Grafana stores the
+token in its encrypted data-source settings.
 
-Everyone who can query the data source shares its Commander visibility. The
-namespace setting is not a per-viewer authorization boundary. No raw collector
-configuration, connection settings, or error bodies are exposed in frames.
-Short-lived tokens must be replaced when they expire; automated scoped machine
-credentials remain tracked in #683/#806. No admin credentials are needed.
+Everyone who can query the data source can view Agents in its configured
+namespace. Limit data-source access in Grafana and restrict network access to
+the Commander backend. Queries retain the administrator-configured host,
+namespace and HTTP method. The backend rejects redirects and exports selected
+Agent status fields. HTTPS is required except when HTTP is explicitly
+enabled in trusted development.
 
 Fleet overview offers a data-source picker, Refresh, Next page and First page.
 Each request reads at most 100 agents, with a 10-second timeout and 4 MiB response
@@ -92,4 +91,4 @@ The root server and `web/` builds remain independent of this package. Run checks
 | [#808](https://github.com/minuk-dev/opampcommander/issues/808) | Fleet dashboard and agent detail |
 | [#809](https://github.com/minuk-dev/opampcommander/issues/809) | Release verification, signing and packaging |
 
-The backend owns credentials and exposes selected status fields only. Credentials belong in `secureJsonData`; raw configurations and secrets must never become dashboard frames. The shared data-source identity's namespace permissions are the visibility boundary, not a namespace dropdown. The production connection test must read an authorized resource as well as the public ping/version endpoints.
+The backend owns credentials and exposes selected status fields only. Credentials belong in `secureJsonData`; raw configurations and secrets must never become dashboard frames. Grafana data-source permissions and the configured namespace define fleet visibility. The production connection test must read an authorized resource as well as the public ping/version endpoints.

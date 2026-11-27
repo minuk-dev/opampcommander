@@ -10,5 +10,3 @@ datasources:
       namespace: default
       allowInsecureHTTP: true
       demo: true
-    secureJsonData:
-      token: $COMMANDER_DEMO_TOKEN
