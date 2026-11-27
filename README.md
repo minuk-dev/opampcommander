@@ -196,8 +196,18 @@ See [LICENSE](LICENSE). Security policy: [SECURITY.md](SECURITY.md).
 
 ### Validate Commander CRs with kubectl
 
-Install the plugin with `go install ./cmd/kubectl-opamp` and put the Go binary
-directory on PATH. Use `kubectl plugin list` to check discovery. For example:
+Install the plugin from the matching `kubectl-opamp` release archive, or use
+the `opamp.yaml` manifest attached to the same [release](https://github.com/minuk-dev/opampcommander/releases)
+with Krew:
+
+```sh
+kubectl krew install --manifest=opamp.yaml
+kubectl plugin list
+kubectl opamp --version
+```
+
+From source, run `go install ./cmd/kubectl-opamp` and add the Go binary directory
+to PATH.
 
 ```sh
 kubectl opamp validate --context staging -n collectors -f agentgroup.yaml

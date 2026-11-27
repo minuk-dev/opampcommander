@@ -93,6 +93,8 @@ release:
   draft: false
   replace_existing_draft: true
   skip_upload: false
+  extra_files:
+    - glob: ./dist/krew/opamp.yaml
 
 archives:
   - id: opampcommander
@@ -139,6 +141,14 @@ archives:
   - <<: *opampctl_archive
     id: kubectl-opamp
     ids: [kubectl-opamp]
+
+krews:
+  - name: opamp
+    ids: [kubectl-opamp]
+    short_description: Manage OpAMP Commander configuration in Kubernetes
+    description: Validate Commander resources and inspect runtime scope using the selected kubeconfig.
+    homepage: https://minuk-dev.github.io/opampcommander/
+    skip_upload: true
 
 changelog:
   use: github
