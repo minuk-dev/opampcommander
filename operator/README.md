@@ -123,6 +123,24 @@ kubectl label namespace YOUR_NAMESPACE "opampcommander.io/installation-uid=$inst
 
  The committed `dist/install.yaml` uses a placeholder `:dev` image; no container image is published by this bootstrap. Regenerate it with your image before installing it. `make undeploy` removes the manager and its installation ConfigMap; it is not an upgrade procedure. `make uninstall` deletes the CRDs **and their custom resources**; use only in a disposable environment.
 
+## Grant users AgentGroup access
+
+Install the [namespaced AgentGroup manager role](config/user-rbac) in an
+installation-owned namespace, then bind it to the appropriate identity
+provider group:
+
+```sh
+kubectl apply -n collectors -k operator/config/user-rbac
+kubectl create rolebinding agentgroup-managers -n collectors \
+  --role=opampcommander-agentgroup-manager --group=collectors-operators
+```
+
+The role grants AgentGroup CRUD and read-only access to the configuration
+CRs that groups reference. Manage configuration authors, Secret access and
+installation assignment through separate Kubernetes grants. Group status
+writes use the controller ServiceAccount. Selector access applies within the
+entire namespace, including groups that match every Agent in that namespace.
+
 ## Next steps
 
 The ownership/tenancy ADR (#897) and configuration API contract (#898) define the migration boundary. Dependency watches/runtime integration (#899), Agent storage (#900), delivery/acknowledgment (#901), and Secret resolution/admission (#903/#904) follow. Ordinary configuration CRUD belongs to native kubectl. The later `kubectl opamp` plugin (#906) handles Agent operations through Commander.
