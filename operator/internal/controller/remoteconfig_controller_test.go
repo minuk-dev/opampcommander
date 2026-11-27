@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,6 +58,36 @@ var _ = Describe("RemoteConfig Controller", func() {
 			By("Cleanup the specific resource instance RemoteConfig")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
+		It("rejects a stale status patch after same-name recreation", func() {
+			reader, err := client.NewWithWatch(cfg, client.Options{Scheme: k8sClient.Scheme()})
+			Expect(err).NotTo(HaveOccurred())
+			var replacementUID types.UID
+			reconciler := &RemoteConfigReconciler{
+				Client: interceptor.NewClient(reader, interceptor.Funcs{
+					SubResourcePatch: func(ctx context.Context, c client.Client, subresource string, old client.Object,
+						patch client.Patch, opts ...client.SubResourcePatchOption) error {
+						Expect(c.Delete(ctx, old)).To(Succeed())
+						replacement := &opampcommanderv1alpha1.RemoteConfig{
+							ObjectMeta: metav1.ObjectMeta{Name: old.GetName(), Namespace: old.GetNamespace()},
+							Spec:       opampcommanderv1alpha1.RemoteConfigSpec{Value: "service: {telemetry: {}}"},
+						}
+						Expect(c.Create(ctx, replacement)).To(Succeed())
+						replacementUID = replacement.UID
+						Expect(replacementUID).NotTo(Equal(old.GetUID()))
+						return c.SubResource(subresource).Patch(ctx, old, patch, opts...)
+					},
+				}),
+				Installation: testInstallation,
+			}
+
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: typeNamespacedName})
+			Expect(errors.IsConflict(err)).To(BeTrue())
+			current := &opampcommanderv1alpha1.RemoteConfig{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, current)).To(Succeed())
+			Expect(current.UID).To(Equal(replacementUID))
+			Expect(current.Status.Conditions).To(BeEmpty())
+		})
+
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &RemoteConfigReconciler{

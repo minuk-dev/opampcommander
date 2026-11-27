@@ -50,7 +50,7 @@ func (r *RemoteConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		Reason: "NotImplemented", Message: "Agent configuration delivery is not implemented in this bootstrap controller",
 	})
 	if changed {
-		if err := r.Status().Patch(ctx, resource, client.MergeFrom(before)); err != nil {
+		if err := r.Status().Patch(ctx, resource, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
