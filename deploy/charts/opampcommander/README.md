@@ -182,11 +182,18 @@ The apiserver Service is ClusterIP. The optional chart Ingress forwards only
 `/api/v1/opamp` on each configured host. Restrict access to the private REST
 API to trusted workloads. Users manage resources through the Kubernetes API.
 
-For installation binding, set `runtimeAPI.installationNamespace`,
-`runtimeAPI.installationName` and `runtimeAPI.installationUID`, and allow
-the apiserver ServiceAccount to read the anchor ConfigMap and Namespaces.
+For installation binding, set the three `apiserver.config.runtimeAPI`
+coordinates as shown in [the runtime values example](ci/runtime-identity-values.yaml).
+Use the live installation ConfigMap UID and preserve it across upgrades.
+Set `apiserver.serviceAccount.automountServiceAccountToken: true` and use a
+dedicated ServiceAccount. The chart grants that account `get` on Namespaces
+and on the named ConfigMap in the installation namespace. The installer's
+credentials must be authorized to create those bindings.
+
 The apiserver verifies the live anchor and, with MongoDB, checks the database
-binding before serving traffic.
+binding before serving traffic. If installation settings are supplied only
+through an external config or environment variables, provision the permissions
+described in the [runtime identity guide](../../../docs/content/en/docs/runtime-authentication.md).
 
 Kubernetes users manage Agent behavior through namespaced `AgentGroup` resources.
 Read-only Agent views and AgentGroup action delivery are separate parts of the

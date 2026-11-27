@@ -1,4 +1,4 @@
-"""Check mounted secret wiring and MongoDB endpoint validation after rendering."""
+"""Check mounted Secret wiring, runtime permissions and endpoint validation."""
 
 import pathlib
 import subprocess
@@ -27,6 +27,38 @@ class SecretFilesChartTest(unittest.TestCase):
         paths = ingress["spec"]["rules"][0]["http"]["paths"]
         self.assertEqual([(path["path"], path["pathType"]) for path in paths],
                          [("/api/v1/opamp", "Exact")])
+
+    def test_runtime_permissions(self):
+        result = render("--namespace", "gateway",
+                        "-f", str(CHART / "ci/runtime-identity-values.yaml"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        docs = {doc["kind"]: doc for doc in yaml.safe_load_all(result.stdout) if doc}
+        expected_subjects = [{"kind": "ServiceAccount",
+                              "name": docs["Deployment"]["spec"]["template"]["spec"]["serviceAccountName"],
+                              "namespace": "gateway"}]
+        self.assertEqual(docs["ClusterRole"]["rules"], [
+            {"apiGroups": [""], "resources": ["namespaces"], "verbs": ["get"]}])
+        self.assertEqual(docs["Role"]["rules"], [
+            {"apiGroups": [""], "resources": ["configmaps"], "verbs": ["get"],
+             "resourceNames": ["opampcommander-operator-opamp-installation"]}])
+        for kind in ("Role", "RoleBinding"):
+            self.assertEqual(docs[kind]["metadata"]["namespace"], "opampcommander-operator-system")
+        for kind in ("Role", "ClusterRole"):
+            binding = docs[kind + "Binding"]
+            self.assertEqual(binding["subjects"], expected_subjects)
+            self.assertEqual(binding["roleRef"]["name"], docs[kind]["metadata"]["name"])
+        self.assertTrue(docs["Deployment"]["spec"]["template"]["spec"]["automountServiceAccountToken"])
+
+    def test_runtime_requires_a_complete_identity_and_dedicated_token(self):
+        partial = render("--set", "apiserver.config.runtimeAPI.installationUID=uid")
+        self.assertNotEqual(partial.returncode, 0)
+        self.assertIn("requires installationNamespace, installationName and installationUID", partial.stderr)
+        for value in ("apiserver.serviceAccount.create=false",
+                      "apiserver.serviceAccount.automountServiceAccountToken=false"):
+            with self.subTest(value=value):
+                result = render("-f", str(CHART / "ci/runtime-identity-values.yaml"), "--set", value)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("requires a dedicated apiserver ServiceAccount", result.stderr)
 
     def test_mounted_secrets(self):
         result = render("-f", str(CHART / "ci/secret-files-values.yaml"))

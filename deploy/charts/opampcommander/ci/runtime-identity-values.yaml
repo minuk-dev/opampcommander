@@ -1,0 +1,8 @@
+apiserver:
+  serviceAccount:
+    automountServiceAccountToken: true
+  config:
+    runtimeAPI:
+      installationNamespace: opampcommander-operator-system
+      installationName: opampcommander-operator-opamp-installation
+      installationUID: 28ccfb24-357e-4a49-8e3f-00917d0fb2d2

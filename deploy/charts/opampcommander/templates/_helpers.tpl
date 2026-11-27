@@ -77,6 +77,11 @@ app.kubernetes.io/component: apiserver
 app.kubernetes.io/component: apiserver
 {{- end }}
 
+{{- define "opampcommander.apiserver.runtimeConfigured" -}}
+{{- $runtime := dig "runtimeAPI" (dict) (.Values.apiserver.config | default dict) -}}
+{{- if or $runtime.installationNamespace $runtime.installationName $runtime.installationUID -}}true{{- end -}}
+{{- end -}}
+
 {{- define "opampcommander.apiserver.serviceAccountName" -}}
 {{- if .Values.apiserver.serviceAccount.create }}
 {{- default (include "opampcommander.apiserver.fullname" .) .Values.apiserver.serviceAccount.name }}
@@ -232,6 +237,15 @@ Validation. Rendered from the apiserver Deployment so a bad combination fails
 {{- end -}}
 {{- if and .Values.apiserver.enabled .Values.apiserver.hostNetwork -}}
 {{- $messages = append $messages "  - apiserver.hostNetwork must be false because the REST listener is private." -}}
+{{- end -}}
+{{- if and .Values.apiserver.enabled (include "opampcommander.apiserver.runtimeConfigured" .) -}}
+{{- $runtime := .Values.apiserver.config.runtimeAPI -}}
+{{- if not (and $runtime.installationNamespace $runtime.installationName $runtime.installationUID) -}}
+{{- $messages = append $messages "  - runtimeAPI requires installationNamespace, installationName and installationUID together." -}}
+{{- end -}}
+{{- if or (eq (include "opampcommander.apiserver.serviceAccountName" .) "default") (not .Values.apiserver.serviceAccount.automountServiceAccountToken) -}}
+{{- $messages = append $messages "  - runtimeAPI requires a dedicated apiserver ServiceAccount and automountServiceAccountToken=true." -}}
+{{- end -}}
 {{- end -}}
 {{- if and .Values.web.enabled (not .Values.web.apiUrl) -}}
 {{- $messages = append $messages "  - web.apiUrl must point at a separately deployed legacy apiserver." -}}
