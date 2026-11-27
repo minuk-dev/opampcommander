@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	api "github.com/minuk-dev/opampcommander/operator/api/v1alpha1"
@@ -39,7 +40,13 @@ func TestEnqueueDependents(t *testing.T) {
 	other := objects[0].DeepCopyObject().(*api.AgentGroup)
 	other.Namespace = "two"
 	objects = append(objects, other, &api.AgentGroup{ObjectMeta: metav1.ObjectMeta{Name: "unrelated", Namespace: "one"}})
-	reader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...)
+	var listCalls int
+	reader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithInterceptorFuncs(interceptor.Funcs{
+		List: func(ctx context.Context, reader client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			listCalls++
+			return reader.List(ctx, list, opts...)
+		},
+	})
 	for _, object := range []client.Object{&api.AgentGroup{}, &api.RemoteConfig{}, &api.AgentPackage{}, &api.Endpoint{}} {
 		reader.WithIndex(object, dependencyIndex, dependencyKeys)
 	}
@@ -52,7 +59,11 @@ func TestEnqueueDependents(t *testing.T) {
 			object := ref.object()
 			object.SetName(ref.name)
 			object.SetNamespace("one")
+			listCalls = 0
 			requests := r.enqueueDependents(ref.kind)(context.Background(), object)
+			if (ref.kind == remoteConfigKind || ref.kind == packageKind) && listCalls != 1 {
+				t.Fatalf("direct dependency used %d indexed lists, want 1", listCalls)
+			}
 			if len(requests) != 1 || requests[0].NamespacedName != (types.NamespacedName{Namespace: "one", Name: "group"}) {
 				t.Fatalf("expected only one affected group, got %v", requests)
 			}

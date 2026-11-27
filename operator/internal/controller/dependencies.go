@@ -123,6 +123,20 @@ func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object clien
 	return true, nil
 }
 
+// dependentLists follows the same kind edges as dependencies.
+func dependentLists(kind string) []client.ObjectList {
+	switch kind {
+	case remoteConfigKind, packageKind:
+		return []client.ObjectList{&api.AgentGroupList{}}
+	case schemaKind, endpointKind:
+		return []client.ObjectList{&api.RemoteConfigList{}}
+	case secretKind:
+		return []client.ObjectList{&api.AgentGroupList{}, &api.RemoteConfigList{}, &api.AgentPackageList{}, &api.EndpointList{}}
+	default:
+		return nil
+	}
+}
+
 func (r *AgentGroupReconciler) enqueueDependents(kind string) handler.MapFunc {
 	return func(ctx context.Context, object client.Object) []ctrl.Request {
 		pending := []dependency{{kind, object.GetName()}}
@@ -135,7 +149,7 @@ func (r *AgentGroupReconciler) enqueueDependents(kind string) handler.MapFunc {
 				continue
 			}
 			seen[ref] = true
-			for _, list := range []client.ObjectList{&api.AgentGroupList{}, &api.RemoteConfigList{}, &api.AgentPackageList{}, &api.EndpointList{}} {
+			for _, list := range dependentLists(ref.kind) {
 				if err := r.List(ctx, list, client.InNamespace(object.GetNamespace()), client.MatchingFields{dependencyIndex: ref.kind + "/" + ref.name}); err != nil {
 					// The periodic group repair also covers notifications whose index lookup failed.
 					ctrl.LoggerFrom(ctx).Error(err, "Failed to list dependent resources", "kind", ref.kind)
