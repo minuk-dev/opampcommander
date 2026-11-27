@@ -80,6 +80,10 @@ namespace-local Secret reads to check that the referenced keys have values.
 `SecretKeysAvailable` records that check without including values in status.
 Read errors set the corresponding condition to Unknown and requeue with backoff.
 Configuration validation and delivery are tracked independently.
+An AgentGroup's `status.observedInputsHash` fingerprints the group, namespace,
+dependency CR generations, and Secret resource versions. Empty means the
+inputs could not all be read. The fingerprint contains no Secret value and
+does not represent an Agent's desired or acknowledged configuration.
 
 Status-only updates do not enqueue configuration work. Each reconcile rereads
 the current graph, uses an optimistic status patch, and schedules a five-minute

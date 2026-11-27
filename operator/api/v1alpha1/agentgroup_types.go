@@ -56,6 +56,11 @@ type RemoteConfigReference struct {
 
 // AgentGroupStatus records controller observations, not Agent acknowledgments.
 type AgentGroupStatus struct {
+	// observedInputsHash represents the identities and versions of the current
+	// configuration inputs, including observed Secret resource versions.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[a-f0-9]{64}$`
+	ObservedInputsHash string `json:"observedInputsHash,omitempty"`
 	// conditions describe this resource at a particular observedGeneration.
 	// +listType=map
 	// +listMapKey=type
