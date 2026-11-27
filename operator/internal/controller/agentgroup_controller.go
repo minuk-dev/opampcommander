@@ -54,16 +54,17 @@ func (r *AgentGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	before := resource.DeepCopy()
 	var secretKeys []opampcommanderv1alpha1.SecretKeyReference
 	found, readErr := r.referencesFound(ctx, resource, make(map[dependency]bool), &secretKeys)
+	keysChanged, secretsFound, keysErr := r.checkSecretKeys(ctx, resource, found, secretKeys)
 	references := metav1.Condition{
 		Type: "ReferencesFound", Status: metav1.ConditionTrue, ObservedGeneration: resource.Generation,
 		Reason: "Found", Message: "Referenced objects exist; contents and Agent delivery have not been validated",
 	}
-	if !found {
+	if !found || !secretsFound {
 		references.Status = metav1.ConditionFalse
 		references.Reason = "DependencyMissing"
 		references.Message = "A referenced object is missing or being deleted"
 	}
-	if readErr != nil {
+	if readErr != nil || keysErr != nil {
 		references.Status = metav1.ConditionUnknown
 		references.Reason = "ReadFailed"
 		references.Message = "Could not read referenced objects"
@@ -73,7 +74,6 @@ func (r *AgentGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		Type: "Ready", Status: metav1.ConditionUnknown, ObservedGeneration: resource.Generation,
 		Reason: "NotImplemented", Message: "Agent configuration delivery is not implemented in this bootstrap controller",
 	})
-	keysChanged, keysErr := r.checkSecretKeys(ctx, resource, found && readErr == nil, secretKeys)
 	scopeChanged, scopeErr := r.checkRuntimeScope(ctx, resource, owned)
 	if changed || referencesChanged || keysChanged || scopeChanged {
 		if err := r.Status().Patch(ctx, resource, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})); err != nil {
@@ -120,12 +120,15 @@ func (r *AgentGroupReconciler) checkRuntimeScope(ctx context.Context, group *opa
 	return meta.SetStatusCondition(&group.Status.Conditions, condition), err
 }
 
-func (r *AgentGroupReconciler) checkSecretKeys(ctx context.Context, group *opampcommanderv1alpha1.AgentGroup, referencesFound bool, refs []opampcommanderv1alpha1.SecretKeyReference) (bool, error) {
+func (r *AgentGroupReconciler) checkSecretKeys(ctx context.Context, group *opampcommanderv1alpha1.AgentGroup, referencesFound bool, refs []opampcommanderv1alpha1.SecretKeyReference) (changed, found bool, err error) {
 	const conditionType = "SecretKeysAvailable"
 	if !referencesFound || len(refs) == 0 {
-		return meta.RemoveStatusCondition(&group.Status.Conditions, conditionType), nil
+		return meta.RemoveStatusCondition(&group.Status.Conditions, conditionType), referencesFound, nil
 	}
-	available, err := secretKeysAvailable(ctx, r.Installation.reader, group.Namespace, refs)
+	found, available, err := secretKeysAvailable(ctx, r.Installation.reader, group.Namespace, refs)
+	if !found && err == nil {
+		return meta.RemoveStatusCondition(&group.Status.Conditions, conditionType), false, nil
+	}
 	condition := metav1.Condition{
 		Type: conditionType, ObservedGeneration: group.Generation,
 		Status: metav1.ConditionTrue, Reason: "Available", Message: "Referenced Secret keys have values",
@@ -140,5 +143,5 @@ func (r *AgentGroupReconciler) checkSecretKeys(ctx context.Context, group *opamp
 		condition.Reason = "ReadFailed"
 		condition.Message = "Could not check referenced Secret keys"
 	}
-	return meta.SetStatusCondition(&group.Status.Conditions, condition), err
+	return meta.SetStatusCondition(&group.Status.Conditions, condition), found, err
 }

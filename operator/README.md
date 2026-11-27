@@ -73,12 +73,14 @@ installation and namespace UIDs when connecting Commander.
 AgentGroups index direct RemoteConfig, AgentPackage and connection Secret
 references. RemoteConfigs index schema, endpoint and Secret references; packages
 and endpoints index their Secret references. A dependency event follows these
-indexes back to affected groups in the same namespace. Secret watches and reads
-use metadata for watches. A missing or deleting dependency sets
-`ReferencesFound=False`. When objects exist, the controller uses uncached,
-namespace-local Secret reads to check that the referenced keys have values.
-`SecretKeysAvailable` records that check without including values in status.
-Read errors set the corresponding condition to Unknown and requeue with backoff.
+indexes back to affected groups in the same namespace. Secret watches cache only
+metadata. Reconciliation uses one uncached read per referenced Secret in the
+group's namespace to check existence and key availability. A missing or deleting
+dependency sets `ReferencesFound=False`. For existing dependencies,
+`SecretKeysAvailable` reports whether referenced keys have non-empty values.
+Group status readers can see this availability result. Secret values stay out
+of status and reconcile errors. Read failures set the corresponding conditions
+to Unknown and requeue with backoff.
 Configuration validation and delivery are tracked independently.
 
 Status-only updates do not enqueue configuration work. Each reconcile rereads

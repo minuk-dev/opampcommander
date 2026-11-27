@@ -103,6 +103,12 @@ var _ = Describe("Dependency watches", func() {
 		secret.Data["config"] = []byte("service: {}")
 		Expect(k8sClient.Update(ctx, secret)).To(Succeed())
 		expectSecretKeys(metav1.ConditionTrue)
+		Expect(k8sClient.Delete(ctx, secret)).To(Succeed())
+		expectReferences(metav1.ConditionFalse)
+		secret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "private", Namespace: namespace.Name}, Data: secret.Data}
+		Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+		expectReferences(metav1.ConditionTrue)
+		expectSecretKeys(metav1.ConditionTrue)
 		delete(namespace.Labels, InstallationLabel)
 		Expect(k8sClient.Update(ctx, namespace)).To(Succeed())
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(group), group)).To(Succeed())
