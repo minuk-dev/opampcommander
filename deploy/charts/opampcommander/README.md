@@ -31,7 +31,7 @@ helm test opampcommander --namespace opampcommander
 
 Grafana is disabled by default. Enabling it uses the pinned Grafana community
 subchart and requires Kubernetes >=1.25. It provisions the Commander app and
-preview data source in organization 1. **Configure an upstream URL, namespace and access token** before querying.
+preview data source in organization 1. Configure an upstream URL and namespace before querying.
 The default data source is unconfigured and reports a configuration error.
 
 Build a Grafana image containing the plugin before enabling it:
@@ -65,7 +65,7 @@ local Docker architecture; build/push the image for your cluster's architecture.
 Custom images must retain the bundled plugin at `/opt/opampcommander/plugins` so
 Grafana's data volume cannot hide it. No plugins are downloaded at startup.
 
-Configure the existing data-source entry and inject a token from a Secret:
+Configure the existing data-source entry. When an access-controlled proxy requires a bearer token, mount it from a Secret:
 
 ```yaml
 grafana:

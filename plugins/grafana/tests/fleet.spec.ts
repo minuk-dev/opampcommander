@@ -21,7 +21,7 @@ test('Viewer can inspect connected and disconnected demo collectors and refresh'
   await page.screenshot({ path: testInfo.outputPath('fleet.png'), fullPage: true });
 });
 
-test('Grafana backend reads the protected API without exposing its token or configuration', async ({
+test('Grafana backend reads the private API and exposes only fleet status', async ({
   request,
   readProvisionedDataSource,
 }) => {

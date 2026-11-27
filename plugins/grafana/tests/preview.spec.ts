@@ -17,7 +17,7 @@ test('nested backend rejects unconfigured queries', async ({ request, readProvis
   const health = await request.get(`/api/datasources/uid/${dataSource.uid}/health`);
   expect(await health.json()).toEqual({
     status: 'ERROR',
-    message: 'configure a Commander URL, namespace and access token in the data source',
+    message: 'configure a Commander URL and namespace in the data source',
   });
 
   const query = await request.post('/api/ds/query', {
@@ -29,6 +29,6 @@ test('nested backend rejects unconfigured queries', async ({ request, readProvis
   });
   const body = await query.json();
   expect(body.results.A.status).toBe(400);
-  expect(body.results.A.error).toBe('configure a Commander URL, namespace and access token in the data source');
+  expect(body.results.A.error).toBe('configure a Commander URL and namespace in the data source');
   expect(body.results.A.frames ?? []).toEqual([]);
 });

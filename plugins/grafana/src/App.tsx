@@ -87,7 +87,7 @@ export function App() {
         error: (failure) => {
           setError(
             failure?.data?.results?.A?.error ||
-              'Fleet request failed. Check the data source connection and access token.'
+              'Fleet request failed. Check the data source connection and upstream access.'
           );
           setLoading(false);
         },
@@ -114,8 +114,7 @@ export function App() {
         )}
         {!sources.length ? (
           <Alert title="Connect Commander" severity="info">
-            Add an OpAMP Commander data source in Grafana Connections, then configure its URL, namespace and access
-            token.
+            Add an OpAMP Commander data source in Grafana Connections and set its URL and namespace.
           </Alert>
         ) : (
           <>
