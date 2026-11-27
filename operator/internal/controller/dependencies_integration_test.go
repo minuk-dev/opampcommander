@@ -74,6 +74,11 @@ var _ = Describe("Dependency watches", func() {
 				g.Expect(condition.ObservedGeneration).To(Equal(current.Generation))
 			}, 10*time.Second, 50*time.Millisecond).Should(Succeed())
 		}
+		inputsHash := func() string {
+			current := &api.AgentGroup{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(group), current)).To(Succeed())
+			return current.Status.ObservedInputsHash
+		}
 		stop := start()
 		Consistently(func(g Gomega) {
 			current := &api.AgentGroup{}
@@ -97,18 +102,29 @@ var _ = Describe("Dependency watches", func() {
 		secret.Data = map[string][]byte{"config": []byte("service: {}")}
 		Expect(k8sClient.Update(ctx, secret)).To(Succeed())
 		expectSecretKeys(metav1.ConditionTrue)
+		beforeRotation := inputsHash()
+		Expect(beforeRotation).To(MatchRegexp(`^[0-9a-f]{64}$`))
+		secret.Data["config"] = []byte("service: {}\n# rotated")
+		Expect(k8sClient.Update(ctx, secret)).To(Succeed())
+		Eventually(inputsHash, 10*time.Second, 50*time.Millisecond).ShouldNot(Equal(beforeRotation))
+		expectSecretKeys(metav1.ConditionTrue)
 		secret.Data["config"] = []byte{}
 		Expect(k8sClient.Update(ctx, secret)).To(Succeed())
 		expectSecretKeys(metav1.ConditionFalse)
+		Expect(inputsHash()).To(BeEmpty())
 		secret.Data["config"] = []byte("service: {}")
 		Expect(k8sClient.Update(ctx, secret)).To(Succeed())
 		expectSecretKeys(metav1.ConditionTrue)
+		beforeDeletion := inputsHash()
 		Expect(k8sClient.Delete(ctx, secret)).To(Succeed())
 		expectReferences(metav1.ConditionFalse)
+		Expect(inputsHash()).To(BeEmpty())
 		secret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "private", Namespace: namespace.Name}, Data: secret.Data}
 		Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 		expectReferences(metav1.ConditionTrue)
 		expectSecretKeys(metav1.ConditionTrue)
+		Expect(inputsHash()).To(MatchRegexp(`^[0-9a-f]{64}$`))
+		Expect(inputsHash()).NotTo(Equal(beforeDeletion))
 		delete(namespace.Labels, InstallationLabel)
 		Expect(k8sClient.Update(ctx, namespace)).To(Succeed())
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(group), group)).To(Succeed())

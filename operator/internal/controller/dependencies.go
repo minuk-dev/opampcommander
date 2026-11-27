@@ -2,8 +2,13 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
+	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -111,15 +116,31 @@ func (ref dependency) object() client.Object {
 	}
 }
 
+type configurationInputs struct {
+	seen       map[dependency]bool
+	secretKeys []api.SecretKeyReference
+	revisions  []string
+}
+
+func (i *configurationInputs) observe(kind string, object client.Object, revision string) {
+	i.revisions = append(i.revisions, fmt.Sprintf("%q/%q/%q/%q", kind, object.GetName(), object.GetUID(), revision))
+}
+
+func (i *configurationInputs) fingerprint() string {
+	slices.Sort(i.revisions)
+	sum := sha256.Sum256([]byte(strings.Join(i.revisions, "\n")))
+	return hex.EncodeToString(sum[:])
+}
+
 // referencesFound reads the current dependency graph without copying configuration to Mongo.
 // It collects Secret key references for a separate uncached check.
-func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object client.Object, seen map[dependency]bool, keys *[]api.SecretKeyReference) (bool, error) {
-	*keys = append(*keys, secretReferences(object)...)
+func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object client.Object, inputs *configurationInputs) (bool, error) {
+	inputs.secretKeys = append(inputs.secretKeys, secretReferences(object)...)
 	for _, ref := range configurationDependencies(object) {
-		if seen[ref] {
+		if inputs.seen[ref] {
 			continue
 		}
-		seen[ref] = true
+		inputs.seen[ref] = true
 		child := ref.object()
 		if err := r.Get(ctx, client.ObjectKey{Namespace: object.GetNamespace(), Name: ref.name}, child); err != nil {
 			if apierrors.IsNotFound(err) {
@@ -130,7 +151,8 @@ func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object clien
 		if !child.GetDeletionTimestamp().IsZero() {
 			return false, nil
 		}
-		found, err := r.referencesFound(ctx, child, seen, keys)
+		inputs.observe(ref.kind, child, strconv.FormatInt(child.GetGeneration(), 10))
+		found, err := r.referencesFound(ctx, child, inputs)
 		if err != nil || !found {
 			return found, err
 		}
@@ -139,10 +161,10 @@ func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object clien
 }
 
 // secretKeysAvailable checks both existence and key availability with one read per Secret.
-func secretKeysAvailable(ctx context.Context, reader client.Reader, namespace string, refs []api.SecretKeyReference) (found, available bool, err error) {
+func secretKeysAvailable(ctx context.Context, reader client.Reader, namespace string, inputs *configurationInputs) (found, available bool, err error) {
 	keysByName := make(map[string][]string)
 	var names []string
-	for _, ref := range refs {
+	for _, ref := range inputs.secretKeys {
 		if _, exists := keysByName[ref.Name]; !exists {
 			names = append(names, ref.Name)
 		}
@@ -166,6 +188,7 @@ func secretKeysAvailable(ctx context.Context, reader client.Reader, namespace st
 				break
 			}
 		}
+		inputs.observe(secretKind, secret, secret.ResourceVersion)
 	}
 	return true, available, nil
 }

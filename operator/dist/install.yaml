@@ -199,6 +199,12 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              observedInputsHash:
+                description: |-
+                  observedInputsHash represents the identities and versions of the current
+                  configuration inputs, including observed Secret resource versions.
+                pattern: ^[a-f0-9]{64}$
+                type: string
             type: object
         required:
         - spec
