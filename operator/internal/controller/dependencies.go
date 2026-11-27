@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,11 +36,6 @@ type dependency struct {
 
 func dependencies(object client.Object) []dependency {
 	var refs []dependency
-	secret := func(ref *api.SecretKeyReference) {
-		if ref != nil {
-			refs = append(refs, dependency{secretKind, ref.Name})
-		}
-	}
 	switch object := object.(type) {
 	case *api.AgentGroup:
 		for _, ref := range object.Spec.RemoteConfigs {
@@ -48,24 +44,41 @@ func dependencies(object client.Object) []dependency {
 		for _, ref := range object.Spec.PackageRefs {
 			refs = append(refs, dependency{packageKind, ref.Name})
 		}
-		secret(object.Spec.ConnectionSettingsSecretRef)
 	case *api.RemoteConfig:
-		secret(object.Spec.ValueFrom)
 		for _, ref := range object.Spec.SchemaRefs {
 			refs = append(refs, dependency{schemaKind, ref.Name})
 		}
 		for _, ref := range object.Spec.EndpointRefs {
 			refs = append(refs, dependency{endpointKind, ref.Name})
 		}
+	}
+	for _, ref := range secretReferences(object) {
+		refs = append(refs, dependency{secretKind, ref.Name})
+	}
+	return refs
+}
+
+func secretReferences(object client.Object) []api.SecretKeyReference {
+	var refs []api.SecretKeyReference
+	add := func(ref *api.SecretKeyReference) {
+		if ref != nil {
+			refs = append(refs, *ref)
+		}
+	}
+	switch object := object.(type) {
+	case *api.AgentGroup:
+		add(object.Spec.ConnectionSettingsSecretRef)
+	case *api.RemoteConfig:
+		add(object.Spec.ValueFrom)
 	case *api.AgentPackage:
-		secret(object.Spec.SignatureSecretRef)
+		add(object.Spec.SignatureSecretRef)
 		for _, header := range object.Spec.Headers {
-			secret(&header.ValueFrom)
+			add(&header.ValueFrom)
 		}
 	case *api.Endpoint:
 		for _, tenant := range object.Spec.Tenants {
 			for _, header := range tenant.Headers {
-				secret(&header.ValueFrom)
+				add(&header.ValueFrom)
 			}
 		}
 	}
@@ -98,8 +111,9 @@ func (ref dependency) object() client.Object {
 }
 
 // referencesFound reads the current dependency graph without copying configuration to Mongo.
-// Secret key resolution and content validation belong to the delivery/admission path.
-func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object client.Object, seen map[dependency]bool) (bool, error) {
+// It gathers Secret key references while reading only metadata for Secret objects.
+func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object client.Object, seen map[dependency]bool, keys *[]api.SecretKeyReference) (bool, error) {
+	*keys = append(*keys, secretReferences(object)...)
 	for _, ref := range dependencies(object) {
 		if seen[ref] {
 			continue
@@ -115,9 +129,39 @@ func (r *AgentGroupReconciler) referencesFound(ctx context.Context, object clien
 		if !child.GetDeletionTimestamp().IsZero() {
 			return false, nil
 		}
-		found, err := r.referencesFound(ctx, child, seen)
+		found, err := r.referencesFound(ctx, child, seen, keys)
 		if err != nil || !found {
 			return found, err
+		}
+	}
+	return true, nil
+}
+
+// secretKeysAvailable reads one Secret at a time through the uncached API reader.
+func secretKeysAvailable(ctx context.Context, reader client.Reader, namespace string, refs []api.SecretKeyReference) (bool, error) {
+	keysByName := make(map[string][]string)
+	var names []string
+	for _, ref := range refs {
+		if _, exists := keysByName[ref.Name]; !exists {
+			names = append(names, ref.Name)
+		}
+		keysByName[ref.Name] = append(keysByName[ref.Name], ref.Key)
+	}
+	for _, name := range names {
+		secret := &corev1.Secret{}
+		if err := reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, secret); err != nil {
+			if apierrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, errors.New("could not check Secret keys")
+		}
+		if !secret.DeletionTimestamp.IsZero() {
+			return false, nil
+		}
+		for _, key := range keysByName[name] {
+			if len(secret.Data[key]) == 0 {
+				return false, nil
+			}
 		}
 	}
 	return true, nil
