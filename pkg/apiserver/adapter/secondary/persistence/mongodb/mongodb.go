@@ -55,6 +55,7 @@ var (
 	// primary shard; the sharded ones are handled by shardedCollections below).
 	collections = []string{
 		agentCollectionName,
+		agentEnrollmentCollectionName,
 		agentGroupCollectionName,
 		agentPackageCollectionName,
 		agentRemoteConfigCollectionName,
@@ -89,6 +90,11 @@ var (
 			shardKey:       bson.D{{Key: "metadata.instanceUid", Value: "hashed"}},
 		},
 		{
+			// Enrollment lookups always match the complete composite _id.
+			collectionName: agentEnrollmentCollectionName,
+			shardKey:       bson.D{{Key: "_id", Value: "hashed"}},
+		},
+		{
 			// Grows with live agent connections; uid is unique by construction.
 			collectionName: serverConnectionCollectionName,
 			shardKey:       bson.D{{Key: "uid", Value: "hashed"}},
@@ -114,6 +120,12 @@ func managedIndexes() []collectionAndIndexes {
 //nolint:funlen // one declarative table; splitting it further would scatter the schema
 func fleetIndexes() []collectionAndIndexes {
 	return []collectionAndIndexes{
+		{
+			collectionName: agentEnrollmentCollectionName,
+			indexes: []mongo.IndexModel{
+				{Keys: bson.D{{Key: "_id", Value: "hashed"}}, Options: nil},
+			},
+		},
 		{
 			collectionName: agentCollectionName,
 			indexes: []mongo.IndexModel{

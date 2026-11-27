@@ -68,6 +68,14 @@ bound to its previous UID. The runtime HTTP API provides read access for this
 resource. User-directed changes follow the
 [AgentGroup management contract](../crd-control-plane/#agent-management).
 
+New bindings use the `agent_enrollments` collection. With MongoDB sharding
+enabled, the full installation, namespace, and Agent identity is hashed through
+the composite `_id` shard key. With automatic DDL disabled, provision the
+collection and its hashed index before enabling sharding. A binding written by an older release under
+`runtime_metadata` remains readable and keeps its recorded owner. Back up both
+collections. Use the cutover procedure when upgrading from a release that can
+still register Agents through the old HTTP write path.
+
 ## Check your namespace from kubectl
 
 Use `kubectl opamp runtime-scope` to check the namespace assignment against the
