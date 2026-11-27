@@ -1,4 +1,4 @@
-// Package runtime provides the Kubernetes-authenticated Commander runtime API.
+// Package runtime serves installation-scoped runtime reads.
 package runtime
 
 import (
@@ -6,13 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	authenticationv1 "k8s.io/api/authentication/v1"
-	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,62 +18,47 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
-const (
-	reviewTimeout   = 5 * time.Second
-	permissionGroup = "runtime.opampcommander.io"
-)
+const lookupTimeout = 5 * time.Second
 
 var (
-	errInvalidConfig = errors.New(
-		"runtime API requires audience, installationNamespace, installationName and installationUID",
+	errInvalidInstallation = errors.New(
+		"installation requires installationNamespace, installationName and installationUID",
 	)
 	errInstallationChanged = errors.New("identity anchor does not match configured installation UID")
 )
 
-// Config opts into the native runtime API and pins its installation identity.
+// Config pins the Kubernetes installation identity.
 type Config struct {
-	Enabled               bool   `mapstructure:"enabled"`
-	Audience              string `mapstructure:"audience"`
 	InstallationNamespace string `mapstructure:"installationNamespace"`
 	InstallationName      string `mapstructure:"installationName"`
 	InstallationUID       string `mapstructure:"installationUID"`
 }
 
-// Controller serves namespace discovery and Agent enrollment.
+// Configured reports whether installation identity settings were supplied.
+func (c Config) Configured() bool {
+	return c.InstallationNamespace != "" || c.InstallationName != "" || c.InstallationUID != ""
+}
+
+// Controller resolves installation-owned namespaces and Agent bindings.
 type Controller struct {
 	config      Config
 	client      kubernetes.Interface
 	enrollments port.AgentEnrollmentStore
 }
 
-// NewController validates the configured anchor before serving runtime requests.
-// A disabled API does not need Kubernetes credentials.
+// NewController checks the live installation anchor before serving runtime requests.
 func NewController(
 	config Config, client kubernetes.Interface, enrollments port.AgentEnrollmentStore,
 ) (*Controller, error) {
-	if !config.Enabled {
-		return nil, nil //nolint:nilnil // Disabled native API intentionally has no controller.
-	}
-
-	if config.Audience == "" || config.InstallationNamespace == "" ||
-		config.InstallationName == "" || config.InstallationUID == "" {
-		return nil, errInvalidConfig
-	}
-
-	controller := &Controller{config: config, client: client, enrollments: enrollments}
-
-	ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-	defer cancel()
-
-	err := controller.checkInstallation(ctx)
+	err := VerifyInstallation(config, client)
 	if err != nil {
 		return nil, fmt.Errorf("runtime installation: %w", err)
 	}
 
-	return controller, nil
+	return &Controller{config: config, client: client, enrollments: enrollments}, nil
 }
 
-// Register installs routes before the legacy JWT/Casbin middleware is added.
+// Register installs the internal runtime read endpoints.
 func (c *Controller) Register(engine *gin.Engine) {
 	if c == nil {
 		return
@@ -86,7 +67,6 @@ func (c *Controller) Register(engine *gin.Engine) {
 	engine.GET("/api/runtime/v1/namespaces/:namespace", c.namespace)
 
 	if c.enrollments != nil {
-		engine.PUT(agentEnrollmentPath, c.enrollAgent)
 		engine.GET(agentEnrollmentPath, c.agentEnrollment)
 	}
 }
@@ -94,14 +74,10 @@ func (c *Controller) Register(engine *gin.Engine) {
 func (c *Controller) namespace(ctx *gin.Context) {
 	ctx.Header("Cache-Control", "no-store")
 
-	requestContext, cancel := context.WithTimeout(ctx.Request.Context(), reviewTimeout)
+	requestContext, cancel := context.WithTimeout(ctx.Request.Context(), lookupTimeout)
 	defer cancel()
 
-	name := ctx.Param("namespace")
-	//exhaustruct:ignore
-	namespace, _ := c.requestNamespace(requestContext, ctx, authorizationv1.ResourceAttributes{
-		Group: permissionGroup, Resource: "namespaces", Verb: "get", Namespace: name, Name: name,
-	})
+	namespace := c.requestNamespace(requestContext, ctx)
 	if namespace == nil {
 		return
 	}
@@ -111,116 +87,57 @@ func (c *Controller) namespace(ctx *gin.Context) {
 	})
 }
 
-func (c *Controller) requestNamespace(
-	requestContext context.Context, ctx *gin.Context, permission authorizationv1.ResourceAttributes,
-) (*corev1.Namespace, authenticationv1.UserInfo) {
-	identity, status := c.authenticate(requestContext, ctx.Request.Header.Values("Authorization"))
-	if status == http.StatusOK {
-		status = c.authorizeUser(requestContext, identity, permission)
-	}
-
-	if status != http.StatusOK {
-		if status == http.StatusUnauthorized {
-			ctx.Header("WWW-Authenticate", "Bearer")
-		}
-
-		ginutil.ProblemResponse(ctx, status, http.StatusText(status))
-
-		return nil, authenticationv1.UserInfo{}
-	}
-
-	err := c.checkInstallation(requestContext)
+func (c *Controller) requestNamespace(requestContext context.Context, ctx *gin.Context) *corev1.Namespace {
+	err := checkInstallation(requestContext, c.config, c.client)
 	if err != nil {
 		ginutil.ProblemResponse(ctx, http.StatusServiceUnavailable, "Runtime installation unavailable")
 
-		return nil, authenticationv1.UserInfo{}
+		return nil
 	}
 
-	namespace, err := c.client.CoreV1().Namespaces().Get(requestContext, permission.Namespace, metav1.GetOptions{})
+	namespace, err := c.client.CoreV1().Namespaces().Get(requestContext, ctx.Param("namespace"), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		ginutil.ProblemResponse(ctx, http.StatusNotFound, "Namespace unavailable")
 
-		return nil, authenticationv1.UserInfo{}
+		return nil
 	}
 
 	if err != nil {
 		ginutil.ProblemResponse(ctx, http.StatusServiceUnavailable, "Namespace lookup unavailable")
 
-		return nil, authenticationv1.UserInfo{}
+		return nil
 	}
 
 	if namespace.UID == "" || namespace.DeletionTimestamp != nil ||
 		namespace.Labels["opampcommander.io/installation-uid"] != c.config.InstallationUID {
 		ginutil.ProblemResponse(ctx, http.StatusForbidden, "Namespace is not assigned to this installation")
 
-		return nil, authenticationv1.UserInfo{}
+		return nil
 	}
 
-	return namespace, identity
+	return namespace
 }
 
-func (c *Controller) authenticate(ctx context.Context, headers []string) (authenticationv1.UserInfo, int) {
-	if len(headers) != 1 {
-		return authenticationv1.UserInfo{}, http.StatusUnauthorized
+// VerifyInstallation checks that the configured identity matches the live anchor.
+func VerifyInstallation(config Config, client kubernetes.Interface) error {
+	if config.InstallationNamespace == "" || config.InstallationName == "" || config.InstallationUID == "" {
+		return errInvalidInstallation
 	}
 
-	fields := strings.Fields(headers[0])
-	if len(fields) != 2 || !strings.EqualFold(fields[0], "Bearer") {
-		return authenticationv1.UserInfo{}, http.StatusUnauthorized
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), lookupTimeout)
+	defer cancel()
 
-	//exhaustruct:ignore
-	review, err := c.client.AuthenticationV1().TokenReviews().Create(ctx, &authenticationv1.TokenReview{
-		Spec: authenticationv1.TokenReviewSpec{Token: fields[1], Audiences: []string{c.config.Audience}},
-	}, metav1.CreateOptions{})
-	if err != nil {
-		return authenticationv1.UserInfo{}, http.StatusServiceUnavailable
-	}
-
-	identity := review.Status.User
-	if !review.Status.Authenticated || review.Status.Error != "" ||
-		!slices.Contains(review.Status.Audiences, c.config.Audience) || identity.Username == "" ||
-		identity.Username == "system:anonymous" || slices.Contains(identity.Groups, "system:unauthenticated") {
-		return authenticationv1.UserInfo{}, http.StatusUnauthorized
-	}
-
-	return identity, http.StatusOK
+	return checkInstallation(ctx, config, client)
 }
 
-func (c *Controller) authorizeUser(
-	ctx context.Context, identity authenticationv1.UserInfo, permission authorizationv1.ResourceAttributes,
-) int {
-	extra := make(map[string]authorizationv1.ExtraValue, len(identity.Extra))
-	for key, value := range identity.Extra {
-		extra[key] = authorizationv1.ExtraValue(value)
-	}
-
-	//exhaustruct:ignore
-	access, err := c.client.AuthorizationV1().SubjectAccessReviews().Create(ctx, &authorizationv1.SubjectAccessReview{
-		//exhaustruct:ignore
-		Spec: authorizationv1.SubjectAccessReviewSpec{
-			User: identity.Username, UID: identity.UID, Groups: identity.Groups, Extra: extra, ResourceAttributes: &permission,
-		},
-	}, metav1.CreateOptions{})
-	if err != nil || access.Status.EvaluationError != "" {
-		return http.StatusServiceUnavailable
-	}
-
-	if !access.Status.Allowed || access.Status.Denied {
-		return http.StatusForbidden
-	}
-
-	return http.StatusOK
-}
-
-func (c *Controller) checkInstallation(ctx context.Context) error {
-	anchor, err := c.client.CoreV1().ConfigMaps(c.config.InstallationNamespace).
-		Get(ctx, c.config.InstallationName, metav1.GetOptions{})
+func checkInstallation(ctx context.Context, config Config, client kubernetes.Interface) error {
+	anchor, err := client.CoreV1().ConfigMaps(config.InstallationNamespace).
+		Get(ctx, config.InstallationName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("get identity anchor: %w", err)
 	}
 
-	if string(anchor.UID) != c.config.InstallationUID || anchor.DeletionTimestamp != nil {
+	if string(anchor.UID) != config.InstallationUID || anchor.DeletionTimestamp != nil {
 		return errInstallationChanged
 	}
 

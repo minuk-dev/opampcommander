@@ -17,9 +17,7 @@ import (
 	runtimeapi "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/runtime"
 	appconfig "github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
 // CommandOption contains the options for the apiserver command.
@@ -89,47 +87,11 @@ type CommandOption struct {
 			SamplerRatio         float64           `mapstructure:"samplerRatio"`
 		} `mapstructure:"trace"`
 	} `mapstructure:"management"`
-	Auth struct {
-		Enabled bool `mapstructure:"enabled"`
-		Admin   struct {
-			Username string `mapstructure:"username"`
-			Password string `mapstructure:"password" secret:"true"`
-			Email    string `mapstructure:"email"`
-		} `mapstructure:"admin"`
-		Basic struct {
-			Pepper string `mapstructure:"pepper" secret:"true"`
-		} `mapstructure:"basic"`
-		JWT struct {
-			Issuer        string        `mapstructure:"issuer"`
-			Expire        time.Duration `mapstructure:"expire"`
-			RefreshExpire time.Duration `mapstructure:"refreshExpire"`
-			Secret        string        `mapstructure:"secret"        secret:"true"`
-			Audience      []string      `mapstructure:"audience"`
-		} `mapstructure:"jwt"`
-		Type   string `mapstructure:"type"`
-		OAuth2 struct {
-			Provider             string   `mapstructure:"provider"`
-			ClientID             string   `mapstructure:"clientId"`
-			ClientSecret         string   `mapstructure:"clientSecret"         secret:"true"`
-			RedirectURI          string   `mapstructure:"redirectUri"`
-			AllowedRedirectHosts []string `mapstructure:"allowedRedirectHosts"`
-			State                struct {
-				Mode string `mapstructure:"mode"`
-				JWT  struct {
-					Issuer   string        `mapstructure:"issuer"`
-					Expire   time.Duration `mapstructure:"expire"`
-					Secret   string        `mapstructure:"secret"   secret:"true"`
-					Audience []string      `mapstructure:"audience"`
-				} `mapstructure:"jwt"`
-			} `mapstructure:"state"`
-		} `mapstructure:"oauth2"`
-	} `mapstructure:"auth"`
 	Bootstrap struct {
 		Dir                    string `mapstructure:"dir"`
 		RemoteConfigSchemaDir  string `mapstructure:"remoteConfigSchemaDir"`
 		RemoteConfigSchemaLoad string `mapstructure:"remoteConfigSchemaLoad"`
 		DefaultNamespace       string `mapstructure:"defaultNamespace"`
-		DefaultRole            string `mapstructure:"defaultRole"`
 	} `mapstructure:"bootstrap"`
 
 	MetricsBackend struct {
@@ -277,40 +239,9 @@ func NewCommand(opt CommandOption) *cobra.Command {
 		1.0,
 		"sampling ratio for traceidratio and parentbased_traceidratio samplers",
 	)
-	cmd.PersistentFlags().Bool("runtimeAPI.enabled", false, "enable Kubernetes-authenticated runtime API")
-	cmd.PersistentFlags().String("runtimeAPI.audience", "", "required runtime bearer token audience")
 	cmd.PersistentFlags().String("runtimeAPI.installationNamespace", "", "installation ConfigMap namespace")
 	cmd.PersistentFlags().String("runtimeAPI.installationName", "", "installation ConfigMap name")
 	cmd.PersistentFlags().String("runtimeAPI.installationUID", "", "expected installation ConfigMap UID")
-	cmd.PersistentFlags().Bool("auth.enabled", false, "enable authentication")
-	cmd.PersistentFlags().String("auth.admin.username", "admin", "admin username")
-	cmd.PersistentFlags().String("auth.admin.password", "admin", "admin password")
-	cmd.PersistentFlags().String("auth.admin.email", "admin@admin", "admin email")
-	cmd.PersistentFlags().String("auth.basic.pepper", "",
-		"server-side secret mixed into basic-auth password hashes; "+
-			"set a long random value to enable DB-backed basic-auth users (empty disables them)")
-	cmd.PersistentFlags().String("auth.jwt.issuer", "opampcommander", "JWT issuer")
-	//nolint:mnd
-	cmd.PersistentFlags().Duration("auth.jwt.expire", 30*time.Minute, "JWT access token expiration duration")
-	//nolint:mnd
-	cmd.PersistentFlags().Duration("auth.jwt.refreshExpire", 7*24*time.Hour,
-		"JWT refresh token expiration duration (0 disables refresh tokens)")
-	cmd.PersistentFlags().String("auth.jwt.secret", "", "JWT signing secret")
-	cmd.PersistentFlags().StringSlice("auth.jwt.audience", []string{"opampcommander"}, "JWT audience")
-	cmd.PersistentFlags().String("auth.type", "oauth2", "authentication type")
-	cmd.PersistentFlags().String("auth.oauth2.provider", "", "OAuth2 provider URL")
-	cmd.PersistentFlags().String("auth.oauth2.clientId", "", "OAuth2 client ID")
-	cmd.PersistentFlags().String("auth.oauth2.clientSecret", "", "OAuth2 client secret")
-	cmd.PersistentFlags().String("auth.oauth2.redirectUri", "", "OAuth2 redirect URL")
-	cmd.PersistentFlags().StringSlice(
-		"auth.oauth2.allowedRedirectHosts",
-		nil,
-		"additional hosts the OAuth2 authcode endpoint accepts as redirect "+
-			"targets (loopback hosts are always allowed)",
-	)
-	cmd.PersistentFlags().String("auth.oauth2.state.mode", "jwt", "OAuth2 state mode (jwt)")
-	cmd.PersistentFlags().String("auth.oauth2.state.jwt.secret", "", "OAuth2 state JWT secret")
-
 	cmd.PersistentFlags().String("bootstrap.dir", "",
 		"directory of initial manifest YAML files to seed on startup "+
 			"(empty disables; the container image sets BOOTSTRAP_DIR=/etc/opampcommander/initial)")
@@ -320,9 +251,7 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.PersistentFlags().String("bootstrap.remoteConfigSchemaLoad", "latest",
 		"which schemas to seed on startup: latest (newest per distribution), all, or none")
 	cmd.PersistentFlags().String("bootstrap.defaultNamespace", "default",
-		"namespace agents without a service.namespace are placed in, and where the default role is granted")
-	cmd.PersistentFlags().String("bootstrap.defaultRole", "default",
-		"name of the built-in role auto-granted to every user")
+		"namespace for Agents without a service.namespace")
 	cmd.PersistentFlags().String("metricsBackend.type", "none",
 		"metrics backend for endpoint-throughput queries (none, prometheus)")
 	cmd.PersistentFlags().String("metricsBackend.address", "",
@@ -391,12 +320,8 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 	opt.viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // replace '.' with '_' for environment variables
 	opt.viper.AutomaticEnv()                                   // read in environment variables that match
 
-	// viper's StringSlice env-var support is famously fragile — without a
-	// decode hook, `AUTH_OAUTH2_ALLOWEDREDIRECTHOSTS=a,b,c` lands as a
-	// single-element slice. Adding StringToSliceHookFunc(",") makes every
-	// `[]string` mapstructure field accept comma-separated env values,
-	// while preserving native YAML list semantics. The Duration hook is
-	// preserved for the existing time.Duration fields.
+	// Accept comma-separated list values from the environment while preserving
+	// native YAML lists and duration strings.
 	err = opt.viper.Unmarshal(opt, viper.DecodeHook(
 		mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
@@ -481,36 +406,6 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 				Enabled: opt.Database.Sharding.Enabled,
 			},
 		},
-		Security: security.Config{
-			AdminSettings: security.AdminSettings{
-				Username: opt.Auth.Admin.Username,
-				Password: opt.Auth.Admin.Password,
-				Email:    opt.Auth.Admin.Email,
-			},
-			BasicAuthSettings: security.BasicAuthSettings{
-				Pepper: opt.Auth.Basic.Pepper,
-			},
-			JWTSettings: security.JWTSettings{
-				Issuer:            opt.Auth.JWT.Issuer,
-				Expiration:        opt.Auth.JWT.Expire,
-				RefreshExpiration: opt.Auth.JWT.RefreshExpire,
-				SigningKey:        opt.Auth.JWT.Secret,
-				Audience:          opt.Auth.JWT.Audience,
-			},
-			OAuthSettings: &security.OAuthSettings{
-				ClientID:             opt.Auth.OAuth2.ClientID,
-				Secret:               opt.Auth.OAuth2.ClientSecret,
-				CallbackURL:          opt.Auth.OAuth2.RedirectURI,
-				AllowedRedirectHosts: opt.Auth.OAuth2.AllowedRedirectHosts,
-				JWTSettings: security.JWTSettings{
-					Issuer:            opt.Auth.OAuth2.State.JWT.Issuer,
-					Expiration:        opt.Auth.OAuth2.State.JWT.Expire,
-					RefreshExpiration: 0,
-					SigningKey:        opt.Auth.OAuth2.State.JWT.Secret,
-					Audience:          opt.Auth.OAuth2.State.JWT.Audience,
-				},
-			},
-		},
 		EventSettings: appconfig.EventSettings{
 			ProtocolType:  appconfig.EventProtocolType(opt.Event.Type),
 			KafkaSettings: opt.Event.Kafka.WithDefaults(),
@@ -561,14 +456,12 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 			RemoteConfigSchemaDir:  opt.Bootstrap.RemoteConfigSchemaDir,
 			RemoteConfigSchemaLoad: opt.Bootstrap.RemoteConfigSchemaLoad,
 			DefaultNamespace:       defaultString(opt.Bootstrap.DefaultNamespace, agentmodel.DefaultNamespaceName),
-			DefaultRole:            defaultString(opt.Bootstrap.DefaultRole, usermodel.RoleDefault),
 		},
 		MetricsBackend: appconfig.MetricsBackendSettings{
 			Type:          appconfig.MetricsBackendType(opt.MetricsBackend.Type),
 			Address:       opt.MetricsBackend.Address,
 			DefaultWindow: opt.MetricsBackend.DefaultWindow,
 		},
-		RBACModelPath: "",
 	})
 
 	return nil

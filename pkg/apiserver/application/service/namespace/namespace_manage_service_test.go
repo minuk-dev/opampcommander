@@ -14,7 +14,6 @@ import (
 	namespacesvc "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/namespace"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 var errMock = errors.New("mock error")
@@ -113,9 +112,7 @@ func (m *mockNamespaceUsecase) DeleteNamespace(ctx context.Context, name string,
 func newSvc(t *testing.T, ns *mockNamespaceUsecase) *namespacesvc.Service {
 	t.Helper()
 
-	base := testutil.NewBase(t)
-
-	return namespacesvc.NewNamespaceService(ns, base.Logger)
+	return namespacesvc.NewNamespaceService(ns)
 }
 
 func apiNamespace() *v1.Namespace {

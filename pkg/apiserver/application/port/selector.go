@@ -2,7 +2,6 @@ package port
 
 import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 )
 
 // Field-selector allowlists, re-exported per resource for the primary adapters.
@@ -36,10 +35,4 @@ var (
 	NamespaceSelectableFields = agentmodel.NamespaceSelectableFields
 	// RemoteConfigSchemaSelectableFields are the fields a schema listing can be filtered on.
 	RemoteConfigSchemaSelectableFields = agentmodel.RemoteConfigSchemaSelectableFields
-	// UserSelectableFields are the fields a user listing can be filtered on.
-	UserSelectableFields = usermodel.UserSelectableFields
-	// RoleSelectableFields are the fields a role listing can be filtered on.
-	RoleSelectableFields = usermodel.RoleSelectableFields
-	// RoleBindingSelectableFields are the fields a role-binding listing can be filtered on.
-	RoleBindingSelectableFields = usermodel.RoleBindingSelectableFields
 )

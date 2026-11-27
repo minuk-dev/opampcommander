@@ -15,14 +15,13 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var _ usecase.AgentRemoteConfigManageUsecase = (*Service)(nil)
 
 // Service is a service for managing agent remote configs. It maps between the HTTP
-// DTOs and the domain, resolves the acting user, delegates lifecycle rules
+// DTOs and the domain, delegates lifecycle rules
 // (stamping, immutable-field preservation) to the domain AgentRemoteConfigUsecase,
 // and fans the post-write side effects (group propagation, endpoint detection) out
 // to the relevant domain usecases without blocking the request.
@@ -117,7 +116,7 @@ func (s *Service) CreateAgentRemoteConfig(
 
 	domainModel := s.mapper.MapAPIToAgentRemoteConfig(apiModel)
 
-	saved, err := s.agentRemoteConfigUsecase.CreateAgentRemoteConfig(ctx, domainModel, s.actor(ctx))
+	saved, err := s.agentRemoteConfigUsecase.CreateAgentRemoteConfig(ctx, domainModel, model.APIServerActor)
 	if err != nil {
 		return nil, fmt.Errorf("create agent remote config: %w", err)
 	}
@@ -170,7 +169,7 @@ func (s *Service) DeleteAgentRemoteConfig(
 	resourceVersion ...int64,
 ) error {
 	err := s.agentRemoteConfigUsecase.DeleteAgentRemoteConfig(
-		ctx, namespace, name, s.clock.Now(), s.actor(ctx), resourceVersion...,
+		ctx, namespace, name, s.clock.Now(), model.APIServerActor, resourceVersion...,
 	)
 	if err != nil {
 		return fmt.Errorf("delete agent remote config: %w", err)
@@ -203,22 +202,6 @@ func (s *Service) PatchAgentRemoteConfig(
 // ValidateAgentRemoteConfig checks a candidate without writes or side effects.
 func (s *Service) ValidateAgentRemoteConfig(ctx context.Context, candidate *v1.AgentRemoteConfig) error {
 	return s.validation.Validate(ctx, s.mapper.MapAPIToAgentRemoteConfig(candidate))
-}
-
-// actor resolves the acting user from the request context, falling back to an
-// anonymous identity (and logging) when none is present.
-func (s *Service) actor(ctx context.Context) string {
-	user, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn(
-			"failed to get user from context",
-			slog.String("error", err.Error()),
-		)
-
-		user = security.NewAnonymousUser()
-	}
-
-	return user.String()
 }
 
 // triggerGroupPropagation asks the agent group service to re-apply any groups in the

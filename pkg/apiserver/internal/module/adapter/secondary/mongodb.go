@@ -16,7 +16,6 @@ import (
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper"
 )
 
@@ -51,12 +50,6 @@ func NewMongoDB() fx.Option {
 			fx.Annotate(mongodb.NewHostRepository, fx.As(new(agentport.HostPersistencePort))),
 			fx.Annotate(mongodb.NewContainerRepository, fx.As(new(agentport.ContainerPersistencePort))),
 			fx.Annotate(mongodb.NewApplicationRepository, fx.As(new(agentport.ApplicationPersistencePort))),
-			// RBAC MongoDB adapters
-			fx.Annotate(mongodb.NewUserRepository, fx.As(new(userport.UserPersistencePort))),
-			fx.Annotate(mongodb.NewRoleRepository, fx.As(new(userport.RolePersistencePort))),
-			fx.Annotate(mongodb.NewPermissionRepository, fx.As(new(userport.PermissionPersistencePort))),
-			fx.Annotate(mongodb.NewUserRoleRepository, fx.As(new(userport.UserRolePersistencePort))),
-			fx.Annotate(mongodb.NewRoleBindingRepository, fx.As(new(userport.RoleBindingPersistencePort))),
 		),
 	)
 }
@@ -136,7 +129,7 @@ func NewMongoDatabase(
 
 	lifecycle.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			if settings.RuntimeAPI.Enabled {
+			if settings.RuntimeAPI.Configured() {
 				err := mongodb.VerifyInstallation(
 					ctx, database, settings.RuntimeAPI.InstallationUID, settings.DatabaseSettings.DDLAuto,
 				)

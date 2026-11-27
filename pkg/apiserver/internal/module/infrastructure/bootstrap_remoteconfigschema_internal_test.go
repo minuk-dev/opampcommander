@@ -96,7 +96,7 @@ func schemaExists(t *testing.T, deps bootstrapDeps, name string) bool {
 func TestReconcileRemoteConfigSchemas_LatestSeedsNewestPerBinary(t *testing.T) {
 	t.Parallel()
 
-	deps, _, _ := newTestDeps()
+	deps := newTestDeps()
 	dir := writeSchemas(t, deps.fs, allThreeSchemas())
 
 	require.NoError(t, reconcileRemoteConfigSchemas(t.Context(), dir, config.RemoteConfigSchemaLoadLatest, deps))
@@ -109,7 +109,7 @@ func TestReconcileRemoteConfigSchemas_LatestSeedsNewestPerBinary(t *testing.T) {
 func TestReconcileRemoteConfigSchemas_AllSeedsEveryVersion(t *testing.T) {
 	t.Parallel()
 
-	deps, _, _ := newTestDeps()
+	deps := newTestDeps()
 	dir := writeSchemas(t, deps.fs, allThreeSchemas())
 
 	require.NoError(t, reconcileRemoteConfigSchemas(t.Context(), dir, config.RemoteConfigSchemaLoadAll, deps))
@@ -122,7 +122,7 @@ func TestReconcileRemoteConfigSchemas_AllSeedsEveryVersion(t *testing.T) {
 func TestReconcileRemoteConfigSchemas_NoneSeedsNothing(t *testing.T) {
 	t.Parallel()
 
-	deps, _, _ := newTestDeps()
+	deps := newTestDeps()
 	dir := writeSchemas(t, deps.fs, allThreeSchemas())
 
 	require.NoError(t, reconcileRemoteConfigSchemas(t.Context(), dir, config.RemoteConfigSchemaLoadNone, deps))
@@ -134,7 +134,7 @@ func TestReconcileRemoteConfigSchemas_NoneSeedsNothing(t *testing.T) {
 func TestReconcileRemoteConfigSchemas_MissingDirSkips(t *testing.T) {
 	t.Parallel()
 
-	deps, _, _ := newTestDeps()
+	deps := newTestDeps()
 
 	require.NoError(t, reconcileRemoteConfigSchemas(
 		t.Context(), "/does-not-exist", config.RemoteConfigSchemaLoadLatest, deps))
@@ -144,7 +144,7 @@ func TestReconcileRemoteConfigSchemas_MissingDirSkips(t *testing.T) {
 func TestReconcileRemoteConfigSchemas_EmptyDirSkips(t *testing.T) {
 	t.Parallel()
 
-	deps, _, _ := newTestDeps()
+	deps := newTestDeps()
 
 	require.NoError(t, reconcileRemoteConfigSchemas(
 		t.Context(), "", config.RemoteConfigSchemaLoadLatest, deps))
@@ -153,7 +153,7 @@ func TestReconcileRemoteConfigSchemas_EmptyDirSkips(t *testing.T) {
 func TestReconcileRemoteConfigSchemas_RejectsUnexpectedKind(t *testing.T) {
 	t.Parallel()
 
-	deps, _, _ := newTestDeps()
+	deps := newTestDeps()
 	dir := writeSchemas(t, deps.fs, map[string]string{"bad.yaml": namespaceManifest})
 
 	err := reconcileRemoteConfigSchemas(t.Context(), dir, config.RemoteConfigSchemaLoadAll, deps)
@@ -163,7 +163,7 @@ func TestReconcileRemoteConfigSchemas_RejectsUnexpectedKind(t *testing.T) {
 func TestReconcileRemoteConfigSchemas_Idempotent(t *testing.T) {
 	t.Parallel()
 
-	deps, _, _ := newTestDeps()
+	deps := newTestDeps()
 	dir := writeSchemas(t, deps.fs, allThreeSchemas())
 
 	require.NoError(t, reconcileRemoteConfigSchemas(t.Context(), dir, config.RemoteConfigSchemaLoadAll, deps))
@@ -179,7 +179,7 @@ func TestReconcileRemoteConfigSchemas_Idempotent(t *testing.T) {
 func TestReconcileRemoteConfigSchemas_UpdatesOnChange(t *testing.T) {
 	t.Parallel()
 
-	deps, _, _ := newTestDeps()
+	deps := newTestDeps()
 
 	dir := writeSchemas(t, deps.fs, map[string]string{"otelcol-0.130.0.yaml": schemaOtelcol130})
 	require.NoError(t, reconcileRemoteConfigSchemas(t.Context(), dir, config.RemoteConfigSchemaLoadAll, deps))
@@ -215,7 +215,7 @@ spec:
 func TestApplyManifests_RoutesRemoteConfigSchemaKind(t *testing.T) {
 	t.Parallel()
 
-	deps, _, _ := newTestDeps()
+	deps := newTestDeps()
 	dir := writeManifests(t, deps.fs, map[string]string{"schema.yaml": schemaOtelcol130})
 
 	docs, err := loadManifestDocs(deps.fs, dir)

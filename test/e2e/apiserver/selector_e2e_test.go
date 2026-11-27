@@ -210,14 +210,6 @@ func TestE2E_Selectors_RejectedRatherThanIgnored(t *testing.T) {
 		_ = requireBadRequest(t, err)
 	})
 
-	t.Run("a label selector on a resource with no metadata says so", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := cli.RoleService.ListRoles(t.Context(), client.WithLabelSelector("env=prod"))
-
-		assert.Contains(t, requireBadRequest(t, err), "no labels or attributes")
-	})
-
 	// The two metadata selectors are not interchangeable, and sending the wrong
 	// one must not be an ignored parameter: gin drops what nothing reads, so the
 	// caller would get the whole collection with a 200.
@@ -246,71 +238,6 @@ func TestE2E_Selectors_RejectedRatherThanIgnored(t *testing.T) {
 
 // Roles have no label map but do have a name and a field, which is what makes
 // them worth filtering at all.
-func TestE2E_Selectors_RolesFilterWithoutLabels(t *testing.T) {
-	t.Parallel()
-
-	cli := startSelectorAPIServer(t, "opampcommander_e2e_selectors_roles")
-
-	// A custom role, so both sides of the field selector have something to find.
-	// Without one the "not built in" listing is empty on a fresh bootstrap and
-	// asserting over its items proves nothing.
-	custom := createRole(t, cli, "Selector Test Role")
-
-	builtIn := roleNames(t, cli, client.WithFieldSelector("spec.isBuiltIn=true"))
-	require.NotEmpty(t, builtIn, "the bootstrap seeds built-in roles")
-	assert.NotContains(t, builtIn, custom.Spec.DisplayName)
-
-	notBuiltIn := roleNames(t, cli, client.WithFieldSelector("spec.isBuiltIn=false"))
-	assert.Equal(t, []string{custom.Spec.DisplayName}, notBuiltIn,
-		"the only role that is not built in is the one this test created")
-
-	// The same resource narrowed by its name, which is what a label-less resource
-	// has instead of labels.
-	assert.Equal(t, []string{custom.Spec.DisplayName},
-		roleNames(t, cli, client.WithName("Selector Test")))
-}
-
-// createRole creates a custom (non-built-in) role.
-func createRole(t *testing.T, cli *client.Client, displayName string) *v1.Role {
-	t.Helper()
-
-	role, err := cli.RoleService.CreateRole(t.Context(), &v1.Role{
-		Kind:       v1.RoleKind,
-		APIVersion: v1.APIVersion,
-		//exhaustruct:ignore
-		Metadata: v1.RoleMetadata{},
-		Spec: v1.RoleSpec{
-			DisplayName: displayName,
-			Description: "created by an e2e test",
-			Permissions: []string{"agent:GET"},
-			IsBuiltIn:   false,
-		},
-		//exhaustruct:ignore
-		Status: v1.RoleStatus{},
-	})
-	require.NoError(t, err)
-
-	return role
-}
-
-// roleNames lists roles under the given options and returns their display names.
-func roleNames(t *testing.T, cli *client.Client, opts ...client.ListOption) []string {
-	t.Helper()
-
-	resp, err := cli.RoleService.ListRoles(t.Context(), opts...)
-	require.NoError(t, err)
-
-	names := make([]string, 0, len(resp.Items))
-	for _, role := range resp.Items {
-		names = append(names, role.Spec.DisplayName)
-	}
-
-	return names
-}
-
-// Every namespaced listing must honour the namespace in its own path.
-// Authorization is enforced per-namespace, so a listing that ignored it would
-// hand a caller authorized for one namespace the contents of every other.
 func TestE2E_NamespacedListings_ScopedToTheirNamespace(t *testing.T) {
 	t.Parallel()
 
@@ -360,69 +287,5 @@ func TestE2E_NamespacedListings_ScopedToTheirNamespace(t *testing.T) {
 			assert.Equal(t, namespace, agentPackage.Metadata.Namespace,
 				"a namespaced listing must not return another namespace's agent packages")
 		}
-	}
-}
-
-func TestE2E_RoleBindings_ScopedToTheirNamespace(t *testing.T) {
-	t.Parallel()
-
-	cli := startSelectorAPIServer(t, "opampcommander_e2e_rolebinding_scope")
-
-	role, err := cli.RoleService.CreateRole(t.Context(), &v1.Role{
-		Kind:       v1.RoleKind,
-		APIVersion: v1.APIVersion,
-		//exhaustruct:ignore
-		Metadata: v1.RoleMetadata{},
-		Spec: v1.RoleSpec{
-			DisplayName: "Scope Test Role",
-			Description: "role bound in two namespaces",
-			Permissions: []string{"agent:GET"},
-			IsBuiltIn:   false,
-		},
-		//exhaustruct:ignore
-		Status: v1.RoleStatus{},
-	})
-	require.NoError(t, err)
-
-	other := "scope-other"
-
-	//exhaustruct:ignore
-	_, err = cli.NamespaceService.CreateNamespace(t.Context(), &v1.Namespace{
-		Metadata: v1.NamespaceMetadata{Name: other},
-	})
-	require.NoError(t, err)
-
-	for _, namespace := range []string{"default", other} {
-		//exhaustruct:ignore
-		_, err = cli.RoleBindingService.CreateRoleBinding(t.Context(), namespace, &v1.RoleBinding{
-			Kind:       v1.RoleBindingKind,
-			APIVersion: v1.APIVersion,
-			Metadata:   v1.RoleBindingMetadata{Namespace: namespace, Name: "scope-binding"},
-			Spec: v1.RoleBindingSpec{
-				RoleRef:  v1.RoleBindingRoleRef{Kind: "Role", Name: role.Spec.DisplayName},
-				Subjects: []v1.RoleBindingSubject{{Kind: "User", Name: "test@test.com"}},
-			},
-		})
-		require.NoError(t, err)
-	}
-
-	for _, namespace := range []string{"default", other} {
-		resp, err := cli.RoleBindingService.ListRoleBindings(t.Context(), namespace)
-		require.NoError(t, err)
-
-		names := make([]string, 0, len(resp.Items))
-
-		for _, binding := range resp.Items {
-			assert.Equal(t, namespace, binding.Metadata.Namespace,
-				"a namespaced listing must not return another namespace's bindings")
-
-			names = append(names, binding.Metadata.Name)
-		}
-
-		// Both namespaces hold a binding of this name, so seeing exactly one is
-		// what separates "the other was withheld" from "the other was never
-		// created" — the latter would pass a loop that only inspects what came
-		// back.
-		assert.Equal(t, []string{"scope-binding"}, names)
 	}
 }

@@ -43,8 +43,7 @@ func TestE2E_SupervisorConnectionSettingsPolicy(t *testing.T) {
 			server := base.StartStandaloneAPIServerWithOpAMPTLS(settings)
 			require.Eventually(t, server.IsReady, 30*time.Second, 100*time.Millisecond)
 			apiClient := client.New(server.Endpoint,
-				client.WithTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots}),
-				client.WithBasicAuth(server.AdminUsername(), server.AdminPassword()))
+				client.WithTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots}))
 			uid := uuid.New()
 			register := func(name string) *v1.Certificate {
 				cert, err := apiClient.CertificateService.CreateCertificate(t.Context(), "default", &v1.Certificate{

@@ -5,21 +5,19 @@
 apiserver
 ---------
 {{- if .Values.apiserver.ingress.enabled }}
-Reachable at:
+OpAMP WebSocket:
 {{- range .Values.apiserver.ingress.hosts }}
 {{- $host := .host }}
-{{- $scheme := "http" }}
-{{- range $.Values.apiserver.ingress.tls }}{{ if has $host .hosts }}{{ $scheme = "https" }}{{ end }}{{ end }}
-{{- range .paths }}
-  {{ $scheme }}://{{ $host }}{{ .path }}
-{{- end }}
+{{- $scheme := "ws" }}
+{{- range $.Values.apiserver.ingress.tls }}{{ if has $host .hosts }}{{ $scheme = "wss" }}{{ end }}{{ end }}
+  {{ $scheme }}://{{ $host }}/api/v1/opamp
 {{- end }}
 {{- else }}
-Port-forward to reach it:
+For privileged debugging, port-forward over loopback:
 
   kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "opampcommander.apiserver.fullname" . }} {{ .Values.apiserver.service.port }}:{{ .Values.apiserver.service.port }}
 
-  REST API + OpAMP WebSocket: http://localhost:{{ .Values.apiserver.service.port }}
+  OpAMP WebSocket: ws://localhost:{{ .Values.apiserver.service.port }}/api/v1/opamp
 {{- end }}
 
 Point a collector's OpAMP extension at:
@@ -50,35 +48,19 @@ Port-forward to reach it:
 {{- end }}
 {{- end }}
 
-{{- if and .Values.apiserver.enabled .Values.apiserver.secrets.create (not .Values.apiserver.secrets.existingSecret) }}
-
-admin credentials
------------------
-  kubectl --namespace {{ .Release.Namespace }} get secret {{ include "opampcommander.apiserver.secretName" . }} -o jsonpath='{.data.adminUsername}' | base64 -d; echo
-  kubectl --namespace {{ .Release.Namespace }} get secret {{ include "opampcommander.apiserver.secretName" . }} -o jsonpath='{.data.adminPassword}' | base64 -d; echo
-{{- end }}
 
 {{- if .Values.apiserver.enabled }}
 {{- $databaseType := include "opampcommander.apiserver.databaseType" . }}
 {{- $eventType := include "opampcommander.apiserver.eventType" . }}
 {{- if eq $databaseType "inmemory" }}
 
-WARNING: apiserver.config.database.type is "inmemory". Every agent, config and
-user is held in process memory and is lost when the pod restarts. Set it to
+WARNING: apiserver.config.database.type is "inmemory". Every agent and configuration object is held in process memory and is lost when the pod restarts. Set it to
 "mongodb" before using this release for anything but a demo.
 {{- end }}
 {{- if and (eq $eventType "inmemory") (gt (int .Values.apiserver.replicaCount) 1) }}
 
 WARNING: apiserver.config.event.type is "inmemory" with more than one replica.
 Replicas cannot coordinate; use "kafka" or "direct".
-{{- end }}
-{{- if and .Values.apiserver.secrets.create (not .Values.apiserver.secrets.existingSecret) (not .Values.apiserver.secrets.jwtSecret) }}
-
-NOTE: the JWT signing key, basic-auth pepper and OAuth2 state key were generated
-for you and are carried forward on upgrade by reading the existing Secret. That
-lookup returns nothing under `helm template` / `--dry-run`, so a render-then-apply
-(GitOps) flow must set apiserver.secrets.* explicitly or it will rotate them —
-invalidating every issued token and stored password.
 {{- end }}
 {{- end }}
 

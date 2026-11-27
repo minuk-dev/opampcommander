@@ -9,7 +9,7 @@ type OpAMPSettings struct {
 
 // DefaultOpAMPSettings preserves the default 64 MiB limit without compression.
 func DefaultOpAMPSettings() OpAMPSettings {
-	return OpAMPSettings{MaxMessageSize: 0, EnableCompression: false}
+	return OpAMPSettings{}
 }
 
 // Validate accepts every int64: zero selects the library default, negative

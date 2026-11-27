@@ -67,10 +67,8 @@ enqueue existing CRs; periodic repair covers missed notifications. The manager
 retains cluster-wide CR/metadata watches; this gate controls reconciliation, not
 Kubernetes API read permissions. Restrict namespace-label writes with native RBAC.
 
-This implements Operator ownership only. Runtime TokenReview/SubjectAccessReview,
-Agent enrollment bound to namespace UID, persisted gateway identity, and fenced
-namespace reassignment remain in #902/#905/#907. Do not move a namespace between
-installations as a substitute for that migration protocol.
+Namespace reassignment requires a fenced migration (#907). Preserve
+installation and namespace UIDs when connecting Commander.
 
 AgentGroups index direct RemoteConfig, AgentPackage and connection Secret
 references. RemoteConfigs index schema, endpoint and Secret references; packages
@@ -139,12 +137,9 @@ and namespace UID with the live Kubernetes identities.
 
 Adapt [the Deployment patch](config/runtime/connection-patch.yaml) to your
 Commander Service and its certificate. Create the referenced CA ConfigMap in
-the Operator namespace and mount the projected ServiceAccount token with the
-same audience configured on the gateway. The client uses system trust roots
-when no CA file is specified. For each assigned namespace, bind the Operator
-ServiceAccount to a Role granting `get` on the virtual
-`namespaces.runtime.opampcommander.io` resource with that namespace's name.
-See [the permission example](../docs/content/en/docs/runtime-authentication.md).
+the Operator namespace. The client uses system trust roots when no CA file
+is specified. Allow the Operator to reach the private Commander Service over
+the network. See [runtime identity setup](../docs/content/en/docs/runtime-authentication.md).
 
 A successful lookup sets the AgentGroup condition `RuntimeScopeVerified=True`.
 On failure it becomes `Unknown` and reconciliation retries. This condition

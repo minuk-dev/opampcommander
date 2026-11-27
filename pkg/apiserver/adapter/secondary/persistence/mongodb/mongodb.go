@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -68,11 +67,6 @@ var (
 		serverCollectionName,
 		serverConnectionCollectionName,
 		serverHeartbeatCollectionName,
-		userCollectionName,
-		roleCollectionName,
-		roleBindingCollectionName,
-		permissionCollectionName,
-		userRoleCollectionName,
 	}
 
 	// versionedCollections use insert-only creation and require explicit legacy migration.
@@ -110,7 +104,7 @@ var (
 // concurrent EnsureSchema calls — which is exactly what a test run that spins up
 // several databases at once does.
 func managedIndexes() []collectionAndIndexes {
-	return slices.Concat(fleetIndexes(), identityIndexes())
+	return fleetIndexes()
 }
 
 // fleetIndexes is the index plan for the collections that describe the managed
@@ -376,78 +370,6 @@ func fleetIndexes() []collectionAndIndexes {
 				{
 					Keys:    bson.D{{Key: "lastSeenAt", Value: 1}},
 					Options: options.Index().SetExpireAfterSeconds(int32(serverHeartbeatTTL.Seconds())),
-				},
-			},
-		},
-	}
-}
-
-// identityIndexes is the index plan for the identity and RBAC collections: users,
-// roles and role bindings. It is split out of managedIndexes so neither function
-// grows past the point where the whole schema stops being readable at a glance.
-//
-// Like managedIndexes, it is built fresh on each call: the driver mutates the
-// option builders it is handed, so a shared plan would be a data race between
-// concurrent EnsureSchema calls.
-func identityIndexes() []collectionAndIndexes {
-	return []collectionAndIndexes{
-		{
-			collectionName: userCollectionName,
-			indexes: []mongo.IndexModel{
-				{
-					Keys: bson.D{
-						{Key: "spec.email", Value: 1},
-					},
-					// Case-insensitive collation so this index backs the collated GetUserByEmail
-					// lookups (same emailCollation), which run on every login and every
-					// authenticated request's user resolution — otherwise they full-scan users.
-					Options: options.Index().SetCollation(emailCollation),
-				},
-				{
-					// Backs GetUserByUsername (exact, case-sensitive), used by basic-auth login.
-					Keys:    bson.D{{Key: "spec.username", Value: 1}},
-					Options: nil,
-				},
-			},
-		},
-		{
-			collectionName: roleCollectionName,
-			indexes: []mongo.IndexModel{
-				{
-					// Backs the key lookup every GetRole issues.
-					Keys:    bson.D{{Key: "metadata.uid", Value: 1}},
-					Options: nil,
-				},
-				{
-					// Backs GetRoleByName and the "?name=" prefix range scan: a role's
-					// name is the display name it is referenced by.
-					Keys:    bson.D{{Key: "spec.displayName", Value: 1}},
-					Options: nil,
-				},
-				{
-					Keys:    bson.D{{Key: "spec.isBuiltIn", Value: 1}},
-					Options: nil,
-				},
-			},
-		},
-		{
-			collectionName: roleBindingCollectionName,
-			indexes: []mongo.IndexModel{
-				{
-					// Backs the compound (namespace, name) filter every get, put and
-					// delete uses, and the namespace scoping of the listing.
-					Keys: bson.D{
-						{Key: "metadata.namespace", Value: 1},
-						{Key: "metadata.name", Value: 1},
-					},
-					Options: nil,
-				},
-				nameSearchIndex(),
-				{
-					// Backs "which bindings grant this role", the one field a binding
-					// advertises as selectable.
-					Keys:    bson.D{{Key: "spec.roleRef.name", Value: 1}},
-					Options: nil,
 				},
 			},
 		},

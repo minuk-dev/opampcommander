@@ -103,17 +103,27 @@ Reject credentials for a deleted namespace or an old UID after same-name
 recreation. Changing a reported namespace attribute does not move an Agent.
 Unenrolled Agents are rejected rather than silently admitted to a default tenant.
 
-Human/plugin and machine runtime requests use explicitly validated identities
-and delegated authorization (#902), not an Operator-wide shared admin token.
-Kubeconfig credentials are not automatically credentials for an arbitrary
-Commander URL. TokenReview audience/expiry and SubjectAccessReview resource,
-verb and namespace are checked; forwarded user headers are not trusted.
-CR read access never implies access to resolved Secret-bearing Agent snapshots.
+The Kubernetes API is the management entry point for users, kubectl plugins,
+Grafana, and controllers. Kubernetes owns caller authentication, resource- and
+namespace-scoped RBAC, and the management request audit trail. Commander has no
+user-facing HTTP endpoint in the target deployment. Its OpAMP listener serves
+Agents using the Agent transport credentials described above.
 
-The opt-in [runtime namespace discovery API](../runtime-authentication/) implements
-TokenReview/SAR and installation ownership checks. Agent enrollment and scoped
-Agent operations remain separate follow-up steps; legacy records are not exposed
-through native discovery.
+Expose Agent runtime reads and actions through Kubernetes resource paths with
+explicit verbs and namespace scope. Keep the Commander runtime behind that
+boundary and restrict backend access to its trusted workloads. Reserve Service
+proxy and port forwarding for privileged cluster operations: those permissions
+grant access to the backend service or Pod as a whole. Read access to configuration
+CRs gives no permission to resolved Agent configuration.
+
+The apiserver serves the OpAMP endpoint and an internal REST API. Kubernetes
+RBAC controls management requests at the Kubernetes API. If a deployment adds
+a proxy in front of the internal API, enforce access at that proxy. See
+[runtime identity setup](../runtime-authentication/) for namespace ownership
+and the MongoDB installation binding. Kubernetes-mediated Agent reads and
+actions and migration of existing records are tracked in
+[#902](https://github.com/minuk-dev/opampcommander/issues/902) and
+[#906](https://github.com/minuk-dev/opampcommander/issues/906).
 
 ## Desired-state contract
 

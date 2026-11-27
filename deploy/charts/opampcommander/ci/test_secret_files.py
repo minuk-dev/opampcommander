@@ -17,6 +17,17 @@ def render(*args):
 
 
 class SecretFilesChartTest(unittest.TestCase):
+    def test_ingress_exposes_only_opamp(self):
+        result = render("--set", "apiserver.ingress.enabled=true",
+                        "--set", "apiserver.ingress.hosts[0].host=agents.example.com",
+                        "--set", "apiserver.ingress.hosts[0].paths[0].path=/")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        docs = [doc for doc in yaml.safe_load_all(result.stdout) if doc]
+        ingress = next(doc for doc in docs if doc["kind"] == "Ingress")
+        paths = ingress["spec"]["rules"][0]["http"]["paths"]
+        self.assertEqual([(path["path"], path["pathType"]) for path in paths],
+                         [("/api/v1/opamp", "Exact")])
+
     def test_mounted_secrets(self):
         result = render("-f", str(CHART / "ci/secret-files-values.yaml"))
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -26,7 +37,7 @@ class SecretFilesChartTest(unittest.TestCase):
         pod = deployment["spec"]["template"]["spec"]
         container = pod["containers"][0]
         files = [env for env in container["env"] if env["name"].endswith("_FILE")]
-        self.assertEqual(len(files), 8)
+        self.assertEqual(len(files), 3)
         self.assertTrue(all(env["value"].startswith("/run/secrets/opampcommander/")
                             for env in files))
         self.assertFalse(any("valueFrom" in env and "secretKeyRef" in env["valueFrom"]

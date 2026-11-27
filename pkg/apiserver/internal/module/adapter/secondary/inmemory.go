@@ -8,7 +8,6 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/healthcheck"
 )
@@ -16,25 +15,16 @@ import (
 // NewInMemory provides the in-memory persistence adapters used in standalone
 // (single-node) mode, replacing the MongoDB client/database and repositories.
 //
-// Three repositories are provided as concrete singletons in addition to their
-// port bindings, because other repositories depend on the concrete type and
-// must share the very same store instance:
-//   - *inmemory.AgentRepository backs the agent-group statistics,
-//   - *inmemory.RoleRepository and *inmemory.UserRepository back the user-role
-//     cross-entity lookups.
+// The Agent repository is shared with AgentGroup statistics and cross-entity lookups.
 func NewInMemory() fx.Option {
 	return fx.Options(
 		// Concrete singletons shared across repositories.
 		fx.Provide(
 			inmemory.NewAgentRepository,
-			inmemory.NewRoleRepository,
-			inmemory.NewUserRepository,
 		),
 		fx.Provide(
 			// Bind the shared concrete singletons to their persistence ports.
 			fx.Annotate(identity[*inmemory.AgentRepository], fx.As(new(agentport.AgentPersistencePort))),
-			fx.Annotate(identity[*inmemory.RoleRepository], fx.As(new(userport.RolePersistencePort))),
-			fx.Annotate(identity[*inmemory.UserRepository], fx.As(new(userport.UserPersistencePort))),
 
 			// Health + transaction.
 			helper.AsHealthIndicator(NewInMemoryHealthIndicator),
@@ -58,11 +48,6 @@ func NewInMemory() fx.Option {
 			fx.Annotate(inmemory.NewHostRepository, fx.As(new(agentport.HostPersistencePort))),
 			fx.Annotate(inmemory.NewContainerRepository, fx.As(new(agentport.ContainerPersistencePort))),
 			fx.Annotate(inmemory.NewApplicationRepository, fx.As(new(agentport.ApplicationPersistencePort))),
-
-			// RBAC repositories.
-			fx.Annotate(inmemory.NewPermissionRepository, fx.As(new(userport.PermissionPersistencePort))),
-			fx.Annotate(inmemory.NewUserRoleRepository, fx.As(new(userport.UserRolePersistencePort))),
-			fx.Annotate(inmemory.NewRoleBindingRepository, fx.As(new(userport.RoleBindingPersistencePort))),
 		),
 	)
 }

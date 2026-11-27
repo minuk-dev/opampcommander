@@ -55,14 +55,15 @@ func appOptions(settings *config.ServerSettings) []fx.Option {
 	return []fx.Option{
 		// Hexagonal architecture layers
 		// Adapters: HTTP, DB, messaging, scheduler, liveness fast tier
-		adaptermodule.NewAdapterModules(settings.DatabaseSettings.Type, settings.LivenessSettings),
-		infrastructuremodule.New(settings.DatabaseSettings.Type), // Bootstrap: Casbin RBAC + default seed hooks
+		adaptermodule.NewAdapterModules(
+			settings.DatabaseSettings.Type, settings.LivenessSettings,
+		),
+		infrastructuremodule.New(),
 		applicationmodule.New(),   // Application services
 		domainmodule.New(),        // Domain services
 		NewConfigModule(settings), // Configuration
 
 		// Base utilities
-		helper.NewModule(),
 		management.NewModule(),
 
 		// Route FX's own lifecycle events (provided/invoked/OnStart/OnStop) through the
@@ -126,8 +127,6 @@ func NewConfigModule(settings *config.ServerSettings) fx.Option {
 		// config
 		fx.Provide(helper.ValueFunc(settings)),
 		fx.Provide(helper.PointerFunc(settings.DatabaseSettings)),
-		// security owns its config; the aggregate composes it and we inject it back.
-		fx.Provide(helper.PointerFunc(settings.Security)),
 		fx.Provide(helper.PointerFunc(settings.ManagementSettings)),
 		// observability owns its config; aggregated under ManagementSettings.
 		fx.Provide(helper.PointerFunc(settings.ManagementSettings.Observability)),

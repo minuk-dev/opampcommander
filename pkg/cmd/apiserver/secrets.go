@@ -20,11 +20,6 @@ func (opt *CommandOption) resolveSecretFiles(cmd *cobra.Command) error {
 		key    string
 		target *string
 	}{
-		{"auth.admin.password", &opt.Auth.Admin.Password},
-		{"auth.basic.pepper", &opt.Auth.Basic.Pepper},
-		{"auth.jwt.secret", &opt.Auth.JWT.Secret},
-		{"auth.oauth2.clientSecret", &opt.Auth.OAuth2.ClientSecret},
-		{"auth.oauth2.state.jwt.secret", &opt.Auth.OAuth2.State.JWT.Secret},
 		{"event.direct.authToken", &opt.Event.Direct.AuthToken},
 		{"liveness.redis.password", &opt.Liveness.Redis.Password},
 		{"database.endpoints", &databaseURI},

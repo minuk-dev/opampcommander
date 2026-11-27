@@ -15,8 +15,6 @@ import (
 
 func TestSecretFiles(t *testing.T) {
 	for _, key := range []string{
-		"auth.admin.password", "auth.basic.pepper", "auth.jwt.secret",
-		"auth.oauth2.clientSecret", "auth.oauth2.state.jwt.secret",
 		"event.direct.authToken", "liveness.redis.password", "database.endpoints",
 	} {
 		t.Run(key, func(t *testing.T) {
@@ -55,7 +53,7 @@ func TestSecretFiles(t *testing.T) {
 }
 
 func TestSecretFileFailures(t *testing.T) {
-	t.Setenv("AUTH_JWT_SECRET", "")
+	t.Setenv("LIVENESS_REDIS_PASSWORD", "")
 
 	for _, name := range []string{"missing", "directory", "empty", "newline"} {
 		t.Run(name, func(t *testing.T) {
@@ -70,37 +68,38 @@ func TestSecretFileFailures(t *testing.T) {
 				require.NoError(t, os.WriteFile(filename, []byte("\n"), 0o600))
 			}
 
-			t.Setenv("AUTH_JWT_SECRET_FILE", filename)
+			t.Setenv("LIVENESS_REDIS_PASSWORD_FILE", filename)
 			out, _, err := secretConfigView(t)
-			require.ErrorContains(t, err, "AUTH_JWT_SECRET_FILE")
+			require.ErrorContains(t, err, "LIVENESS_REDIS_PASSWORD_FILE")
 			require.Empty(t, out)
 
 			cmd := apiserver.NewCommand(apiserver.CommandOption{})
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
 			cmd.SetArgs([]string{"--config", filepath.Join(t.TempDir(), "missing.yaml")})
-			require.ErrorContains(t, cmd.Execute(), "AUTH_JWT_SECRET_FILE", "startup must fail before preparing the server")
+			require.ErrorContains(t, cmd.Execute(), "LIVENESS_REDIS_PASSWORD_FILE",
+				"startup must fail before preparing the server")
 		})
 	}
 }
 
 func TestSecretFileOverridesYAML(t *testing.T) {
-	t.Setenv("AUTH_JWT_SECRET", "")
+	t.Setenv("LIVENESS_REDIS_PASSWORD", "")
 	filename := filepath.Join(t.TempDir(), "secret")
 	require.NoError(t, os.WriteFile(filename, []byte("file-secret"), 0o600))
 	configFile := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, os.WriteFile(configFile, []byte("auth:\n  jwt:\n    secret: yaml-secret\n"), 0o600))
-	t.Setenv("AUTH_JWT_SECRET_FILE", "")
+	require.NoError(t, os.WriteFile(configFile, []byte("liveness:\n  redis:\n    password: yaml-secret\n"), 0o600))
+	t.Setenv("LIVENESS_REDIS_PASSWORD_FILE", "")
 	_, parsed, err := secretConfigView(t, "--config", configFile, "--show-secrets")
 	require.NoError(t, err)
-	require.Equal(t, "yaml-secret", secretConfigValue(t, parsed, "auth.jwt.secret"))
-	t.Setenv("AUTH_JWT_SECRET_FILE", filename)
+	require.Equal(t, "yaml-secret", secretConfigValue(t, parsed, "liveness.redis.password"))
+	t.Setenv("LIVENESS_REDIS_PASSWORD_FILE", filename)
 	_, parsed, err = secretConfigView(t, "--config", configFile, "--show-secrets")
 	require.NoError(t, err)
-	require.Equal(t, "file-secret", secretConfigValue(t, parsed, "auth.jwt.secret"))
-	_, parsed, err = secretConfigView(t, "--config", configFile, "--show-secrets", "--auth.jwt.secret=")
+	require.Equal(t, "file-secret", secretConfigValue(t, parsed, "liveness.redis.password"))
+	_, parsed, err = secretConfigView(t, "--config", configFile, "--show-secrets", "--liveness.redis.password=")
 	require.NoError(t, err)
-	require.Empty(t, secretConfigValue(t, parsed, "auth.jwt.secret"))
+	require.Empty(t, secretConfigValue(t, parsed, "liveness.redis.password"))
 }
 
 func secretConfigView(t *testing.T, args ...string) (string, map[string]any, error) {

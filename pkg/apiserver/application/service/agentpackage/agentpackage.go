@@ -4,7 +4,6 @@ package agentpackage
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/samber/lo"
 
@@ -14,26 +13,24 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var _ usecase.AgentPackageManageUsecase = (*Service)(nil)
 
 // Service is a service for managing agent packages. It maps between the HTTP DTOs
-// and the domain, resolves the acting user, and delegates all lifecycle rules
+// and the domain and delegates all lifecycle rules
 // (stamping, immutable-field preservation) to the domain AgentPackageUsecase.
 type Service struct {
 	agentpackageUsecase agentport.AgentPackageUsecase
 	mapper              *helper.Mapper
 	clock               clock.Clock
-	logger              *slog.Logger
 }
 
 // NewAgentPackageService creates a new AgentPackageService.
 func NewAgentPackageService(
 	agentpackageUsecase agentport.AgentPackageUsecase,
-	logger *slog.Logger,
 ) *Service {
 	realClock := clock.NewRealClock()
 
@@ -41,7 +38,6 @@ func NewAgentPackageService(
 		agentpackageUsecase: agentpackageUsecase,
 		mapper:              helper.NewMapper(realClock, 0),
 		clock:               realClock,
-		logger:              logger,
 	}
 }
 
@@ -91,7 +87,7 @@ func (a *Service) CreateAgentPackage(
 ) (*v1.AgentPackage, error) {
 	domainModel := a.mapper.MapAPIToAgentPackage(apiModel)
 
-	created, err := a.agentpackageUsecase.CreateAgentPackage(ctx, domainModel, a.actor(ctx))
+	created, err := a.agentpackageUsecase.CreateAgentPackage(ctx, domainModel, model.APIServerActor)
 	if err != nil {
 		return nil, fmt.Errorf("create agent package: %w", err)
 	}
@@ -124,7 +120,7 @@ func (a *Service) DeleteAgentPackage(
 	resourceVersion ...int64,
 ) error {
 	err := a.agentpackageUsecase.DeleteAgentPackage(
-		ctx, namespace, name, a.clock.Now(), a.actor(ctx), resourceVersion...,
+		ctx, namespace, name, a.clock.Now(), model.APIServerActor, resourceVersion...,
 	)
 	if err != nil {
 		return fmt.Errorf("delete agent package: %w", err)
@@ -150,17 +146,4 @@ func (a *Service) PatchAgentPackage(
 	}
 
 	return result, nil
-}
-
-// actor resolves the acting user from the request context, falling back to an
-// anonymous identity (and logging) when none is present.
-func (a *Service) actor(ctx context.Context) string {
-	user, err := security.GetUser(ctx)
-	if err != nil {
-		a.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		user = security.NewAnonymousUser()
-	}
-
-	return user.String()
 }

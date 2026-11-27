@@ -4,7 +4,6 @@ package helper
 import (
 	"bytes"
 	"encoding/pem"
-	"maps"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,7 +14,6 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	"github.com/minuk-dev/opampcommander/pkg/certutil"
 )
 
@@ -810,131 +808,6 @@ func mapAPIToEndpointTenant(tenant v1.EndpointTenant) agentmodel.EndpointTenant 
 		Tags:    tenant.Tags,
 		Signals: signals,
 	}
-}
-
-// MapUserToAPI maps a domain model User to an API model User.
-func (mapper *Mapper) MapUserToAPI(domain *usermodel.User) *v1.User {
-	if domain == nil {
-		return nil
-	}
-
-	labels := make(map[string]string, len(domain.Metadata.Labels))
-	maps.Copy(labels, domain.Metadata.Labels)
-
-	return &v1.User{
-		Kind:       v1.UserKind,
-		APIVersion: v1.APIVersion,
-		Metadata: v1.UserMetadata{
-			UID:       domain.Metadata.UID.String(),
-			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
-			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
-			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
-			Labels:    labels,
-		},
-		// Password/basic-auth credential material is intentionally never mapped out: the
-		// write-only Password field stays empty and the stored password hash is never exposed.
-		Spec: v1.UserSpec{
-			Email:    domain.Spec.Email,
-			Username: domain.Spec.Username,
-			IsActive: domain.Spec.IsActive,
-			Password: "", // never expose password material in responses
-		},
-		Status: v1.UserStatus{
-			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
-			Roles:      domain.Status.Roles,
-		},
-	}
-}
-
-// MapRoleToAPI maps a domain model Role to an API model Role.
-func (mapper *Mapper) MapRoleToAPI(domain *usermodel.Role) *v1.Role {
-	if domain == nil {
-		return nil
-	}
-
-	return &v1.Role{
-		Kind:       v1.RoleKind,
-		APIVersion: v1.APIVersion,
-		Metadata: v1.RoleMetadata{
-			UID:       domain.Metadata.UID.String(),
-			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
-			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
-			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
-		},
-		Spec: v1.RoleSpec{
-			DisplayName: domain.Spec.DisplayName,
-			Description: domain.Spec.Description,
-			Permissions: domain.Spec.Permissions,
-			IsBuiltIn:   domain.Spec.IsBuiltIn,
-		},
-		Status: v1.RoleStatus{
-			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
-		},
-	}
-}
-
-// MapRoleBindingToAPI maps a domain model RoleBinding to an API model RoleBinding.
-func (mapper *Mapper) MapRoleBindingToAPI(domain *usermodel.RoleBinding) *v1.RoleBinding {
-	if domain == nil {
-		return nil
-	}
-
-	subjects := lo.Map(domain.Spec.Subjects, func(s usermodel.Subject, _ int) v1.RoleBindingSubject {
-		return v1.RoleBindingSubject{
-			Kind:       s.Kind,
-			Name:       s.Name,
-			APIVersion: s.APIVersion,
-		}
-	})
-
-	return &v1.RoleBinding{
-		Kind:       v1.RoleBindingKind,
-		APIVersion: v1.APIVersion,
-		Metadata: v1.RoleBindingMetadata{
-			Namespace: domain.Metadata.Namespace,
-			Name:      domain.Metadata.Name,
-			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
-			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
-			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
-		},
-		Spec: v1.RoleBindingSpec{
-			RoleRef: v1.RoleBindingRoleRef{
-				Kind: domain.Spec.RoleRef.Kind,
-				Name: domain.Spec.RoleRef.Name,
-			},
-			Subjects: subjects,
-		},
-		Status: v1.RoleBindingStatus{
-			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
-		},
-	}
-}
-
-// MapAPIToRoleBinding maps an API model RoleBinding to a domain model RoleBinding.
-func (mapper *Mapper) MapAPIToRoleBinding(apiRB *v1.RoleBinding) *usermodel.RoleBinding {
-	if apiRB == nil {
-		return nil
-	}
-
-	subjects := lo.Map(apiRB.Spec.Subjects, func(s v1.RoleBindingSubject, _ int) usermodel.Subject {
-		return usermodel.Subject{
-			Kind:       s.Kind,
-			Name:       s.Name,
-			APIVersion: s.APIVersion,
-		}
-	})
-
-	roleBinding := usermodel.NewRoleBinding(
-		apiRB.Metadata.Namespace,
-		apiRB.Metadata.Name,
-		usermodel.RoleRef{
-			Kind: apiRB.Spec.RoleRef.Kind,
-			Name: apiRB.Spec.RoleRef.Name,
-		},
-	)
-	roleBinding.Spec.Subjects = subjects
-
-	return roleBinding
 }
 
 // --------------------------------------------------------------------------

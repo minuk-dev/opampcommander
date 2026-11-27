@@ -17,13 +17,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/fx/fxtest"
-	authenticationv1 "k8s.io/api/authentication/v1"
-	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	kubetesting "k8s.io/client-go/testing"
 
 	runtimeapi "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/runtime"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -31,7 +27,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
 )
 
-func TestNewEngine_RuntimeAuthentication(t *testing.T) {
+func TestNewEngine_InternalRuntimeRoutes(t *testing.T) {
 	t.Parallel()
 
 	client := fake.NewClientset(
@@ -39,23 +35,13 @@ func TestNewEngine_RuntimeAuthentication(t *testing.T) {
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "tenant", UID: "tenant-uid",
 			Labels: map[string]string{"opampcommander.io/installation-uid": "installation"}}},
 	)
-	client.PrependReactor("create", "tokenreviews", func(kubetesting.Action) (bool, runtime.Object, error) {
-		return true, &authenticationv1.TokenReview{Status: authenticationv1.TokenReviewStatus{
-			Authenticated: true, Audiences: []string{"runtime"}, User: authenticationv1.UserInfo{Username: "alice"},
-		}}, nil
-	})
-	client.PrependReactor("create", "subjectaccessreviews", func(kubetesting.Action) (bool, runtime.Object, error) {
-		return true, &authorizationv1.SubjectAccessReview{
-			Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true},
-		}, nil
-	})
 	controller, err := runtimeapi.NewController(runtimeapi.Config{
-		Enabled: true, Audience: "runtime", InstallationNamespace: "system",
-		InstallationName: "anchor", InstallationUID: "installation",
+		InstallationNamespace: "system",
+		InstallationName:      "anchor", InstallationUID: "installation",
 	}, client, nil)
 	require.NoError(t, err)
 
-	engine := primary.NewEngine(nil, nil, nil, nil, &config.ServerSettings{},
+	engine := primary.NewEngine(nil,
 		&observability.Service{}, controller, slog.Default())
 
 	for _, testCase := range []struct {
@@ -63,9 +49,9 @@ func TestNewEngine_RuntimeAuthentication(t *testing.T) {
 		status            int
 	}{
 		{"native identity", "/api/runtime/v1/namespaces/tenant", "native-token", http.StatusOK},
-		{"native anonymous", "/api/runtime/v1/namespaces/tenant", "", http.StatusUnauthorized},
-		{"legacy anonymous", "/api/v1/namespaces/tenant/agents", "", http.StatusUnauthorized},
-		{"unknown runtime path", "/api/runtime/v1/namespaces/tenant/agents", "", http.StatusUnauthorized},
+		{"namespace without bearer", "/api/runtime/v1/namespaces/tenant", "", http.StatusOK},
+		{"removed sign-in route", "/api/v1/auth/basic", "", http.StatusNotFound},
+		{"unknown runtime path", "/api/runtime/v1/namespaces/tenant/agents", "", http.StatusNotFound},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
@@ -170,7 +156,7 @@ func TestNewHTTPServer(t *testing.T) {
 func TestNewEngine_Swagger(t *testing.T) {
 	t.Parallel()
 
-	engine := primary.NewEngine(nil, nil, nil, nil, &config.ServerSettings{},
+	engine := primary.NewEngine(nil,
 		&observability.Service{}, nil, slog.Default())
 
 	for _, testCase := range []struct {

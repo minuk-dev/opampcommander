@@ -11,13 +11,12 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
-	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 func listAgents(t *testing.T, baseURL string) []v1.Agent {
 	t.Helper()
 
-	c := client.New(baseURL, client.WithBasicAuth(testutil.DefaultAdminUsername, testutil.DefaultAdminPassword))
+	c := client.New(baseURL)
 	resp, err := c.AgentService.ListAgents(t.Context(), "default")
 	require.NoError(t, err)
 
@@ -27,7 +26,7 @@ func listAgents(t *testing.T, baseURL string) []v1.Agent {
 func getAgentByID(t *testing.T, baseURL string, uid uuid.UUID) *v1.Agent {
 	t.Helper()
 
-	c := client.New(baseURL, client.WithBasicAuth(testutil.DefaultAdminUsername, testutil.DefaultAdminPassword))
+	c := client.New(baseURL)
 	agent, err := c.AgentService.GetAgent(t.Context(), "default", uid)
 	require.NoError(t, err)
 
