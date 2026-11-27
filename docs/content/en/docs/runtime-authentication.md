@@ -54,6 +54,8 @@ namespace. A request rechecks the anchor and the target Namespace's
 `opampcommander.io/installation-uid` label. A missing Namespace returns 404.
 An unassigned, foreign or terminating namespace returns 403. An unavailable
 or replaced anchor returns 503. Recreating a namespace gives it a fresh UID.
+Agent reads and work derived from AgentGroups validate the enrolled namespace
+and installation UIDs independently.
 
 ## Read an Agent enrollment
 
@@ -63,7 +65,8 @@ stored enrollment scoped to the live namespace and installation UIDs. The
 response includes the Agent instance UID and the ServiceAccount UID recorded
 at enrollment. A lookup in a recreated namespace returns 404 for a record
 bound to its previous UID. The runtime HTTP API provides read access for this
-resource. User-directed changes go through AgentGroup resources.
+resource. User-directed changes follow the
+[AgentGroup management contract](../crd-control-plane/#agent-management).
 
 ## Check your namespace from kubectl
 

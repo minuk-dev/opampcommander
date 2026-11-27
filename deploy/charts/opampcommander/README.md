@@ -188,6 +188,10 @@ the apiserver ServiceAccount to read the anchor ConfigMap and Namespaces.
 The apiserver verifies the live anchor and, with MongoDB, checks the database
 binding before serving traffic.
 
+Kubernetes users manage Agent behavior through namespaced `AgentGroup` resources.
+Read-only Agent views and AgentGroup action delivery are separate parts of the
+cutover.
+
 ### Mounted secret files
 
 To read credentials from a Secret volume instead of injecting their values as

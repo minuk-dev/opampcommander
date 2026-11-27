@@ -44,6 +44,9 @@ not be presented as proof of CR delivery or Mongo configuration removal.
 
 Follow-up #900/#901 should add the CR apply → selected Agent desired revision →
 OpAMP offer → acknowledgment assertion here before switching storage authority.
+Cover an AgentGroup that matches one Agent and a group action spanning multiple
+Agents. Verify that users with Agent read access can inspect their namespace and
+that all user-requested changes go through an authorized AgentGroup write.
 Keep the existing selector/priority, namespace isolation, deletion, reconnect and
 failure cases until equivalent tests pass on the new path. #902–#907 add auth,
 Secret rotation, validation, finalizers and migration/rollback cases to this
