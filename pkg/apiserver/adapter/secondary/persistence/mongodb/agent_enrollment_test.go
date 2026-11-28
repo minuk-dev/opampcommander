@@ -5,6 +5,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo/writeconcern"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
@@ -43,6 +46,31 @@ func TestAgentEnrollmentClaim(t *testing.T) {
 	owner, err := restarted.Lookup(ctx, key)
 	require.NoError(t, err)
 	require.Equal(t, winner, owner)
+
+	filter := bson.M{"_id": bson.D{
+		{Key: "installationUID", Value: key.InstallationUID},
+		{Key: "namespaceUID", Value: key.NamespaceUID},
+		{Key: "instanceUID", Value: key.InstanceUID},
+	}}
+	require.NoError(t, database.Collection("agent_enrollments").FindOne(ctx, filter).Err())
+
+	legacyKey := key
+	legacyKey.InstanceUID = "existing-instance"
+	filter = bson.M{"_id": bson.D{
+		{Key: "installationUID", Value: legacyKey.InstallationUID},
+		{Key: "namespaceUID", Value: legacyKey.NamespaceUID},
+		{Key: "instanceUID", Value: legacyKey.InstanceUID},
+	}}
+	legacy := database.Collection("runtime_metadata", options.Collection().SetWriteConcern(writeconcern.Majority()))
+	_, err = legacy.InsertOne(ctx, bson.M{
+		"_id": filter["_id"], "serviceAccountUID": "legacy-owner",
+	})
+	require.NoError(t, err)
+	owner, err = restarted.Lookup(ctx, legacyKey)
+	require.NoError(t, err)
+	require.Equal(t, "legacy-owner", owner)
+	require.ErrorIs(t, restarted.Claim(ctx, legacyKey, "another-owner"), port.ErrAgentEnrollmentConflict)
+	require.NoError(t, restarted.Claim(ctx, legacyKey, "legacy-owner"))
 
 	recreatedNamespace := key
 	recreatedNamespace.NamespaceUID = "new-namespace-uid"
