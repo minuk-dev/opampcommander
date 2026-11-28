@@ -286,6 +286,9 @@ or network side effect inside a transaction is required.
 
 ## Compatibility window and removal gate
 
+Use the [migration preflight](../crd-migration-preflight/) for the ownership
+inventory, verification commands and rollback gates.
+
 The existing [API stability policy](../api-stability/) still applies: announce
 deprecations, retain at least one minor release, and after v1.0 also at least
 90 days; removal needs a breaking-change-eligible release. Alpha CR changes are
