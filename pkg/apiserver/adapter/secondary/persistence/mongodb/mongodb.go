@@ -473,7 +473,11 @@ func EnsureSchema(
 	}
 
 	if sharding {
-		err = ensureSharding(ctx, database, shardedCollections)
+		admin := database.Client().Database("admin")
+
+		err = ensureSharding(database.Name(), shardedCollections, func(command bson.D) error {
+			return admin.RunCommand(ctx, command).Err()
+		})
 		if err != nil {
 			return fmt.Errorf("failed to ensure sharding: %w", err)
 		}
@@ -546,21 +550,19 @@ type shardCollectionSpec struct {
 // It is idempotent: enabling sharding on an already-enabled database and re-sharding
 // an already-sharded collection with the same key are both treated as success.
 func ensureSharding(
-	ctx context.Context,
-	database *mongo.Database,
+	databaseName string,
 	specs []shardCollectionSpec,
+	runAdminCommand func(bson.D) error,
 ) error {
-	admin := database.Client().Database("admin")
-
-	err := runAdminCommand(ctx, admin, bson.D{{Key: "enableSharding", Value: database.Name()}})
+	err := runAdminCommand(bson.D{{Key: "enableSharding", Value: databaseName}})
 	if err != nil {
-		return fmt.Errorf("failed to enable sharding on database %s: %w", database.Name(), err)
+		return fmt.Errorf("failed to enable sharding on database %s: %w", databaseName, err)
 	}
 
 	for _, spec := range specs {
-		namespace := database.Name() + "." + spec.collectionName
+		namespace := databaseName + "." + spec.collectionName
 
-		err := runAdminCommand(ctx, admin, bson.D{
+		err := runAdminCommand(bson.D{
 			{Key: "shardCollection", Value: namespace},
 			{Key: "key", Value: spec.shardKey},
 		})
@@ -570,37 +572,6 @@ func ensureSharding(
 	}
 
 	return nil
-}
-
-// runAdminCommand runs a sharding admin command, tolerating the errors that make
-// the operation idempotent (already-enabled / already-sharded) the same way
-// createNonExistingCollections tolerates NamespaceExists.
-func runAdminCommand(ctx context.Context, admin *mongo.Database, command bson.D) error {
-	err := admin.RunCommand(ctx, command).Err()
-	if err != nil && !isAlreadyShardedError(err) {
-		return fmt.Errorf("admin command failed: %w", err)
-	}
-
-	return nil
-}
-
-// isAlreadyShardedError reports whether err indicates the database/collection is
-// already in the desired sharded state, which is safe to ignore for idempotency.
-func isAlreadyShardedError(err error) bool {
-	var cmdErr mongo.CommandError
-	if !errors.As(err, &cmdErr) {
-		return false
-	}
-
-	// AlreadyInitialized (23) is returned when re-sharding a collection with the
-	// same key; the message check covers server versions that report it as a plain
-	// command error instead.
-	const alreadyInitialized = 23
-	if cmdErr.Code == alreadyInitialized {
-		return true
-	}
-
-	return strings.Contains(cmdErr.Message, "already sharded")
 }
 
 // upgradeResourceKeyIndexes removes old ascending non-unique indexes only after

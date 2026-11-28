@@ -11,6 +11,21 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
+func TestEnsureShardingRejectsDifferentKey(t *testing.T) {
+	t.Parallel()
+
+	const message = "Collection 'commander.agent_enrollments' already exists with a different shard key."
+
+	err := ensureSharding("commander", shardedCollections, func(command bson.D) error {
+		if command[0] == (bson.E{Key: "shardCollection", Value: "commander.agent_enrollments"}) {
+			return mongo.CommandError{Code: 23, Message: message}
+		}
+
+		return nil
+	})
+	require.ErrorContains(t, err, message)
+}
+
 // TestShardedCollectionsAreManaged verifies every collection in the shard-key
 // plan is also in the managed collection set, so it is created explicitly before
 // shardCollection runs against it.
@@ -70,33 +85,6 @@ func TestUniqueIndexPrefixedByShardKey(t *testing.T) {
 				}
 			}
 		}
-	}
-}
-
-func TestIsAlreadyShardedError(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{name: "nil", err: nil, want: false},
-		{name: "already initialized code", err: mongo.CommandError{Code: 23}, want: true},
-		{
-			name: "already sharded message",
-			err:  mongo.CommandError{Code: 96, Message: "collection already sharded"},
-			want: true,
-		},
-		{name: "other command error", err: mongo.CommandError{Code: 26, Message: "ns not found"}, want: false},
-		{name: "non-command error", err: assert.AnError, want: false},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			assert.Equal(t, tc.want, isAlreadyShardedError(tc.err))
-		})
 	}
 }
 
