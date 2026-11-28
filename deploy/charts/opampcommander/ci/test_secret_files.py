@@ -9,9 +9,9 @@ import yaml
 CHART = pathlib.Path(__file__).resolve().parents[1]
 
 
-def render(*args):
+def render(*args, release="preview"):
     return subprocess.run(
-        ["helm", "template", "preview", str(CHART), *args],
+        ["helm", "template", release, str(CHART), *args],
         text=True, capture_output=True, check=False,
     )
 
@@ -48,6 +48,18 @@ class SecretFilesChartTest(unittest.TestCase):
             self.assertEqual(binding["subjects"], expected_subjects)
             self.assertEqual(binding["roleRef"]["name"], docs[kind]["metadata"]["name"])
         self.assertTrue(docs["Deployment"]["spec"]["template"]["spec"]["automountServiceAccountToken"])
+
+    def test_runtime_permissions_have_distinct_names_across_releases(self):
+        names = []
+        for namespace, release in [("tenant-one", "gateway"), ("tenant", "one-gateway")]:
+            result = render("--namespace", namespace,
+                            "-f", str(CHART / "ci/runtime-identity-values.yaml"), release=release)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            docs = {doc["kind"]: doc for doc in yaml.safe_load_all(result.stdout) if doc}
+            names.append([docs[kind]["metadata"]["name"]
+                          for kind in ("ClusterRole", "ClusterRoleBinding", "Role", "RoleBinding")])
+        for first, second in zip(*names, strict=True):
+            self.assertNotEqual(first, second)
 
     def test_runtime_requires_a_complete_identity_and_dedicated_token(self):
         partial = render("--set", "apiserver.config.runtimeAPI.installationUID=uid")

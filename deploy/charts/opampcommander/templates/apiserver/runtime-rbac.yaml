@@ -1,6 +1,7 @@
 {{- if and .Values.apiserver.enabled (include "opampcommander.apiserver.runtimeConfigured" .) }}
 {{- $runtime := .Values.apiserver.config.runtimeAPI }}
-{{- $name := printf "%s-%s-runtime" .Release.Namespace (include "opampcommander.apiserver.fullname" .) }}
+{{- /* Namespace names cannot contain dots, so the separator keeps release identities distinct. */}}
+{{- $name := printf "%s.%s-runtime" .Release.Namespace .Release.Name }}
 {{- $serviceAccount := include "opampcommander.apiserver.serviceAccountName" . }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
