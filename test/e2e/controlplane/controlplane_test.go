@@ -154,13 +154,13 @@ func testNativeConfiguration(t *testing.T, apiClient *client.Client) {
 
 	manifests := kubectl(t, "apply", "--server-side", "--dry-run=server", "-k", samples)
 	require.Contains(t, string(manifests), "agentgroup.opampcommander.io/collectors")
-	require.Empty(t, kubectl(t, "get", "agentgroup", "collectors", "--ignore-not-found", "-o", "name"))
-	require.Empty(t, kubectl(t, "get", "remoteconfig", "otlp-debug", "--ignore-not-found", "-o", "name"))
+	require.Empty(t, kubectl(t, "get", "-k", samples, "--ignore-not-found", "-o", "name"))
 
 	denied, err := runKubectl(t.Context(), "create", "-n", "default", "--as=system:serviceaccount:default:default",
 		"-f", samples+"/opampcommander_v1alpha1_agentgroup.yaml")
 	require.Error(t, err)
 	require.Contains(t, string(denied), "Forbidden")
+	require.Contains(t, string(denied), `cannot create resource "agentgroups"`)
 	require.Empty(t, kubectl(t, "get", "agentgroup", "collectors", "--ignore-not-found", "-o", "name"))
 
 	kubectl(t, "apply", "-k", samples)
