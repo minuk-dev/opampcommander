@@ -10,9 +10,11 @@ time. Use this procedure to collect evidence before changing the writer.
 ## Record the boundary
 
 1. Record the source image and chart versions, MongoDB database and backup
-   identifier, and Kubernetes context. Record the installation ConfigMap UID
-   and each mapped Namespace UID. Include existing nondefault namespaces and
-   at least one recreated namespace in the rehearsal.
+   identifier, and Kubernetes contexts. Record the installation ConfigMap and
+   Namespace UIDs at the source where they exist. Record the expected target
+   installation and Namespace UIDs alongside each source identity. Include
+   existing nondefault namespaces and at least one recreated namespace in the
+   rehearsal.
 2. Inventory legacy desired resources by kind, namespace and name. Separately
    inventory Agent instance UIDs, the current application and report
    revisions, and the connection credential issuer. Associate every mapping
@@ -39,7 +41,9 @@ kubectl opamp runtime-scope --context cutover-rehearsal --namespace collectors \
 kubectl opamp validate --context cutover-rehearsal -n collectors -f collectors-crs.yaml
 ```
 
-Compare the returned installation and namespace UIDs with the inventory.
+Compare the returned installation and namespace UIDs with the target entries
+in the mapping. A recreated Namespace or installation ConfigMap has a new UID
+and requires an explicit migration mapping before reusing any legacy records.
 Record whether each referenced Secret and catalog exists in the intended
 namespace. Check source-to-target counts and compare each cohort Agent's
 resolved configuration keys and intended content hashes before enabling
